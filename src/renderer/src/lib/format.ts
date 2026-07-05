@@ -9,3 +9,8 @@ export function formatFCFA(montant: number): string {
 export function formatNombre(n: number): string {
   return n.toLocaleString('fr-FR')
 }
+
+/** Formate une date ISO : "2012-03-14T…" → "14/03/2012". */
+export function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('fr-FR')
+}

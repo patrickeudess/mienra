@@ -5,7 +5,17 @@
  */
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC } from '@shared/ipc'
-import type { DashboardStats, LoginInput, LoginResult } from '@shared/types'
+import type {
+  DashboardStats,
+  EleveDetail,
+  EleveInput,
+  EleveListItem,
+  EleveListParams,
+  LoginInput,
+  LoginResult,
+  OperationResult,
+  Paginated
+} from '@shared/types'
 
 const api = {
   auth: {
@@ -15,6 +25,25 @@ const api = {
   },
   dashboard: {
     stats: (): Promise<DashboardStats> => ipcRenderer.invoke(IPC.dashboard.stats)
+  },
+  eleves: {
+    list: (params: EleveListParams): Promise<Paginated<EleveListItem>> =>
+      ipcRenderer.invoke(IPC.eleves.list, params),
+    get: (id: number): Promise<OperationResult<EleveDetail>> =>
+      ipcRenderer.invoke(IPC.eleves.get, id),
+    create: (
+      input: EleveInput,
+      auteurId: number
+    ): Promise<OperationResult<{ id: number; matricule: string }>> =>
+      ipcRenderer.invoke(IPC.eleves.create, input, auteurId),
+    update: (
+      id: number,
+      input: EleveInput,
+      auteurId: number
+    ): Promise<OperationResult<{ id: number }>> =>
+      ipcRenderer.invoke(IPC.eleves.update, id, input, auteurId),
+    delete: (id: number, auteurId: number): Promise<OperationResult<null>> =>
+      ipcRenderer.invoke(IPC.eleves.delete, id, auteurId)
   }
 }
 

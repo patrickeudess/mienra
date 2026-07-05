@@ -95,7 +95,7 @@ pilotables depuis le module Sauvegardes.
 - [x] Étape 3 — Configuration de la base de données
 - [x] Étape 4 — Premières tables (utilisateurs, années, classes, élèves, inscriptions, paiements, journal)
 - [x] Étape 5 — Tableau de bord + authentification
-- [ ] Étape 6 — Module Élèves
+- [x] Étape 6 — Module Élèves (liste, recherche, fiche, matricule automatique, photo)
 - [ ] Étape 7 — Module Inscriptions
 - [ ] Étape 8 — Module Paiements
 - [ ] Étape 9 — Reçus PDF

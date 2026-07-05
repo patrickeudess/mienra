@@ -9,6 +9,7 @@ import { AppLayout } from '@/components/layout/AppLayout'
 import { PagePlaceholder } from '@/components/ui/PagePlaceholder'
 import { LoginPage } from '@/modules/auth/LoginPage'
 import { DashboardPage } from '@/modules/dashboard/DashboardPage'
+import { ElevesPage } from '@/modules/eleves/ElevesPage'
 
 export function App(): JSX.Element {
   return (
@@ -18,8 +19,8 @@ export function App(): JSX.Element {
           <Route path="/connexion" element={<LoginPage />} />
           <Route element={<AppLayout />}>
             <Route path="/" element={<DashboardPage />} />
+            <Route path="/eleves" element={<ElevesPage />} />
             {/* Modules à venir — développés un par un aux prochaines étapes */}
-            <Route path="/eleves" element={<PagePlaceholder titre="Élèves" />} />
             <Route path="/inscriptions" element={<PagePlaceholder titre="Inscriptions" />} />
             <Route path="/paiements" element={<PagePlaceholder titre="Paiements" />} />
             <Route path="/recus" element={<PagePlaceholder titre="Reçus" />} />

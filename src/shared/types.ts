@@ -85,6 +85,100 @@ export type LoginResult =
   | { ok: false; erreur: string }
 
 // --------------------------------------------------------------------------
+// Élèves
+// --------------------------------------------------------------------------
+export const SEXES = ['M', 'F'] as const
+export const sexeSchema = z.enum(SEXES)
+export type Sexe = z.infer<typeof sexeSchema>
+
+export const SEXE_LABELS: Record<Sexe, string> = {
+  M: 'Masculin',
+  F: 'Féminin'
+}
+
+/** Photo transmise du renderer vers le main (fichier encodé en base64). */
+export const photoInputSchema = z.object({
+  dataBase64: z.string().min(1),
+  extension: z.enum(['jpg', 'jpeg', 'png', 'webp'])
+})
+export type PhotoInput = z.infer<typeof photoInputSchema>
+
+/** Données de la fiche élève (création et modification). */
+export const eleveInputSchema = z.object({
+  nom: z.string().trim().min(1, 'Le nom est requis'),
+  prenom: z.string().trim().min(1, 'Le prénom est requis'),
+  sexe: sexeSchema,
+  dateNaissance: z
+    .string()
+    .min(1, 'La date de naissance est requise')
+    .refine((v) => !Number.isNaN(new Date(v).getTime()), 'Date invalide'),
+  lieuNaissance: z.string().trim().min(1, 'Le lieu de naissance est requis'),
+  nationalite: z.string().trim().min(1, 'La nationalité est requise'),
+  telephoneParent: z.string().trim().min(8, 'Numéro de téléphone invalide'),
+  nomParent: z.string().trim().min(1, 'Le nom du parent est requis'),
+  adresse: z.string().trim().min(1, "L'adresse est requise"),
+  /** Nouvelle photo (optionnelle). Ignorée si absente. */
+  photo: photoInputSchema.optional()
+})
+export type EleveInput = z.infer<typeof eleveInputSchema>
+
+/** Paramètres de la liste des élèves. */
+export interface EleveListParams {
+  recherche: string
+  page: number // à partir de 1
+  parPage: number
+}
+
+/** Ligne du tableau des élèves. */
+export interface EleveListItem {
+  id: number
+  matricule: string
+  nom: string
+  prenom: string
+  sexe: Sexe
+  dateNaissance: string // ISO
+  telephoneParent: string
+  /** Classe de l'année scolaire active, si l'élève y est inscrit. */
+  classe: string | null
+}
+
+export interface Paginated<T> {
+  items: T[]
+  total: number
+  page: number
+  parPage: number
+}
+
+/** Fiche élève complète (détail). */
+export interface EleveDetail {
+  id: number
+  matricule: string
+  nom: string
+  prenom: string
+  sexe: Sexe
+  dateNaissance: string // ISO
+  lieuNaissance: string
+  nationalite: string
+  telephoneParent: string
+  nomParent: string
+  adresse: string
+  /** Photo en data-URL, prête à afficher (null si aucune). */
+  photoDataUrl: string | null
+  creeLe: string // ISO
+  /** Historique des inscriptions (classe, année, montants). */
+  inscriptions: {
+    id: number
+    classe: string
+    anneeScolaire: string
+    montantTotal: number
+    montantPaye: number
+  }[]
+}
+
+/** Résultat générique d'une opération d'écriture. */
+export type OperationResult<T> = { ok: true; data: T } | { ok: false; erreur: string }
+
+// --------------------------------------------------------------------------
 // Tableau de bord
 // --------------------------------------------------------------------------
 /** Point du graphique mensuel des encaissements. */

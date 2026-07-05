@@ -9,5 +9,12 @@ export const IPC = {
   },
   dashboard: {
     stats: 'dashboard:stats'
+  },
+  eleves: {
+    list: 'eleves:list',
+    get: 'eleves:get',
+    create: 'eleves:create',
+    update: 'eleves:update',
+    delete: 'eleves:delete'
   }
 } as const

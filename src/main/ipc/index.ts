@@ -5,8 +5,10 @@
  */
 import { registerAuthHandlers } from './auth.handlers'
 import { registerDashboardHandlers } from './dashboard.handlers'
+import { registerElevesHandlers } from './eleves.handlers'
 
 export function registerIpcHandlers(): void {
   registerAuthHandlers()
   registerDashboardHandlers()
+  registerElevesHandlers()
 }
