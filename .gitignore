@@ -30,3 +30,10 @@ Thumbs.db
 
 # Base modèle générée au build (npm run db:template)
 resources/mienra-template.db
+
+# Données locales générées à l'exécution (dev et test)
+photos/
+recus/
+rapports/
+backups/
+logo.*

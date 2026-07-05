@@ -1,0 +1,12 @@
+{
+  "extends": "../tsconfig.node.json",
+  "compilerOptions": {
+    "composite": false,
+    "baseUrl": ".",
+    "paths": {
+      "electron": ["./electron-stub.ts"],
+      "@shared/*": ["../src/shared/*"]
+    }
+  },
+  "include": ["./**/*.ts", "../src/main/**/*.ts", "../src/shared/**/*.ts"]
+}

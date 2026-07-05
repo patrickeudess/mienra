@@ -15,6 +15,7 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:seed:demo": "cross-env SEED_DEMO=1 tsx prisma/seed.ts",
     "db:template": "cross-env DATABASE_URL=file:../resources/mienra-template.db prisma migrate deploy && cross-env DATABASE_URL=file:../resources/mienra-template.db tsx prisma/seed.ts",
+    "test:app": "tsx --tsconfig dev/tsconfig.json dev/serveur-test.ts",
     "dist:win": "npm run db:template && electron-vite build && electron-builder --win"
   },
   "prisma": {

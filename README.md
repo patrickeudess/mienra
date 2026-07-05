@@ -70,6 +70,20 @@ Comptes créés par le seed (mots de passe à changer en production) :
 | `directeur` | `directeur123` | Directeur |
 | `secretaire` | `secretaire123` | Secrétaire / Comptable |
 
+## Tester l'application dans un navigateur (sans Electron)
+
+```bash
+npm run build      # compile l'interface
+npm run test:app   # http://localhost:5199
+```
+
+Le serveur de test (`dev/serveur-test.ts`) exécute les **vrais handlers IPC**
+et la **vraie base** `prisma/dev.db` ; seul le module `electron` est remplacé
+par un stub (`dev/electron-stub.ts`, alias dans `dev/tsconfig.json`). Le pont
+`window.api` est généré automatiquement depuis la carte des canaux IPC :
+l'application complète se pilote alors depuis un navigateur — pratique pour
+tester ou faire une démonstration sans installer quoi que ce soit.
+
 ## Scripts utiles
 
 | Commande | Rôle |
