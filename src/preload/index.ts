@@ -32,6 +32,7 @@ import type {
   PaiementListParams,
   RapportData,
   RapportParams,
+  SauvegardeInfo,
   UtilisateurInput,
   UtilisateurListItem,
   UtilisateurRef,
@@ -140,6 +141,16 @@ const api = {
       ipcRenderer.invoke(IPC.journal.list, params, auteurId),
     utilisateurs: (auteurId: number): Promise<OperationResult<UtilisateurRef[]>> =>
       ipcRenderer.invoke(IPC.journal.utilisateurs, auteurId)
+  },
+  sauvegardes: {
+    list: (auteurId: number): Promise<OperationResult<SauvegardeInfo[]>> =>
+      ipcRenderer.invoke(IPC.sauvegardes.list, auteurId),
+    creer: (auteurId: number): Promise<OperationResult<{ nom: string }>> =>
+      ipcRenderer.invoke(IPC.sauvegardes.creer, auteurId),
+    restaurer: (nom: string, auteurId: number): Promise<OperationResult<null>> =>
+      ipcRenderer.invoke(IPC.sauvegardes.restaurer, nom, auteurId),
+    exporter: (auteurId: number): Promise<OperationResult<{ chemin: string } | null>> =>
+      ipcRenderer.invoke(IPC.sauvegardes.exporter, auteurId)
   }
 }
 

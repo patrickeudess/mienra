@@ -260,6 +260,15 @@ export interface UtilisateurListItem {
 }
 
 // --------------------------------------------------------------------------
+// Sauvegardes
+// --------------------------------------------------------------------------
+export interface SauvegardeInfo {
+  nom: string
+  date: string // ISO
+  taille: number // octets
+}
+
+// --------------------------------------------------------------------------
 // Référentiel (classes et années scolaires, pour les listes déroulantes)
 // --------------------------------------------------------------------------
 export interface ClasseRef {

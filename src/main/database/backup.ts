@@ -50,3 +50,51 @@ function purgeOldBackups(dir: string): void {
     fs.unlinkSync(path.join(dir, backups[i]))
   }
 }
+
+/** Motif strict des noms de sauvegarde (empêche toute traversée de chemin). */
+const MOTIF_SAUVEGARDE = /^mienra-\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.db$/
+
+export interface SauvegardeFichier {
+  nom: string
+  chemin: string
+  date: Date
+  taille: number // octets
+}
+
+/** Liste les sauvegardes existantes, la plus récente en premier. */
+export function listerSauvegardes(): SauvegardeFichier[] {
+  const dir = getBackupDir()
+  if (!fs.existsSync(dir)) return []
+  return fs
+    .readdirSync(dir)
+    .filter((f) => MOTIF_SAUVEGARDE.test(f))
+    .sort()
+    .reverse()
+    .map((nom) => {
+      const chemin = path.join(dir, nom)
+      const stat = fs.statSync(chemin)
+      return { nom, chemin, date: stat.mtime, taille: stat.size }
+    })
+}
+
+/**
+ * Résout le chemin d'une sauvegarde à partir de son nom, en le validant.
+ * Retourne null si le nom est invalide ou si le fichier n'existe pas.
+ */
+export function resoudreSauvegarde(nom: string): string | null {
+  if (!MOTIF_SAUVEGARDE.test(nom)) return null
+  const chemin = path.join(getBackupDir(), nom)
+  return fs.existsSync(chemin) ? chemin : null
+}
+
+/**
+ * Remplace la base courante par la sauvegarde donnée. La connexion à la
+ * base doit être fermée AVANT l'appel ; une sauvegarde de secours de la
+ * base actuelle est créée d'abord. Retourne le chemin de ce filet de
+ * sécurité (null si la base n'existait pas).
+ */
+export function restaurerSauvegarde(cheminSauvegarde: string): string | null {
+  const filetSecurite = createBackup()
+  fs.copyFileSync(cheminSauvegarde, getDatabasePath())
+  return filetSecurite
+}

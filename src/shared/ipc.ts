@@ -48,6 +48,12 @@ export const IPC = {
     list: 'journal:list',
     utilisateurs: 'journal:utilisateurs'
   },
+  sauvegardes: {
+    list: 'sauvegardes:list',
+    creer: 'sauvegardes:creer',
+    restaurer: 'sauvegardes:restaurer',
+    exporter: 'sauvegardes:exporter'
+  },
   utilisateurs: {
     list: 'utilisateurs:list',
     create: 'utilisateurs:create',

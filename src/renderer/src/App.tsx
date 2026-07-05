@@ -17,6 +17,7 @@ import { ImpayesPage } from '@/modules/impayes/ImpayesPage'
 import { RapportsPage } from '@/modules/rapports/RapportsPage'
 import { UtilisateursPage } from '@/modules/utilisateurs/UtilisateursPage'
 import { JournalPage } from '@/modules/journal/JournalPage'
+import { SauvegardesPage } from '@/modules/sauvegardes/SauvegardesPage'
 
 export function App(): JSX.Element {
   return (
@@ -34,8 +35,8 @@ export function App(): JSX.Element {
             <Route path="/rapports" element={<RapportsPage />} />
             <Route path="/utilisateurs" element={<UtilisateursPage />} />
             <Route path="/journal" element={<JournalPage />} />
+            <Route path="/sauvegardes" element={<SauvegardesPage />} />
             {/* Modules à venir — développés un par un aux prochaines étapes */}
-            <Route path="/sauvegardes" element={<PagePlaceholder titre="Sauvegardes" />} />
             <Route path="/parametres" element={<PagePlaceholder titre="Paramètres" />} />
           </Route>
         </Routes>

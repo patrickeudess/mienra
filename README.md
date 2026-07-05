@@ -103,5 +103,5 @@ pilotables depuis le module Sauvegardes.
 - [x] Étape 11 — Rapports (8 rapports, aperçu, exports PDF / Excel)
 - [x] Étape 12 — Utilisateurs & rôles (création, activation, mots de passe, garde-fous)
 - [x] Étape 13 — Journal d'activité (consultation filtrable, accès admin/directeur)
-- [ ] Étape 14 — Sauvegardes (interface restauration / export)
+- [x] Étape 14 — Sauvegardes (manuelle, restauration avec filet de sécurité, export)
 - [ ] Étape 15 — Paramètres de l'école & installateur Windows
