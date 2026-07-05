@@ -179,6 +179,74 @@ export interface EleveDetail {
 export type OperationResult<T> = { ok: true; data: T } | { ok: false; erreur: string }
 
 // --------------------------------------------------------------------------
+// Référentiel (classes et années scolaires, pour les listes déroulantes)
+// --------------------------------------------------------------------------
+export interface ClasseRef {
+  id: number
+  nom: string
+  niveau: Niveau
+}
+
+export interface AnneeScolaireRef {
+  id: number
+  libelle: string
+  active: boolean
+}
+
+// --------------------------------------------------------------------------
+// Inscriptions
+// --------------------------------------------------------------------------
+/** Montant en FCFA : entier positif ou nul (pas de centimes). */
+const montantSchema = z
+  .number({ invalid_type_error: 'Montant invalide' })
+  .int('Montant invalide')
+  .min(0, 'Le montant ne peut pas être négatif')
+
+/** Données de création d'une inscription. Le total est calculé côté main. */
+export const inscriptionInputSchema = z.object({
+  eleveId: z.number().int().positive({ message: 'Choisissez un élève' }),
+  classeId: z.number().int().positive({ message: 'Choisissez une classe' }),
+  anneeScolaireId: z.number().int().positive({ message: 'Choisissez une année scolaire' }),
+  scolarite: montantSchema,
+  fraisInscription: montantSchema,
+  autresFrais: montantSchema
+})
+export type InscriptionInput = z.infer<typeof inscriptionInputSchema>
+
+/** Modification : seuls la classe et les montants peuvent changer. */
+export const inscriptionUpdateSchema = inscriptionInputSchema.omit({
+  eleveId: true,
+  anneeScolaireId: true
+})
+export type InscriptionUpdate = z.infer<typeof inscriptionUpdateSchema>
+
+export interface InscriptionListParams {
+  recherche: string
+  /** Filtre optionnel par classe / année scolaire (undefined = toutes). */
+  classeId?: number
+  anneeScolaireId?: number
+  page: number
+  parPage: number
+}
+
+/** Ligne du tableau des inscriptions. */
+export interface InscriptionListItem {
+  id: number
+  eleveId: number
+  matricule: string
+  nomComplet: string
+  classe: string
+  anneeScolaire: string
+  scolarite: number
+  fraisInscription: number
+  autresFrais: number
+  montantTotal: number
+  montantPaye: number
+  reste: number
+  dateInscription: string // ISO
+}
+
+// --------------------------------------------------------------------------
 // Tableau de bord
 // --------------------------------------------------------------------------
 /** Point du graphique mensuel des encaissements. */

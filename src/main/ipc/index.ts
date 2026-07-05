@@ -6,9 +6,13 @@
 import { registerAuthHandlers } from './auth.handlers'
 import { registerDashboardHandlers } from './dashboard.handlers'
 import { registerElevesHandlers } from './eleves.handlers'
+import { registerInscriptionsHandlers } from './inscriptions.handlers'
+import { registerReferentielHandlers } from './referentiel.handlers'
 
 export function registerIpcHandlers(): void {
   registerAuthHandlers()
   registerDashboardHandlers()
   registerElevesHandlers()
+  registerReferentielHandlers()
+  registerInscriptionsHandlers()
 }

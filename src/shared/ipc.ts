@@ -16,5 +16,15 @@ export const IPC = {
     create: 'eleves:create',
     update: 'eleves:update',
     delete: 'eleves:delete'
+  },
+  referentiel: {
+    classes: 'referentiel:classes',
+    annees: 'referentiel:annees'
+  },
+  inscriptions: {
+    list: 'inscriptions:list',
+    create: 'inscriptions:create',
+    update: 'inscriptions:update',
+    delete: 'inscriptions:delete'
   }
 } as const

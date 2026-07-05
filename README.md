@@ -96,7 +96,7 @@ pilotables depuis le module Sauvegardes.
 - [x] Étape 4 — Premières tables (utilisateurs, années, classes, élèves, inscriptions, paiements, journal)
 - [x] Étape 5 — Tableau de bord + authentification
 - [x] Étape 6 — Module Élèves (liste, recherche, fiche, matricule automatique, photo)
-- [ ] Étape 7 — Module Inscriptions
+- [x] Étape 7 — Module Inscriptions (classe, année, montants, total automatique)
 - [ ] Étape 8 — Module Paiements
 - [ ] Étape 9 — Reçus PDF
 - [ ] Étape 10 — Impayés

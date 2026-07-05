@@ -6,11 +6,17 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC } from '@shared/ipc'
 import type {
+  AnneeScolaireRef,
+  ClasseRef,
   DashboardStats,
   EleveDetail,
   EleveInput,
   EleveListItem,
   EleveListParams,
+  InscriptionInput,
+  InscriptionListItem,
+  InscriptionListParams,
+  InscriptionUpdate,
   LoginInput,
   LoginResult,
   OperationResult,
@@ -44,6 +50,24 @@ const api = {
       ipcRenderer.invoke(IPC.eleves.update, id, input, auteurId),
     delete: (id: number, auteurId: number): Promise<OperationResult<null>> =>
       ipcRenderer.invoke(IPC.eleves.delete, id, auteurId)
+  },
+  referentiel: {
+    classes: (): Promise<ClasseRef[]> => ipcRenderer.invoke(IPC.referentiel.classes),
+    annees: (): Promise<AnneeScolaireRef[]> => ipcRenderer.invoke(IPC.referentiel.annees)
+  },
+  inscriptions: {
+    list: (params: InscriptionListParams): Promise<Paginated<InscriptionListItem>> =>
+      ipcRenderer.invoke(IPC.inscriptions.list, params),
+    create: (input: InscriptionInput, auteurId: number): Promise<OperationResult<{ id: number }>> =>
+      ipcRenderer.invoke(IPC.inscriptions.create, input, auteurId),
+    update: (
+      id: number,
+      input: InscriptionUpdate,
+      auteurId: number
+    ): Promise<OperationResult<{ id: number }>> =>
+      ipcRenderer.invoke(IPC.inscriptions.update, id, input, auteurId),
+    delete: (id: number, auteurId: number): Promise<OperationResult<null>> =>
+      ipcRenderer.invoke(IPC.inscriptions.delete, id, auteurId)
   }
 }
 
