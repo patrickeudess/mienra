@@ -14,6 +14,8 @@ import type {
   EleveListItem,
   EleveListParams,
   HistoriquePaiements,
+  ImpayesParams,
+  ImpayesResult,
   InscriptionInput,
   InscriptionListItem,
   InscriptionListParams,
@@ -90,6 +92,10 @@ const api = {
     imprimer: (paiementId: number, auteurId: number): Promise<OperationResult<{ chemin: string }>> =>
       ipcRenderer.invoke(IPC.recus.imprimer, paiementId, auteurId),
     ouvrirDossier: (): Promise<void> => ipcRenderer.invoke(IPC.recus.ouvrirDossier)
+  },
+  impayes: {
+    list: (params: ImpayesParams): Promise<ImpayesResult> =>
+      ipcRenderer.invoke(IPC.impayes.list, params)
   }
 }
 

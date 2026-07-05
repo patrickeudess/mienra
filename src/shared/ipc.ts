@@ -36,5 +36,8 @@ export const IPC = {
   recus: {
     imprimer: 'recus:imprimer',
     ouvrirDossier: 'recus:ouvrirDossier'
+  },
+  impayes: {
+    list: 'impayes:list'
   }
 } as const

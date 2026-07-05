@@ -304,6 +304,42 @@ export interface HistoriquePaiements {
 }
 
 // --------------------------------------------------------------------------
+// Impayés
+// --------------------------------------------------------------------------
+export interface ImpayesParams {
+  recherche: string
+  classeId?: number
+  niveau?: Niveau
+  anneeScolaireId?: number
+  page: number
+  parPage: number
+}
+
+/** Ligne du tableau des impayés. */
+export interface ImpayeListItem {
+  inscriptionId: number
+  matricule: string
+  nomComplet: string
+  classe: string
+  niveau: Niveau
+  anneeScolaire: string
+  montantAttendu: number
+  montantPaye: number
+  reste: number
+  /** Pourcentage payé, arrondi (0 à 99 pour un impayé). */
+  pourcentagePaye: number
+}
+
+/** Résultat de la page Impayés : lignes paginées + totaux des filtres. */
+export interface ImpayesResult extends Paginated<ImpayeListItem> {
+  totaux: {
+    montantAttendu: number
+    montantPaye: number
+    reste: number
+  }
+}
+
+// --------------------------------------------------------------------------
 // Tableau de bord
 // --------------------------------------------------------------------------
 /** Point du graphique mensuel des encaissements. */

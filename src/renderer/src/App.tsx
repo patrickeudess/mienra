@@ -13,6 +13,7 @@ import { ElevesPage } from '@/modules/eleves/ElevesPage'
 import { InscriptionsPage } from '@/modules/inscriptions/InscriptionsPage'
 import { PaiementsPage } from '@/modules/paiements/PaiementsPage'
 import { RecusPage } from '@/modules/recus/RecusPage'
+import { ImpayesPage } from '@/modules/impayes/ImpayesPage'
 
 export function App(): JSX.Element {
   return (
@@ -26,8 +27,8 @@ export function App(): JSX.Element {
             <Route path="/inscriptions" element={<InscriptionsPage />} />
             <Route path="/paiements" element={<PaiementsPage />} />
             <Route path="/recus" element={<RecusPage />} />
+            <Route path="/impayes" element={<ImpayesPage />} />
             {/* Modules à venir — développés un par un aux prochaines étapes */}
-            <Route path="/impayes" element={<PagePlaceholder titre="Impayés" />} />
             <Route path="/rapports" element={<PagePlaceholder titre="Rapports" />} />
             <Route path="/utilisateurs" element={<PagePlaceholder titre="Utilisateurs" />} />
             <Route path="/journal" element={<PagePlaceholder titre="Journal d'activité" />} />

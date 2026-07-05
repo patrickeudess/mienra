@@ -99,7 +99,7 @@ pilotables depuis le module Sauvegardes.
 - [x] Étape 7 — Module Inscriptions (classe, année, montants, total automatique)
 - [x] Étape 8 — Module Paiements (versements multiples, reçu automatique, historique)
 - [x] Étape 9 — Reçus PDF (génération automatique, QR code, impression en un clic)
-- [ ] Étape 10 — Impayés
+- [x] Étape 10 — Impayés (pourcentage payé, filtres classe / niveau / année)
 - [ ] Étape 11 — Rapports (PDF / Excel)
 - [ ] Étape 12 — Utilisateurs & rôles (administration)
 - [ ] Étape 13 — Journal d'activité (interface)
