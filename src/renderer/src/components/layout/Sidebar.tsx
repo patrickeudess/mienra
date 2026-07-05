@@ -3,6 +3,7 @@
  * Responsive : en dessous de 1024 px de large (lg), elle se replie en mode
  * icônes avec info-bulles pour laisser la place au contenu.
  */
+import { useEffect, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { ROLE_LABELS, type Role } from '@shared/types'
@@ -37,6 +38,14 @@ const NAV_ITEMS: NavItem[] = [
 
 export function Sidebar(): JSX.Element {
   const { utilisateur, seDeconnecter } = useAuth()
+  const [nomEcole, setNomEcole] = useState<string | null>(null)
+
+  // Le nom de l'établissement personnalise l'en-tête de la barre.
+  useEffect(() => {
+    void window.api.parametres.ecoleGet().then((e) => {
+      if (e.configuree) setNomEcole(e.nom)
+    })
+  }, [])
 
   return (
     <aside className="flex h-screen w-16 shrink-0 flex-col bg-primary-900 text-white lg:w-60">
@@ -45,9 +54,11 @@ export function Sidebar(): JSX.Element {
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent-500 text-lg font-bold">
           M
         </div>
-        <div className="hidden lg:block">
+        <div className="hidden min-w-0 lg:block">
           <p className="text-lg font-bold leading-tight">MIENRA</p>
-          <p className="text-xs text-primary-200">Gestion scolaire</p>
+          <p className="truncate text-xs text-primary-200" title={nomEcole ?? undefined}>
+            {nomEcole ?? 'Gestion scolaire'}
+          </p>
         </div>
       </div>
 

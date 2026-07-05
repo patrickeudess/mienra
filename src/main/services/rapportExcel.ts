@@ -27,7 +27,8 @@ export async function genererRapportExcel(
   // ----------------------------------------------------------- en-tête
   feuille.mergeCells(1, 1, 1, nbColonnes)
   const titreEcole = feuille.getCell(1, 1)
-  titreEcole.value = ecole?.nom ?? 'MIENRA'
+  const coordonnees = [ecole?.adresse, ecole?.telephone, ecole?.email].filter(Boolean).join(' — ')
+  titreEcole.value = `${ecole?.nom ?? 'MIENRA'}${coordonnees ? ` — ${coordonnees}` : ''}`
   titreEcole.font = { bold: true, size: 14, color: { argb: BLANC } }
   titreEcole.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: BLEU } }
   titreEcole.alignment = { vertical: 'middle' }

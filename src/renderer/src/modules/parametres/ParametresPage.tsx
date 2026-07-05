@@ -5,18 +5,12 @@
  * - classes (création, modification, suppression si aucune inscription).
  */
 import { useCallback, useEffect, useState } from 'react'
-import type {
-  AnneeScolaireRef,
-  ClasseDetail,
-  EcoleInfo,
-  Niveau,
-  PhotoInput
-} from '@shared/types'
+import type { AnneeScolaireRef, ClasseDetail, EcoleInfo, Niveau } from '@shared/types'
 import { NIVEAU_LABELS, NIVEAUX } from '@shared/types'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { useAuth } from '@/context/AuthContext'
-import { fichierVersPhoto } from '@/lib/fichiers'
+import { EcoleForm } from './EcoleForm'
 
 const CHAMP =
   'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200'
@@ -27,11 +21,6 @@ export function ParametresPage(): JSX.Element {
 
   // ------------------------------------------------------------------ école
   const [ecole, setEcole] = useState<EcoleInfo | null>(null)
-  const [nom, setNom] = useState('')
-  const [adresse, setAdresse] = useState('')
-  const [telephone, setTelephone] = useState('')
-  const [logo, setLogo] = useState<PhotoInput | undefined>(undefined)
-  const [apercuLogo, setApercuLogo] = useState<string | null>(null)
 
   // ------------------------------------------------------ années et classes
   const [annees, setAnnees] = useState<AnneeScolaireRef[]>([])
@@ -52,10 +41,6 @@ export function ParametresPage(): JSX.Element {
       window.api.parametres.classesList()
     ])
     setEcole(infosEcole)
-    setNom(infosEcole.nom)
-    setAdresse(infosEcole.adresse)
-    setTelephone(infosEcole.telephone)
-    setApercuLogo(infosEcole.logoDataUrl)
     setAnnees(listeAnnees)
     setClasses(listeClasses)
   }, [])
@@ -73,33 +58,6 @@ export function ParametresPage(): JSX.Element {
         </p>
       </div>
     )
-  }
-
-  const enregistrerEcole = async (): Promise<void> => {
-    const resultat = await window.api.parametres.ecoleUpdate(
-      { nom, adresse, telephone, logo },
-      utilisateur.id
-    )
-    setMessage(
-      resultat.ok
-        ? { type: 'succes', texte: 'Informations de l’école enregistrées.' }
-        : { type: 'erreur', texte: resultat.erreur }
-    )
-    if (resultat.ok) {
-      setLogo(undefined)
-      await charger()
-    }
-  }
-
-  const onChoixLogo = async (fichier: File | undefined): Promise<void> => {
-    if (!fichier) return
-    const photo = await fichierVersPhoto(fichier)
-    if (!photo) {
-      setMessage({ type: 'erreur', texte: 'Format de logo accepté : JPG, PNG ou WEBP.' })
-      return
-    }
-    setLogo(photo)
-    setApercuLogo(`data:image/${photo.extension === 'jpg' ? 'jpeg' : photo.extension};base64,${photo.dataBase64}`)
   }
 
   const creerAnnee = async (): Promise<void> => {
@@ -175,57 +133,20 @@ export function ParametresPage(): JSX.Element {
       <div className="grid gap-6 xl:grid-cols-2">
         {/* ------------------------------------------------------- école */}
         <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm xl:col-span-2">
-          <h2 className="text-base font-semibold text-primary-900">Informations de l&apos;école</h2>
+          <h2 className="text-base font-semibold text-primary-900">
+            Identité de l&apos;établissement
+          </h2>
           <p className="mb-4 text-xs text-gray-500">
-            Ces informations apparaissent en en-tête des reçus et des rapports.
+            Ces informations apparaissent en en-tête des reçus et des rapports ; le code sert de
+            préfixe aux matricules des élèves.
           </p>
-          <div className="flex flex-wrap items-start gap-5">
-            {/* Logo */}
-            <div className="shrink-0">
-              {apercuLogo ? (
-                <img src={apercuLogo} alt="Logo de l'école" className="h-20 w-20 rounded-xl object-contain ring-1 ring-gray-200" />
-              ) : (
-                <div className="flex h-20 w-20 items-center justify-center rounded-xl bg-accent-500 text-2xl font-bold text-white">
-                  {(nom || 'M')[0].toUpperCase()}
-                </div>
-              )}
-              <label className="mt-2 block cursor-pointer text-center text-xs font-medium text-primary-700 hover:underline">
-                Changer le logo
-                <input
-                  type="file"
-                  accept=".jpg,.jpeg,.png,.webp"
-                  className="hidden"
-                  onChange={(e) => void onChoixLogo(e.target.files?.[0] ?? undefined)}
-                />
-              </label>
-            </div>
-            {/* Champs */}
-            <div className="grid min-w-64 flex-1 gap-4 sm:grid-cols-2">
-              <div className="sm:col-span-2">
-                <label htmlFor="nomEcole" className="mb-1 block text-sm font-medium text-gray-700">
-                  Nom de l&apos;école *
-                </label>
-                <input id="nomEcole" className={CHAMP} value={nom} onChange={(e) => setNom(e.target.value)} />
-              </div>
-              <div>
-                <label htmlFor="adresseEcole" className="mb-1 block text-sm font-medium text-gray-700">
-                  Adresse
-                </label>
-                <input id="adresseEcole" className={CHAMP} value={adresse} onChange={(e) => setAdresse(e.target.value)} />
-              </div>
-              <div>
-                <label htmlFor="telEcole" className="mb-1 block text-sm font-medium text-gray-700">
-                  Téléphone
-                </label>
-                <input id="telEcole" className={CHAMP} value={telephone} onChange={(e) => setTelephone(e.target.value)} />
-              </div>
-            </div>
-          </div>
-          <div className="mt-4 flex justify-end">
-            <Button onClick={() => void enregistrerEcole()} disabled={!ecole || nom.trim() === ''}>
-              Enregistrer
-            </Button>
-          </div>
+          <EcoleForm
+            ecole={ecole}
+            onEnregistre={() => {
+              setMessage({ type: 'succes', texte: 'Identité de l’établissement enregistrée.' })
+              void charger()
+            }}
+          />
         </section>
 
         {/* --------------------------------------------- années scolaires */}

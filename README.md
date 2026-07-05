@@ -91,6 +91,19 @@ Comptes créés par le seed (mots de passe à changer en production) :
 3. Electron Builder (NSIS). La base modèle est embarquée en ressource et
    copiée dans le dossier `userData` de la machine au premier lancement.
 
+## Multi-établissement
+
+Chaque école qui installe MIENRA personnalise le logiciel à son image :
+
+- **Assistant de bienvenue** au premier lancement : l'administrateur
+  renseigne le nom, l'adresse, le téléphone, l'email, le **code de
+  l'établissement** et téléverse le **logo** ;
+- ces informations habillent l'en-tête des **reçus PDF**, des **rapports
+  PDF et Excel** et la barre latérale ;
+- le code sert de préfixe aux **matricules** (ex. `GSM-2026-0001`), avec
+  une numérotation propre à chaque établissement ;
+- tout reste modifiable dans **Paramètres**.
+
 ## Interface responsive
 
 La barre latérale se replie en mode icônes (avec info-bulles) sous 1024 px

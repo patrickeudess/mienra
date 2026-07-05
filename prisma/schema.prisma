@@ -109,13 +109,19 @@ model Paiement {
 }
 
 /// Paramètres de l'établissement (une seule ligne), utilisés notamment
-/// pour l'en-tête des reçus et des rapports. Édités au module Paramètres.
+/// pour l'en-tête des reçus et des rapports. Chaque école qui installe
+/// MIENRA renseigne son identité à la première configuration.
 model ParametresEcole {
-  id        Int     @id @default(1)
-  nom       String  @default("Mon École")
-  adresse   String  @default("")
-  telephone String  @default("")
-  logo      String? // chemin local du fichier logo (optionnel)
+  id         Int     @id @default(1)
+  nom        String  @default("Mon École")
+  adresse    String  @default("")
+  telephone  String  @default("")
+  email      String  @default("")
+  /// Code de l'établissement : préfixe des matricules (ex. GSM-2026-0001).
+  code       String  @default("MIENRA")
+  logo       String? // chemin local du fichier logo (optionnel)
+  /// Faux tant que l'assistant de première configuration n'a pas été validé.
+  configuree Boolean @default(false)
 }
 
 /// Journal d'activité : trace de chaque action sensible.

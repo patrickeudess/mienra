@@ -119,7 +119,7 @@ export async function genererRecuPdf(
     font: policeGras,
     color: rgb(1, 1, 1)
   })
-  const sousTitre = [ecole?.adresse, ecole?.telephone].filter(Boolean).join('  —  ')
+  const sousTitre = [ecole?.adresse, ecole?.telephone, ecole?.email].filter(Boolean).join('  —  ')
   if (sousTitre) {
     page.drawText(sousTitre, { x: 96, y: 375, size: 8.5, font: police, color: rgb(0.8, 0.85, 0.92) })
   }

@@ -1,7 +1,9 @@
 /**
- * Génération automatique du matricule élève : MIENRA-<année>-<séquence>.
- * L'année est l'année de fin de l'année scolaire active (ex. "2025-2026"
- * → 2026), la séquence est incrémentée sur 4 chiffres : MIENRA-2026-0001.
+ * Génération automatique du matricule élève : <CODE>-<année>-<séquence>.
+ * Le CODE est celui de l'établissement (Paramètres, "MIENRA" par défaut) :
+ * chaque école a ainsi ses propres matricules, ex. GSM-2026-0001.
+ * L'année est l'année de fin de l'année scolaire active, la séquence est
+ * incrémentée sur 4 chiffres.
  */
 import type { Prisma } from '@prisma/client'
 
@@ -10,6 +12,9 @@ import type { Prisma } from '@prisma/client'
  * qui crée l'élève, pour garantir l'unicité de la séquence.
  */
 export async function genererMatricule(tx: Prisma.TransactionClient): Promise<string> {
+  const ecole = await tx.parametresEcole.findFirst()
+  const code = ecole?.code?.trim() || 'MIENRA'
+
   const anneeActive = await tx.anneeScolaire.findFirst({ where: { active: true } })
 
   // Année de référence : fin de l'année scolaire active, sinon année civile.
@@ -19,7 +24,7 @@ export async function genererMatricule(tx: Prisma.TransactionClient): Promise<st
     if (!Number.isNaN(fin)) annee = fin
   }
 
-  const prefixe = `MIENRA-${annee}-`
+  const prefixe = `${code}-${annee}-`
   // Le dernier matricule du préfixe donne la séquence courante
   // (tri lexicographique valide car la séquence est à largeur fixe).
   const dernier = await tx.eleve.findFirst({

@@ -18,6 +18,7 @@ import { UtilisateursPage } from '@/modules/utilisateurs/UtilisateursPage'
 import { JournalPage } from '@/modules/journal/JournalPage'
 import { SauvegardesPage } from '@/modules/sauvegardes/SauvegardesPage'
 import { ParametresPage } from '@/modules/parametres/ParametresPage'
+import { BienvenuePage } from '@/modules/parametres/BienvenuePage'
 
 export function App(): JSX.Element {
   return (
@@ -25,6 +26,7 @@ export function App(): JSX.Element {
       <HashRouter>
         <Routes>
           <Route path="/connexion" element={<LoginPage />} />
+          <Route path="/bienvenue" element={<BienvenuePage />} />
           <Route element={<AppLayout />}>
             <Route path="/" element={<DashboardPage />} />
             <Route path="/eleves" element={<ElevesPage />} />

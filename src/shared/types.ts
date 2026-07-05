@@ -264,11 +264,26 @@ export interface UtilisateurListItem {
 // --------------------------------------------------------------------------
 // Paramètres (école, années scolaires, classes)
 // --------------------------------------------------------------------------
-/** Informations de l'établissement (en-tête des reçus et rapports). */
+/**
+ * Informations de l'établissement (en-tête des reçus et rapports).
+ * Chaque école qui installe MIENRA renseigne sa propre identité.
+ */
 export const ecoleInputSchema = z.object({
   nom: z.string().trim().min(1, "Le nom de l'école est requis"),
   adresse: z.string().trim(),
   telephone: z.string().trim(),
+  email: z
+    .string()
+    .trim()
+    .email('Adresse email invalide')
+    .or(z.literal(''))
+    .default(''),
+  /** Code de l'établissement : préfixe des matricules (ex. GSM-2026-0001). */
+  code: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .regex(/^[A-Z0-9]{2,8}$/, 'Code : 2 à 8 lettres majuscules ou chiffres (ex. GSM)'),
   /** Nouveau logo (optionnel) ; l'actuel est conservé si absent. */
   logo: photoInputSchema.optional()
 })
@@ -278,8 +293,12 @@ export interface EcoleInfo {
   nom: string
   adresse: string
   telephone: string
+  email: string
+  code: string
   /** Logo en data-URL, prêt à afficher (null si aucun). */
   logoDataUrl: string | null
+  /** Faux tant que l'assistant de première configuration n'a pas été validé. */
+  configuree: boolean
 }
 
 /** Nouvelle année scolaire : "2026-2027" (années consécutives). */

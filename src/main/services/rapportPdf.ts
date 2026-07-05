@@ -101,7 +101,7 @@ export async function genererRapportPdf(
     font: policeGras,
     color: BLANC
   })
-  const sousEcole = [ecole?.adresse, ecole?.telephone].filter(Boolean).join('  —  ')
+  const sousEcole = [ecole?.adresse, ecole?.telephone, ecole?.email].filter(Boolean).join('  —  ')
   if (sousEcole) {
     page.drawText(sousEcole, {
       x: MARGE,

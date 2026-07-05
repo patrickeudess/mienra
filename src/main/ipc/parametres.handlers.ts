@@ -50,7 +50,10 @@ export function registerParametresHandlers(): void {
       nom: ecole?.nom ?? 'Mon École',
       adresse: ecole?.adresse ?? '',
       telephone: ecole?.telephone ?? '',
-      logoDataUrl: lirePhotoDataUrl(ecole?.logo ?? null)
+      email: ecole?.email ?? '',
+      code: ecole?.code ?? 'MIENRA',
+      logoDataUrl: lirePhotoDataUrl(ecole?.logo ?? null),
+      configuree: ecole?.configuree ?? false
     }
   })
 
@@ -74,10 +77,11 @@ export function registerParametresHandlers(): void {
         cheminLogo = resultat.chemin
       }
 
+      // L'enregistrement vaut validation de la configuration initiale.
       await prisma.parametresEcole.upsert({
         where: { id: 1 },
-        update: { ...donnees, ...(cheminLogo ? { logo: cheminLogo } : {}) },
-        create: { id: 1, ...donnees, ...(cheminLogo ? { logo: cheminLogo } : {}) }
+        update: { ...donnees, configuree: true, ...(cheminLogo ? { logo: cheminLogo } : {}) },
+        create: { id: 1, ...donnees, configuree: true, ...(cheminLogo ? { logo: cheminLogo } : {}) }
       })
 
       await journaliser('PARAMETRES', {

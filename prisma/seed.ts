@@ -56,16 +56,13 @@ async function seedBase(): Promise<void> {
     })
   }
 
-  // Paramètres de l'établissement (ligne unique, éditée au module Paramètres).
+  // Paramètres de l'établissement : ligne unique, non configurée par défaut.
+  // Chaque école renseigne son identité via l'assistant de bienvenue
+  // (le mode démo la pré-remplit, voir seedDemo).
   await prisma.parametresEcole.upsert({
     where: { id: 1 },
     update: {},
-    create: {
-      id: 1,
-      nom: 'Groupe Scolaire MIENRA',
-      adresse: 'Yopougon, Abidjan — Côte d’Ivoire',
-      telephone: '+225 07 00 00 00 00'
-    }
+    create: { id: 1 }
   })
 
   // Année scolaire active.
@@ -86,6 +83,19 @@ async function seedBase(): Promise<void> {
 }
 
 async function seedDemo(): Promise<void> {
+  // École de démonstration déjà configurée (pas d'assistant au lancement).
+  await prisma.parametresEcole.update({
+    where: { id: 1 },
+    data: {
+      nom: 'Groupe Scolaire MIENRA',
+      adresse: 'Yopougon, Abidjan — Côte d’Ivoire',
+      telephone: '+225 07 00 00 00 00',
+      email: 'contact@gs-mienra.ci',
+      code: 'MIENRA',
+      configuree: true
+    }
+  })
+
   const annee = await prisma.anneeScolaire.findFirstOrThrow({ where: { active: true } })
   const classes = await prisma.classe.findMany({ orderBy: { ordre: 'asc' } })
   const caissier = await prisma.utilisateur.findUniqueOrThrow({ where: { identifiant: 'secretaire' } })
