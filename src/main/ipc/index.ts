@@ -1,0 +1,12 @@
+/**
+ * Point d'entrée des handlers IPC : chaque module enregistre les siens.
+ * Les modules suivants (élèves, inscriptions, paiements, ...) viendront
+ * s'ajouter ici au fur et à mesure du développement.
+ */
+import { registerAuthHandlers } from './auth.handlers'
+import { registerDashboardHandlers } from './dashboard.handlers'
+
+export function registerIpcHandlers(): void {
+  registerAuthHandlers()
+  registerDashboardHandlers()
+}

@@ -1,0 +1,19 @@
+# Configuration Electron Builder — installateur Windows (NSIS)
+appId: ci.mienra.app
+productName: MIENRA
+directories:
+  output: release
+  buildResources: build
+files:
+  - out/**
+  - node_modules/.prisma/**
+  - node_modules/@prisma/client/**
+  - prisma/schema.prisma
+win:
+  target:
+    - nsis
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  shortcutName: MIENRA

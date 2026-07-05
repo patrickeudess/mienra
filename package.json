@@ -1,0 +1,53 @@
+{
+  "name": "mienra",
+  "version": "0.1.0",
+  "description": "MIENRA - Logiciel de gestion scolaire 100% offline",
+  "main": "./out/main/index.js",
+  "author": "MIENRA",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:seed": "tsx prisma/seed.ts",
+    "db:seed:demo": "cross-env SEED_DEMO=1 tsx prisma/seed.ts",
+    "dist:win": "electron-vite build && electron-builder --win"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "dependencies": {
+    "@hookform/resolvers": "^3.9.0",
+    "@prisma/client": "^5.22.0",
+    "bcryptjs": "^2.4.3",
+    "exceljs": "^4.4.0",
+    "pdf-lib": "^1.17.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-hook-form": "^7.53.0",
+    "react-router-dom": "^6.26.2",
+    "recharts": "^2.13.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^20.14.8",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "autoprefixer": "^10.4.19",
+    "cross-env": "^7.0.3",
+    "electron": "^31.0.2",
+    "electron-builder": "^24.13.3",
+    "electron-vite": "^2.3.0",
+    "postcss": "^8.4.38",
+    "prisma": "^5.22.0",
+    "tailwindcss": "^3.4.4",
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.2",
+    "vite": "^5.3.1"
+  }
+}

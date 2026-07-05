@@ -1,0 +1,29 @@
+# Dépendances
+node_modules/
+
+# Sorties de build
+out/
+dist/
+release/
+
+# Base de données locale de développement
+prisma/*.db
+prisma/*.db-journal
+*.sqlite
+
+# Environnement
+.env
+.env.local
+
+# TypeScript
+*.tsbuildinfo
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS / éditeurs
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

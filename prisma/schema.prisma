@@ -1,0 +1,124 @@
+// ---------------------------------------------------------------------------
+// MIENRA — Schéma de base de données (SQLite via Prisma)
+//
+// Remarque : SQLite ne supporte pas les enums Prisma. Les champs à valeurs
+// fixes (rôle, sexe, mode de paiement, action du journal) sont donc des
+// String, validés côté application par Zod (voir src/shared/types.ts).
+// ---------------------------------------------------------------------------
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+/// Utilisateur de l'application.
+/// role : "ADMINISTRATEUR" | "DIRECTEUR" | "SECRETAIRE_COMPTABLE"
+model Utilisateur {
+  id           Int      @id @default(autoincrement())
+  nom          String
+  identifiant  String   @unique
+  motDePasse   String // hash bcrypt, jamais le mot de passe en clair
+  role         String
+  actif        Boolean  @default(true)
+  creeLe       DateTime @default(now())
+
+  paiements Paiement[]
+  journaux  JournalActivite[]
+}
+
+/// Année scolaire, ex. "2025-2026". Une seule année active à la fois.
+model AnneeScolaire {
+  id      Int     @id @default(autoincrement())
+  libelle String  @unique
+  active  Boolean @default(false)
+
+  inscriptions Inscription[]
+}
+
+/// Classe de l'établissement.
+/// niveau : "MATERNELLE" | "PRIMAIRE" | "COLLEGE" | "LYCEE"
+model Classe {
+  id     Int    @id @default(autoincrement())
+  nom    String @unique
+  niveau String
+  ordre  Int    @default(0) // pour trier les classes dans l'ordre pédagogique
+
+  inscriptions Inscription[]
+}
+
+/// Fiche élève. Le matricule est généré automatiquement :
+/// MIENRA-<année>-<numéro séquentiel sur 4 chiffres>, ex. MIENRA-2026-0001.
+model Eleve {
+  id              Int       @id @default(autoincrement())
+  matricule       String    @unique
+  nom             String
+  prenom          String
+  sexe            String // "M" | "F"
+  dateNaissance   DateTime
+  lieuNaissance   String
+  nationalite     String
+  telephoneParent String
+  nomParent       String
+  adresse         String
+  photo           String? // chemin local du fichier photo (optionnel)
+  creeLe          DateTime  @default(now())
+  modifieLe       DateTime  @updatedAt
+
+  inscriptions Inscription[]
+}
+
+/// Inscription d'un élève dans une classe pour une année scolaire.
+/// Les montants sont en FCFA (entiers, pas de centimes).
+model Inscription {
+  id               Int      @id @default(autoincrement())
+  eleveId          Int
+  classeId         Int
+  anneeScolaireId  Int
+  scolarite        Int // montant de la scolarité
+  fraisInscription Int // frais d'inscription
+  autresFrais      Int      @default(0)
+  montantTotal     Int // calculé = scolarite + fraisInscription + autresFrais
+  dateInscription  DateTime @default(now())
+
+  eleve         Eleve         @relation(fields: [eleveId], references: [id])
+  classe        Classe        @relation(fields: [classeId], references: [id])
+  anneeScolaire AnneeScolaire @relation(fields: [anneeScolaireId], references: [id])
+  paiements     Paiement[]
+
+  // Un élève ne peut être inscrit qu'une fois par année scolaire.
+  @@unique([eleveId, anneeScolaireId])
+}
+
+/// Paiement (versement partiel ou total) sur une inscription.
+/// mode : "ESPECES" | "MOBILE_MONEY" | "BANQUE" | "CHEQUE"
+model Paiement {
+  id            Int      @id @default(autoincrement())
+  inscriptionId Int
+  montant       Int // FCFA
+  mode          String
+  numeroRecu    String   @unique // ex. REC-2026-00001
+  caissierId    Int
+  datePaiement  DateTime @default(now())
+
+  inscription Inscription @relation(fields: [inscriptionId], references: [id])
+  caissier    Utilisateur @relation(fields: [caissierId], references: [id])
+}
+
+/// Journal d'activité : trace de chaque action sensible.
+/// action : "CONNEXION" | "DECONNEXION" | "CREATION_ELEVE" | "MODIFICATION_ELEVE"
+///        | "SUPPRESSION_ELEVE" | "INSCRIPTION" | "PAIEMENT" | "IMPRESSION_RECU"
+///        | "SAUVEGARDE" | "RESTAURATION"
+model JournalActivite {
+  id            Int      @id @default(autoincrement())
+  utilisateurId Int?
+  action        String
+  details       String   @default("")
+  poste         String   @default("") // nom de la machine (hostname)
+  date          DateTime @default(now())
+
+  utilisateur Utilisateur? @relation(fields: [utilisateurId], references: [id])
+}
