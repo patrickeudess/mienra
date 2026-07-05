@@ -9,6 +9,10 @@ files:
   - node_modules/.prisma/**
   - node_modules/@prisma/client/**
   - prisma/schema.prisma
+extraResources:
+  # Base modèle copiée dans userData au premier lancement.
+  - from: resources/mienra-template.db
+    to: resources/mienra-template.db
 win:
   target:
     - nsis

@@ -48,6 +48,16 @@ export const IPC = {
     list: 'journal:list',
     utilisateurs: 'journal:utilisateurs'
   },
+  parametres: {
+    ecoleGet: 'parametres:ecoleGet',
+    ecoleUpdate: 'parametres:ecoleUpdate',
+    anneeCreate: 'parametres:anneeCreate',
+    anneeActiver: 'parametres:anneeActiver',
+    classesList: 'parametres:classesList',
+    classeCreate: 'parametres:classeCreate',
+    classeUpdate: 'parametres:classeUpdate',
+    classeDelete: 'parametres:classeDelete'
+  },
   sauvegardes: {
     list: 'sauvegardes:list',
     creer: 'sauvegardes:creer',

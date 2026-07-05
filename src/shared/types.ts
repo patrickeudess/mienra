@@ -60,6 +60,7 @@ export const ACTIONS_JOURNAL = [
   'IMPRESSION_RECU',
   'EXPORT_RAPPORT',
   'GESTION_UTILISATEUR',
+  'PARAMETRES',
   'SAUVEGARDE',
   'RESTAURATION'
 ] as const
@@ -76,6 +77,7 @@ export const ACTION_JOURNAL_LABELS: Record<ActionJournal, string> = {
   IMPRESSION_RECU: 'Impression d’un reçu',
   EXPORT_RAPPORT: 'Export d’un rapport',
   GESTION_UTILISATEUR: 'Gestion des utilisateurs',
+  PARAMETRES: 'Paramètres',
   SAUVEGARDE: 'Sauvegarde',
   RESTAURATION: 'Restauration'
 }
@@ -257,6 +259,55 @@ export interface UtilisateurListItem {
   role: Role
   actif: boolean
   creeLe: string // ISO
+}
+
+// --------------------------------------------------------------------------
+// Paramètres (école, années scolaires, classes)
+// --------------------------------------------------------------------------
+/** Informations de l'établissement (en-tête des reçus et rapports). */
+export const ecoleInputSchema = z.object({
+  nom: z.string().trim().min(1, "Le nom de l'école est requis"),
+  adresse: z.string().trim(),
+  telephone: z.string().trim(),
+  /** Nouveau logo (optionnel) ; l'actuel est conservé si absent. */
+  logo: photoInputSchema.optional()
+})
+export type EcoleInput = z.infer<typeof ecoleInputSchema>
+
+export interface EcoleInfo {
+  nom: string
+  adresse: string
+  telephone: string
+  /** Logo en data-URL, prêt à afficher (null si aucun). */
+  logoDataUrl: string | null
+}
+
+/** Nouvelle année scolaire : "2026-2027" (années consécutives). */
+export const anneeScolaireInputSchema = z
+  .object({
+    libelle: z.string().regex(/^\d{4}-\d{4}$/, 'Format attendu : 2026-2027')
+  })
+  .refine(
+    (v) => {
+      const [debut, fin] = v.libelle.split('-').map(Number)
+      return fin === debut + 1
+    },
+    { message: 'Les deux années doivent être consécutives (ex. 2026-2027)' }
+  )
+export type AnneeScolaireInput = z.infer<typeof anneeScolaireInputSchema>
+
+/** Création / modification d'une classe. */
+export const classeInputSchema = z.object({
+  nom: z.string().trim().min(1, 'Le nom de la classe est requis'),
+  niveau: niveauSchema,
+  ordre: z.number().int().min(0).default(0)
+})
+export type ClasseInput = z.infer<typeof classeInputSchema>
+
+/** Classe avec son nombre d'inscriptions (pour autoriser la suppression). */
+export interface ClasseDetail extends ClasseRef {
+  ordre: number
+  nbInscriptions: number
 }
 
 // --------------------------------------------------------------------------

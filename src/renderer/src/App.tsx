@@ -6,7 +6,6 @@
 import { HashRouter, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from '@/context/AuthContext'
 import { AppLayout } from '@/components/layout/AppLayout'
-import { PagePlaceholder } from '@/components/ui/PagePlaceholder'
 import { LoginPage } from '@/modules/auth/LoginPage'
 import { DashboardPage } from '@/modules/dashboard/DashboardPage'
 import { ElevesPage } from '@/modules/eleves/ElevesPage'
@@ -18,6 +17,7 @@ import { RapportsPage } from '@/modules/rapports/RapportsPage'
 import { UtilisateursPage } from '@/modules/utilisateurs/UtilisateursPage'
 import { JournalPage } from '@/modules/journal/JournalPage'
 import { SauvegardesPage } from '@/modules/sauvegardes/SauvegardesPage'
+import { ParametresPage } from '@/modules/parametres/ParametresPage'
 
 export function App(): JSX.Element {
   return (
@@ -36,8 +36,7 @@ export function App(): JSX.Element {
             <Route path="/utilisateurs" element={<UtilisateursPage />} />
             <Route path="/journal" element={<JournalPage />} />
             <Route path="/sauvegardes" element={<SauvegardesPage />} />
-            {/* Modules à venir — développés un par un aux prochaines étapes */}
-            <Route path="/parametres" element={<PagePlaceholder titre="Paramètres" />} />
+            <Route path="/parametres" element={<ParametresPage />} />
           </Route>
         </Routes>
       </HashRouter>

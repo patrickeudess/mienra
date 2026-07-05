@@ -10,6 +10,7 @@ import { registerImpayesHandlers } from './impayes.handlers'
 import { registerInscriptionsHandlers } from './inscriptions.handlers'
 import { registerJournalHandlers } from './journal.handlers'
 import { registerPaiementsHandlers } from './paiements.handlers'
+import { registerParametresHandlers } from './parametres.handlers'
 import { registerRapportsHandlers } from './rapports.handlers'
 import { registerRecusHandlers } from './recus.handlers'
 import { registerSauvegardesHandlers } from './sauvegardes.handlers'
@@ -29,4 +30,5 @@ export function registerIpcHandlers(): void {
   registerUtilisateursHandlers()
   registerJournalHandlers()
   registerSauvegardesHandlers()
+  registerParametresHandlers()
 }

@@ -27,3 +27,6 @@ npm-debug.log*
 Thumbs.db
 .idea/
 .vscode/
+
+# Base modèle générée au build (npm run db:template)
+resources/mienra-template.db

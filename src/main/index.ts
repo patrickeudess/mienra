@@ -5,17 +5,38 @@
  * - Déclenche la sauvegarde automatique de la base à la fermeture.
  */
 import { app, BrowserWindow, shell } from 'electron'
+import fs from 'fs'
 import path from 'path'
 import { registerIpcHandlers } from './ipc'
 import { createBackup } from './database/backup'
-import { disconnectPrisma } from './database/client'
+import { disconnectPrisma, getDatabasePath } from './database/client'
+
+/**
+ * Premier lancement d'une installation : la base n'existe pas encore.
+ * Une base modèle (schéma + comptes et classes de départ) est embarquée
+ * dans l'installateur et copiée dans le dossier userData.
+ */
+function preparerBaseDeDonnees(): void {
+  const dbPath = getDatabasePath()
+  if (fs.existsSync(dbPath)) return
+
+  const modele = app.isPackaged
+    ? path.join(process.resourcesPath, 'resources', 'mienra-template.db')
+    : path.resolve(process.cwd(), 'resources', 'mienra-template.db')
+  if (fs.existsSync(modele)) {
+    fs.mkdirSync(path.dirname(dbPath), { recursive: true })
+    fs.copyFileSync(modele, dbPath)
+  }
+}
 
 function createWindow(): void {
   const fenetre = new BrowserWindow({
     width: 1280,
     height: 800,
-    minWidth: 1024,
-    minHeight: 700,
+    // La barre latérale se replie en icônes sous 1024 px : l'application
+    // reste utilisable sur les petites résolutions Windows.
+    minWidth: 800,
+    minHeight: 600,
     show: false,
     autoHideMenuBar: true,
     title: 'MIENRA — Gestion scolaire',
@@ -46,6 +67,7 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
+  preparerBaseDeDonnees()
   registerIpcHandlers()
   createWindow()
 

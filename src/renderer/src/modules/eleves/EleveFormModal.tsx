@@ -11,12 +11,12 @@ import {
   SEXE_LABELS,
   SEXES,
   type EleveDetail,
-  type EleveInput,
-  type PhotoInput
+  type EleveInput
 } from '@shared/types'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { useAuth } from '@/context/AuthContext'
+import { fichierVersPhoto } from '@/lib/fichiers'
 
 interface EleveFormModalProps {
   ouvert: boolean
@@ -29,19 +29,6 @@ interface EleveFormModalProps {
 
 const CHAMP =
   'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200'
-
-/** Convertit un fichier image en PhotoInput (base64 + extension). */
-async function fichierVersPhoto(fichier: File): Promise<PhotoInput | null> {
-  const extension = fichier.name.split('.').pop()?.toLowerCase()
-  if (extension !== 'jpg' && extension !== 'jpeg' && extension !== 'png' && extension !== 'webp') {
-    return null
-  }
-  const buffer = await fichier.arrayBuffer()
-  let binaire = ''
-  const octets = new Uint8Array(buffer)
-  for (let i = 0; i < octets.length; i++) binaire += String.fromCharCode(octets[i])
-  return { dataBase64: btoa(binaire), extension }
-}
 
 export function EleveFormModal({ ouvert, onFermer, eleve, onEnregistre }: EleveFormModalProps): JSX.Element {
   const { utilisateur } = useAuth()

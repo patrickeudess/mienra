@@ -79,7 +79,23 @@ Comptes créés par le seed (mots de passe à changer en production) :
 | `npm run typecheck` | Vérification TypeScript stricte |
 | `npm run db:migrate` | Nouvelle migration Prisma |
 | `npm run db:seed` | Données de base (sans démo) |
-| `npm run dist:win` | Installateur Windows (NSIS) |
+| `npm run dist:win` | Installateur Windows (NSIS) — génère d'abord la base modèle |
+
+## Installateur Windows
+
+`npm run dist:win` enchaîne :
+
+1. `db:template` — crée `resources/mienra-template.db` (migrations + comptes,
+   année scolaire et classes de départ) ;
+2. build de production ;
+3. Electron Builder (NSIS). La base modèle est embarquée en ressource et
+   copiée dans le dossier `userData` de la machine au premier lancement.
+
+## Interface responsive
+
+La barre latérale se replie en mode icônes (avec info-bulles) sous 1024 px
+de large ; les grilles de cartes s'adaptent et les tableaux défilent
+horizontalement dans leur conteneur. Fenêtre minimale : 800 × 600.
 
 ## Sauvegardes automatiques
 
@@ -104,4 +120,4 @@ pilotables depuis le module Sauvegardes.
 - [x] Étape 12 — Utilisateurs & rôles (création, activation, mots de passe, garde-fous)
 - [x] Étape 13 — Journal d'activité (consultation filtrable, accès admin/directeur)
 - [x] Étape 14 — Sauvegardes (manuelle, restauration avec filet de sécurité, export)
-- [ ] Étape 15 — Paramètres de l'école & installateur Windows
+- [x] Étape 15 — Paramètres (école, logo, années, classes), responsive & installateur Windows

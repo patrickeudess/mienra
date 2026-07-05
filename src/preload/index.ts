@@ -6,9 +6,14 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC } from '@shared/ipc'
 import type {
+  AnneeScolaireInput,
   AnneeScolaireRef,
+  ClasseDetail,
+  ClasseInput,
   ClasseRef,
   DashboardStats,
+  EcoleInfo,
+  EcoleInput,
   EleveDetail,
   FormatExport,
   EleveInput,
@@ -141,6 +146,25 @@ const api = {
       ipcRenderer.invoke(IPC.journal.list, params, auteurId),
     utilisateurs: (auteurId: number): Promise<OperationResult<UtilisateurRef[]>> =>
       ipcRenderer.invoke(IPC.journal.utilisateurs, auteurId)
+  },
+  parametres: {
+    ecoleGet: (): Promise<EcoleInfo> => ipcRenderer.invoke(IPC.parametres.ecoleGet),
+    ecoleUpdate: (input: EcoleInput, auteurId: number): Promise<OperationResult<null>> =>
+      ipcRenderer.invoke(IPC.parametres.ecoleUpdate, input, auteurId),
+    anneeCreate: (
+      input: AnneeScolaireInput,
+      auteurId: number
+    ): Promise<OperationResult<{ id: number }>> =>
+      ipcRenderer.invoke(IPC.parametres.anneeCreate, input, auteurId),
+    anneeActiver: (id: number, auteurId: number): Promise<OperationResult<null>> =>
+      ipcRenderer.invoke(IPC.parametres.anneeActiver, id, auteurId),
+    classesList: (): Promise<ClasseDetail[]> => ipcRenderer.invoke(IPC.parametres.classesList),
+    classeCreate: (input: ClasseInput, auteurId: number): Promise<OperationResult<{ id: number }>> =>
+      ipcRenderer.invoke(IPC.parametres.classeCreate, input, auteurId),
+    classeUpdate: (id: number, input: ClasseInput, auteurId: number): Promise<OperationResult<null>> =>
+      ipcRenderer.invoke(IPC.parametres.classeUpdate, id, input, auteurId),
+    classeDelete: (id: number, auteurId: number): Promise<OperationResult<null>> =>
+      ipcRenderer.invoke(IPC.parametres.classeDelete, id, auteurId)
   },
   sauvegardes: {
     list: (auteurId: number): Promise<OperationResult<SauvegardeInfo[]>> =>
