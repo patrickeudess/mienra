@@ -9,6 +9,8 @@ import { z } from 'zod'
 import { getPrisma } from '../database/client'
 import { journaliser } from '../services/journal'
 import { genererNumeroRecu } from '../services/numeroRecu'
+import { genererRecuPdf } from '../services/recuPdf'
+import { getRecusDir } from '../services/dossiers'
 import { IPC } from '@shared/ipc'
 import {
   modePaiementSchema,
@@ -159,6 +161,15 @@ export function registerPaiementsHandlers(): void {
       )
 
       if (!resultat.ok) return resultat
+
+      // Reçu PDF généré automatiquement après chaque paiement. Un échec de
+      // génération n'annule pas l'encaissement (le reçu reste réimprimable
+      // depuis le module Reçus).
+      try {
+        await genererRecuPdf(prisma, resultat.id, getRecusDir())
+      } catch (e) {
+        console.error('Génération du reçu PDF échouée :', e)
+      }
 
       const inscription = await prisma.inscription.findUnique({
         where: { id: donnees.inscriptionId },

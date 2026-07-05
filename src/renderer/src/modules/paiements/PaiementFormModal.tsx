@@ -21,8 +21,8 @@ import { formatFCFA } from '@/lib/format'
 interface PaiementFormModalProps {
   ouvert: boolean
   onFermer: () => void
-  /** Appelé après un encaissement réussi, avec le numéro de reçu. */
-  onEncaisse: (numeroRecu: string) => void
+  /** Appelé après un encaissement réussi (numéro de reçu + id du paiement). */
+  onEncaisse: (numeroRecu: string, paiementId: number) => void
 }
 
 const CHAMP =
@@ -86,7 +86,7 @@ export function PaiementFormModal({ ouvert, onFermer, onEncaisse }: PaiementForm
       setErreurServeur(resultat.erreur)
       return
     }
-    onEncaisse(resultat.data.numeroRecu)
+    onEncaisse(resultat.data.numeroRecu, resultat.data.id)
     onFermer()
   }
 

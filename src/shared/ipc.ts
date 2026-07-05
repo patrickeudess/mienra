@@ -32,5 +32,9 @@ export const IPC = {
     create: 'paiements:create',
     historique: 'paiements:historique',
     delete: 'paiements:delete'
+  },
+  recus: {
+    imprimer: 'recus:imprimer',
+    ouvrirDossier: 'recus:ouvrirDossier'
   }
 } as const

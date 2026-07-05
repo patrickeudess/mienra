@@ -85,6 +85,11 @@ const api = {
       ipcRenderer.invoke(IPC.paiements.historique, inscriptionId),
     delete: (id: number, auteurId: number): Promise<OperationResult<null>> =>
       ipcRenderer.invoke(IPC.paiements.delete, id, auteurId)
+  },
+  recus: {
+    imprimer: (paiementId: number, auteurId: number): Promise<OperationResult<{ chemin: string }>> =>
+      ipcRenderer.invoke(IPC.recus.imprimer, paiementId, auteurId),
+    ouvrirDossier: (): Promise<void> => ipcRenderer.invoke(IPC.recus.ouvrirDossier)
   }
 }
 

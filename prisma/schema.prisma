@@ -108,6 +108,16 @@ model Paiement {
   caissier    Utilisateur @relation(fields: [caissierId], references: [id])
 }
 
+/// Paramètres de l'établissement (une seule ligne), utilisés notamment
+/// pour l'en-tête des reçus et des rapports. Édités au module Paramètres.
+model ParametresEcole {
+  id        Int     @id @default(1)
+  nom       String  @default("Mon École")
+  adresse   String  @default("")
+  telephone String  @default("")
+  logo      String? // chemin local du fichier logo (optionnel)
+}
+
 /// Journal d'activité : trace de chaque action sensible.
 /// action : "CONNEXION" | "DECONNEXION" | "CREATION_ELEVE" | "MODIFICATION_ELEVE"
 ///        | "SUPPRESSION_ELEVE" | "INSCRIPTION" | "PAIEMENT" | "IMPRESSION_RECU"

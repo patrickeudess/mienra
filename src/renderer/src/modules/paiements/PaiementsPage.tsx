@@ -42,7 +42,12 @@ export function PaiementsPage(): JSX.Element {
   const [anneeScolaireId, setAnneeScolaireId] = useState<number | undefined>(undefined)
   const [page, setPage] = useState(1)
 
-  const [message, setMessage] = useState<{ type: 'succes' | 'erreur'; texte: string } | null>(null)
+  const [message, setMessage] = useState<{
+    type: 'succes' | 'erreur'
+    texte: string
+    /** Paiement dont le reçu peut être imprimé depuis le message. */
+    paiementId?: number
+  } | null>(null)
   const [formOuvert, setFormOuvert] = useState(false)
   const [historique, setHistorique] = useState<HistoriquePaiements | null>(null)
   const [historiqueOuvert, setHistoriqueOuvert] = useState(false)
@@ -107,13 +112,22 @@ export function PaiementsPage(): JSX.Element {
       </div>
 
       {message && (
-        <p
-          className={`mb-4 rounded-lg px-4 py-2 text-sm ${
+        <div
+          className={`mb-4 flex items-center justify-between rounded-lg px-4 py-2 text-sm ${
             message.type === 'succes' ? 'bg-accent-50 text-accent-800' : 'bg-red-50 text-red-700'
           }`}
         >
-          {message.texte}
-        </p>
+          <p>{message.texte}</p>
+          {message.paiementId !== undefined && utilisateur && (
+            <button
+              type="button"
+              onClick={() => void window.api.recus.imprimer(message.paiementId!, utilisateur.id)}
+              className="ml-4 shrink-0 rounded-lg bg-accent-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-accent-500"
+            >
+              Imprimer le reçu
+            </button>
+          )}
+        </div>
       )}
 
       {/* Filtres */}
@@ -251,10 +265,11 @@ export function PaiementsPage(): JSX.Element {
       <PaiementFormModal
         ouvert={formOuvert}
         onFermer={() => setFormOuvert(false)}
-        onEncaisse={(numeroRecu) => {
+        onEncaisse={(numeroRecu, paiementId) => {
           setMessage({
             type: 'succes',
-            texte: `Paiement encaissé — reçu ${numeroRecu}. L'impression du reçu PDF arrive à l'étape Reçus.`
+            texte: `Paiement encaissé — le reçu ${numeroRecu} a été généré automatiquement.`,
+            paiementId
           })
           void charger()
         }}

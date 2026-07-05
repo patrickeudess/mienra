@@ -56,6 +56,18 @@ async function seedBase(): Promise<void> {
     })
   }
 
+  // Paramètres de l'établissement (ligne unique, éditée au module Paramètres).
+  await prisma.parametresEcole.upsert({
+    where: { id: 1 },
+    update: {},
+    create: {
+      id: 1,
+      nom: 'Groupe Scolaire MIENRA',
+      adresse: 'Yopougon, Abidjan — Côte d’Ivoire',
+      telephone: '+225 07 00 00 00 00'
+    }
+  })
+
   // Année scolaire active.
   await prisma.anneeScolaire.upsert({
     where: { libelle: '2025-2026' },
