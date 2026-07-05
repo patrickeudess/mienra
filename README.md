@@ -100,7 +100,7 @@ pilotables depuis le module Sauvegardes.
 - [x] Étape 8 — Module Paiements (versements multiples, reçu automatique, historique)
 - [x] Étape 9 — Reçus PDF (génération automatique, QR code, impression en un clic)
 - [x] Étape 10 — Impayés (pourcentage payé, filtres classe / niveau / année)
-- [ ] Étape 11 — Rapports (PDF / Excel)
+- [x] Étape 11 — Rapports (8 rapports, aperçu, exports PDF / Excel)
 - [ ] Étape 12 — Utilisateurs & rôles (administration)
 - [ ] Étape 13 — Journal d'activité (interface)
 - [ ] Étape 14 — Sauvegardes (interface restauration / export)

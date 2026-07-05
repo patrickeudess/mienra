@@ -10,6 +10,7 @@ import type {
   ClasseRef,
   DashboardStats,
   EleveDetail,
+  FormatExport,
   EleveInput,
   EleveListItem,
   EleveListParams,
@@ -26,7 +27,9 @@ import type {
   Paginated,
   PaiementInput,
   PaiementListItem,
-  PaiementListParams
+  PaiementListParams,
+  RapportData,
+  RapportParams
 } from '@shared/types'
 
 const api = {
@@ -96,6 +99,16 @@ const api = {
   impayes: {
     list: (params: ImpayesParams): Promise<ImpayesResult> =>
       ipcRenderer.invoke(IPC.impayes.list, params)
+  },
+  rapports: {
+    generer: (params: RapportParams): Promise<OperationResult<RapportData>> =>
+      ipcRenderer.invoke(IPC.rapports.generer, params),
+    exporter: (
+      params: RapportParams,
+      format: FormatExport,
+      auteurId: number
+    ): Promise<OperationResult<{ chemin: string }>> =>
+      ipcRenderer.invoke(IPC.rapports.exporter, params, format, auteurId)
   }
 }
 

@@ -39,5 +39,9 @@ export const IPC = {
   },
   impayes: {
     list: 'impayes:list'
+  },
+  rapports: {
+    generer: 'rapports:generer',
+    exporter: 'rapports:exporter'
   }
 } as const

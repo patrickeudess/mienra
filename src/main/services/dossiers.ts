@@ -13,3 +13,8 @@ function base(): string {
 export function getRecusDir(): string {
   return path.join(base(), 'recus')
 }
+
+/** Dossier des rapports exportés (PDF et Excel). */
+export function getRapportsDir(): string {
+  return path.join(base(), 'rapports')
+}

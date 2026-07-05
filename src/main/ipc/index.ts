@@ -9,6 +9,7 @@ import { registerElevesHandlers } from './eleves.handlers'
 import { registerImpayesHandlers } from './impayes.handlers'
 import { registerInscriptionsHandlers } from './inscriptions.handlers'
 import { registerPaiementsHandlers } from './paiements.handlers'
+import { registerRapportsHandlers } from './rapports.handlers'
 import { registerRecusHandlers } from './recus.handlers'
 import { registerReferentielHandlers } from './referentiel.handlers'
 
@@ -21,4 +22,5 @@ export function registerIpcHandlers(): void {
   registerPaiementsHandlers()
   registerRecusHandlers()
   registerImpayesHandlers()
+  registerRapportsHandlers()
 }

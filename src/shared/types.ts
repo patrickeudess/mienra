@@ -58,6 +58,7 @@ export const ACTIONS_JOURNAL = [
   'INSCRIPTION',
   'PAIEMENT',
   'IMPRESSION_RECU',
+  'EXPORT_RAPPORT',
   'SAUVEGARDE',
   'RESTAURATION'
 ] as const
@@ -338,6 +339,100 @@ export interface ImpayesResult extends Paginated<ImpayeListItem> {
     reste: number
   }
 }
+
+// --------------------------------------------------------------------------
+// Rapports
+// --------------------------------------------------------------------------
+export const TYPES_RAPPORT = [
+  'JOURNALIER',
+  'MENSUEL',
+  'ANNUEL',
+  'PAR_CLASSE',
+  'PAR_NIVEAU',
+  'MOBILE_MONEY',
+  'ESPECES',
+  'IMPAYES'
+] as const
+export type TypeRapport = (typeof TYPES_RAPPORT)[number]
+
+export const TYPE_RAPPORT_LABELS: Record<TypeRapport, string> = {
+  JOURNALIER: 'Rapport journalier',
+  MENSUEL: 'Rapport mensuel',
+  ANNUEL: 'Rapport annuel',
+  PAR_CLASSE: 'Rapport par classe',
+  PAR_NIVEAU: 'Rapport par niveau',
+  MOBILE_MONEY: 'Paiements Mobile Money',
+  ESPECES: 'Paiements espèces',
+  IMPAYES: 'Rapport des impayés'
+}
+
+/** Paramètres d'un rapport ; les champs requis dépendent du type. */
+export const rapportParamsSchema = z.object({
+  type: z.enum(TYPES_RAPPORT),
+  /** JOURNALIER : jour au format AAAA-MM-JJ. */
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date invalide').optional(),
+  /** MENSUEL : mois au format AAAA-MM. */
+  mois: z.string().regex(/^\d{4}-\d{2}$/, 'Mois invalide').optional(),
+  anneeScolaireId: z.number().int().positive().optional(),
+  classeId: z.number().int().positive().optional(),
+  niveau: niveauSchema.optional()
+})
+export type RapportParams = z.infer<typeof rapportParamsSchema>
+
+/** Ligne d'un rapport de paiements. */
+export interface RapportLignePaiement {
+  numeroRecu: string
+  date: string // ISO
+  matricule: string
+  nomComplet: string
+  classe: string
+  mode: ModePaiement
+  montant: number
+}
+
+/** Ligne d'un rapport des impayés. */
+export interface RapportLigneImpaye {
+  matricule: string
+  nomComplet: string
+  classe: string
+  montantAttendu: number
+  montantPaye: number
+  reste: number
+  pourcentagePaye: number
+}
+
+export interface RapportPaiementsData {
+  famille: 'PAIEMENTS'
+  type: TypeRapport
+  titre: string
+  sousTitre: string
+  genereLe: string // ISO
+  lignes: RapportLignePaiement[]
+  totaux: {
+    nombre: number
+    montant: number
+    parMode: { mode: ModePaiement; montant: number }[]
+  }
+}
+
+export interface RapportImpayesData {
+  famille: 'IMPAYES'
+  type: TypeRapport
+  titre: string
+  sousTitre: string
+  genereLe: string // ISO
+  lignes: RapportLigneImpaye[]
+  totaux: {
+    nombre: number
+    montantAttendu: number
+    montantPaye: number
+    reste: number
+  }
+}
+
+export type RapportData = RapportPaiementsData | RapportImpayesData
+
+export type FormatExport = 'pdf' | 'excel'
 
 // --------------------------------------------------------------------------
 // Tableau de bord
