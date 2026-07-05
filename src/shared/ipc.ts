@@ -26,5 +26,11 @@ export const IPC = {
     create: 'inscriptions:create',
     update: 'inscriptions:update',
     delete: 'inscriptions:delete'
+  },
+  paiements: {
+    list: 'paiements:list',
+    create: 'paiements:create',
+    historique: 'paiements:historique',
+    delete: 'paiements:delete'
   }
 } as const

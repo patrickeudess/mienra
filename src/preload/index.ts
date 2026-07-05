@@ -13,6 +13,7 @@ import type {
   EleveInput,
   EleveListItem,
   EleveListParams,
+  HistoriquePaiements,
   InscriptionInput,
   InscriptionListItem,
   InscriptionListParams,
@@ -20,7 +21,10 @@ import type {
   LoginInput,
   LoginResult,
   OperationResult,
-  Paginated
+  Paginated,
+  PaiementInput,
+  PaiementListItem,
+  PaiementListParams
 } from '@shared/types'
 
 const api = {
@@ -68,6 +72,19 @@ const api = {
       ipcRenderer.invoke(IPC.inscriptions.update, id, input, auteurId),
     delete: (id: number, auteurId: number): Promise<OperationResult<null>> =>
       ipcRenderer.invoke(IPC.inscriptions.delete, id, auteurId)
+  },
+  paiements: {
+    list: (params: PaiementListParams): Promise<Paginated<PaiementListItem>> =>
+      ipcRenderer.invoke(IPC.paiements.list, params),
+    create: (
+      input: PaiementInput,
+      auteurId: number
+    ): Promise<OperationResult<{ id: number; numeroRecu: string; reste: number }>> =>
+      ipcRenderer.invoke(IPC.paiements.create, input, auteurId),
+    historique: (inscriptionId: number): Promise<OperationResult<HistoriquePaiements>> =>
+      ipcRenderer.invoke(IPC.paiements.historique, inscriptionId),
+    delete: (id: number, auteurId: number): Promise<OperationResult<null>> =>
+      ipcRenderer.invoke(IPC.paiements.delete, id, auteurId)
   }
 }
 

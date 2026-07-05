@@ -7,6 +7,7 @@ import { registerAuthHandlers } from './auth.handlers'
 import { registerDashboardHandlers } from './dashboard.handlers'
 import { registerElevesHandlers } from './eleves.handlers'
 import { registerInscriptionsHandlers } from './inscriptions.handlers'
+import { registerPaiementsHandlers } from './paiements.handlers'
 import { registerReferentielHandlers } from './referentiel.handlers'
 
 export function registerIpcHandlers(): void {
@@ -15,4 +16,5 @@ export function registerIpcHandlers(): void {
   registerElevesHandlers()
   registerReferentielHandlers()
   registerInscriptionsHandlers()
+  registerPaiementsHandlers()
 }

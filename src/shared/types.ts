@@ -247,6 +247,63 @@ export interface InscriptionListItem {
 }
 
 // --------------------------------------------------------------------------
+// Paiements
+// --------------------------------------------------------------------------
+/** Données d'encaissement d'un versement. */
+export const paiementInputSchema = z.object({
+  inscriptionId: z.number().int().positive({ message: 'Choisissez une inscription' }),
+  montant: z
+    .number({ invalid_type_error: 'Montant invalide' })
+    .int('Montant invalide')
+    .positive('Le montant doit être supérieur à zéro'),
+  mode: modePaiementSchema
+})
+export type PaiementInput = z.infer<typeof paiementInputSchema>
+
+export interface PaiementListParams {
+  recherche: string
+  mode?: ModePaiement
+  anneeScolaireId?: number
+  page: number
+  parPage: number
+}
+
+/** Ligne du tableau des paiements. */
+export interface PaiementListItem {
+  id: number
+  numeroRecu: string
+  inscriptionId: number
+  matricule: string
+  nomComplet: string
+  classe: string
+  anneeScolaire: string
+  montant: number
+  mode: ModePaiement
+  caissier: string
+  datePaiement: string // ISO
+}
+
+/** Historique complet des versements d'une inscription. */
+export interface HistoriquePaiements {
+  inscriptionId: number
+  matricule: string
+  nomComplet: string
+  classe: string
+  anneeScolaire: string
+  montantTotal: number
+  montantPaye: number
+  reste: number
+  versements: {
+    id: number
+    numeroRecu: string
+    montant: number
+    mode: ModePaiement
+    caissier: string
+    datePaiement: string // ISO
+  }[]
+}
+
+// --------------------------------------------------------------------------
 // Tableau de bord
 // --------------------------------------------------------------------------
 /** Point du graphique mensuel des encaissements. */
