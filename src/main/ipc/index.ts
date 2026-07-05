@@ -8,6 +8,7 @@ import { registerDashboardHandlers } from './dashboard.handlers'
 import { registerElevesHandlers } from './eleves.handlers'
 import { registerImpayesHandlers } from './impayes.handlers'
 import { registerInscriptionsHandlers } from './inscriptions.handlers'
+import { registerJournalHandlers } from './journal.handlers'
 import { registerPaiementsHandlers } from './paiements.handlers'
 import { registerRapportsHandlers } from './rapports.handlers'
 import { registerRecusHandlers } from './recus.handlers'
@@ -25,4 +26,5 @@ export function registerIpcHandlers(): void {
   registerImpayesHandlers()
   registerRapportsHandlers()
   registerUtilisateursHandlers()
+  registerJournalHandlers()
 }

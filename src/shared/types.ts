@@ -65,6 +65,48 @@ export const ACTIONS_JOURNAL = [
 ] as const
 export type ActionJournal = (typeof ACTIONS_JOURNAL)[number]
 
+export const ACTION_JOURNAL_LABELS: Record<ActionJournal, string> = {
+  CONNEXION: 'Connexion',
+  DECONNEXION: 'Déconnexion',
+  CREATION_ELEVE: 'Création d’un élève',
+  MODIFICATION_ELEVE: 'Modification d’un élève',
+  SUPPRESSION_ELEVE: 'Suppression d’un élève',
+  INSCRIPTION: 'Inscription',
+  PAIEMENT: 'Paiement',
+  IMPRESSION_RECU: 'Impression d’un reçu',
+  EXPORT_RAPPORT: 'Export d’un rapport',
+  GESTION_UTILISATEUR: 'Gestion des utilisateurs',
+  SAUVEGARDE: 'Sauvegarde',
+  RESTAURATION: 'Restauration'
+}
+
+/** Paramètres de consultation du journal d'activité. */
+export interface JournalParams {
+  action?: ActionJournal
+  utilisateurId?: number
+  /** Bornes de période au format AAAA-MM-JJ (incluses). */
+  du?: string
+  au?: string
+  page: number
+  parPage: number
+}
+
+/** Entrée du journal d'activité affichée à l'écran. */
+export interface JournalListItem {
+  id: number
+  date: string // ISO (date + heure)
+  utilisateur: string | null
+  action: ActionJournal
+  details: string
+  poste: string
+}
+
+/** Référence utilisateur pour les filtres (id + nom uniquement). */
+export interface UtilisateurRef {
+  id: number
+  nom: string
+}
+
 // --------------------------------------------------------------------------
 // Authentification
 // --------------------------------------------------------------------------

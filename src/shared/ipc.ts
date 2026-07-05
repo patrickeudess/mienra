@@ -44,6 +44,10 @@ export const IPC = {
     generer: 'rapports:generer',
     exporter: 'rapports:exporter'
   },
+  journal: {
+    list: 'journal:list',
+    utilisateurs: 'journal:utilisateurs'
+  },
   utilisateurs: {
     list: 'utilisateurs:list',
     create: 'utilisateurs:create',

@@ -21,6 +21,8 @@ import type {
   InscriptionListItem,
   InscriptionListParams,
   InscriptionUpdate,
+  JournalListItem,
+  JournalParams,
   LoginInput,
   LoginResult,
   OperationResult,
@@ -32,6 +34,7 @@ import type {
   RapportParams,
   UtilisateurInput,
   UtilisateurListItem,
+  UtilisateurRef,
   UtilisateurUpdate
 } from '@shared/types'
 
@@ -128,6 +131,15 @@ const api = {
       auteurId: number
     ): Promise<OperationResult<null>> =>
       ipcRenderer.invoke(IPC.utilisateurs.resetMotDePasse, id, motDePasse, auteurId)
+  },
+  journal: {
+    list: (
+      params: JournalParams,
+      auteurId: number
+    ): Promise<OperationResult<Paginated<JournalListItem>>> =>
+      ipcRenderer.invoke(IPC.journal.list, params, auteurId),
+    utilisateurs: (auteurId: number): Promise<OperationResult<UtilisateurRef[]>> =>
+      ipcRenderer.invoke(IPC.journal.utilisateurs, auteurId)
   }
 }
 
