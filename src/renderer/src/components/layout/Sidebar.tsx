@@ -5,13 +5,15 @@
  */
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
-import { ROLE_LABELS } from '@shared/types'
+import { ROLE_LABELS, type Role } from '@shared/types'
 
 interface NavItem {
   chemin: string
   libelle: string
   /** Petit pictogramme texte (pas de librairie d'icônes pour rester léger). */
   icone: string
+  /** Rôles autorisés ; absent = visible par tous. */
+  roles?: Role[]
 }
 
 const NAV_ITEMS: NavItem[] = [
@@ -22,10 +24,15 @@ const NAV_ITEMS: NavItem[] = [
   { chemin: '/recus', libelle: 'Reçus', icone: '🧾' },
   { chemin: '/impayes', libelle: 'Impayés', icone: '⚠' },
   { chemin: '/rapports', libelle: 'Rapports', icone: '📊' },
-  { chemin: '/utilisateurs', libelle: 'Utilisateurs', icone: '👥' },
-  { chemin: '/journal', libelle: "Journal d'activité", icone: '🕘' },
-  { chemin: '/sauvegardes', libelle: 'Sauvegardes', icone: '💾' },
-  { chemin: '/parametres', libelle: 'Paramètres', icone: '⚙' }
+  { chemin: '/utilisateurs', libelle: 'Utilisateurs', icone: '👥', roles: ['ADMINISTRATEUR'] },
+  {
+    chemin: '/journal',
+    libelle: "Journal d'activité",
+    icone: '🕘',
+    roles: ['ADMINISTRATEUR', 'DIRECTEUR']
+  },
+  { chemin: '/sauvegardes', libelle: 'Sauvegardes', icone: '💾', roles: ['ADMINISTRATEUR'] },
+  { chemin: '/parametres', libelle: 'Paramètres', icone: '⚙', roles: ['ADMINISTRATEUR'] }
 ]
 
 export function Sidebar(): JSX.Element {
@@ -44,9 +51,11 @@ export function Sidebar(): JSX.Element {
         </div>
       </div>
 
-      {/* Navigation */}
+      {/* Navigation — filtrée selon le rôle de l'utilisateur connecté */}
       <nav className="flex-1 space-y-0.5 overflow-y-auto px-3">
-        {NAV_ITEMS.map((item) => (
+        {NAV_ITEMS.filter(
+          (item) => !item.roles || (utilisateur && item.roles.includes(utilisateur.role))
+        ).map((item) => (
           <NavLink
             key={item.chemin}
             to={item.chemin}

@@ -101,7 +101,7 @@ pilotables depuis le module Sauvegardes.
 - [x] Étape 9 — Reçus PDF (génération automatique, QR code, impression en un clic)
 - [x] Étape 10 — Impayés (pourcentage payé, filtres classe / niveau / année)
 - [x] Étape 11 — Rapports (8 rapports, aperçu, exports PDF / Excel)
-- [ ] Étape 12 — Utilisateurs & rôles (administration)
+- [x] Étape 12 — Utilisateurs & rôles (création, activation, mots de passe, garde-fous)
 - [ ] Étape 13 — Journal d'activité (interface)
 - [ ] Étape 14 — Sauvegardes (interface restauration / export)
 - [ ] Étape 15 — Paramètres de l'école & installateur Windows

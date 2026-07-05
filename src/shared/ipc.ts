@@ -43,5 +43,12 @@ export const IPC = {
   rapports: {
     generer: 'rapports:generer',
     exporter: 'rapports:exporter'
+  },
+  utilisateurs: {
+    list: 'utilisateurs:list',
+    create: 'utilisateurs:create',
+    update: 'utilisateurs:update',
+    setActif: 'utilisateurs:setActif',
+    resetMotDePasse: 'utilisateurs:resetMotDePasse'
   }
 } as const

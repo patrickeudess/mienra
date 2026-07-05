@@ -12,6 +12,7 @@ import { registerPaiementsHandlers } from './paiements.handlers'
 import { registerRapportsHandlers } from './rapports.handlers'
 import { registerRecusHandlers } from './recus.handlers'
 import { registerReferentielHandlers } from './referentiel.handlers'
+import { registerUtilisateursHandlers } from './utilisateurs.handlers'
 
 export function registerIpcHandlers(): void {
   registerAuthHandlers()
@@ -23,4 +24,5 @@ export function registerIpcHandlers(): void {
   registerRecusHandlers()
   registerImpayesHandlers()
   registerRapportsHandlers()
+  registerUtilisateursHandlers()
 }

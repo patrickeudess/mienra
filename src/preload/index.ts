@@ -29,7 +29,10 @@ import type {
   PaiementListItem,
   PaiementListParams,
   RapportData,
-  RapportParams
+  RapportParams,
+  UtilisateurInput,
+  UtilisateurListItem,
+  UtilisateurUpdate
 } from '@shared/types'
 
 const api = {
@@ -109,6 +112,22 @@ const api = {
       auteurId: number
     ): Promise<OperationResult<{ chemin: string }>> =>
       ipcRenderer.invoke(IPC.rapports.exporter, params, format, auteurId)
+  },
+  utilisateurs: {
+    list: (auteurId: number): Promise<OperationResult<UtilisateurListItem[]>> =>
+      ipcRenderer.invoke(IPC.utilisateurs.list, auteurId),
+    create: (input: UtilisateurInput, auteurId: number): Promise<OperationResult<{ id: number }>> =>
+      ipcRenderer.invoke(IPC.utilisateurs.create, input, auteurId),
+    update: (id: number, input: UtilisateurUpdate, auteurId: number): Promise<OperationResult<null>> =>
+      ipcRenderer.invoke(IPC.utilisateurs.update, id, input, auteurId),
+    setActif: (id: number, actif: boolean, auteurId: number): Promise<OperationResult<null>> =>
+      ipcRenderer.invoke(IPC.utilisateurs.setActif, id, actif, auteurId),
+    resetMotDePasse: (
+      id: number,
+      motDePasse: string,
+      auteurId: number
+    ): Promise<OperationResult<null>> =>
+      ipcRenderer.invoke(IPC.utilisateurs.resetMotDePasse, id, motDePasse, auteurId)
   }
 }
 

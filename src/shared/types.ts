@@ -59,6 +59,7 @@ export const ACTIONS_JOURNAL = [
   'PAIEMENT',
   'IMPRESSION_RECU',
   'EXPORT_RAPPORT',
+  'GESTION_UTILISATEUR',
   'SAUVEGARDE',
   'RESTAURATION'
 ] as const
@@ -178,6 +179,43 @@ export interface EleveDetail {
 
 /** Résultat générique d'une opération d'écriture. */
 export type OperationResult<T> = { ok: true; data: T } | { ok: false; erreur: string }
+
+// --------------------------------------------------------------------------
+// Gestion des utilisateurs (réservée à l'Administrateur)
+// --------------------------------------------------------------------------
+/** Création d'un compte utilisateur. */
+export const utilisateurInputSchema = z.object({
+  nom: z.string().trim().min(1, 'Le nom est requis'),
+  identifiant: z
+    .string()
+    .trim()
+    .min(3, "L'identifiant doit faire au moins 3 caractères")
+    .regex(/^[a-z0-9._-]+$/i, "L'identifiant ne doit contenir que lettres, chiffres, . _ -"),
+  motDePasse: z.string().min(6, 'Le mot de passe doit faire au moins 6 caractères'),
+  role: roleSchema
+})
+export type UtilisateurInput = z.infer<typeof utilisateurInputSchema>
+
+/** Modification d'un compte : nom et rôle (l'identifiant ne change pas). */
+export const utilisateurUpdateSchema = utilisateurInputSchema.omit({
+  identifiant: true,
+  motDePasse: true
+})
+export type UtilisateurUpdate = z.infer<typeof utilisateurUpdateSchema>
+
+/** Réinitialisation du mot de passe par l'Administrateur. */
+export const motDePasseSchema = z
+  .string()
+  .min(6, 'Le mot de passe doit faire au moins 6 caractères')
+
+export interface UtilisateurListItem {
+  id: number
+  nom: string
+  identifiant: string
+  role: Role
+  actif: boolean
+  creeLe: string // ISO
+}
 
 // --------------------------------------------------------------------------
 // Référentiel (classes et années scolaires, pour les listes déroulantes)
