@@ -4,7 +4,7 @@ const DEVICE_KEY = `${DB_KEY}_device_id`;
 
 const $ = (id) => document.getElementById(id);
 const LOGO_SRC = "assets/mienra-logo.jpeg";
-const ASSET_VERSION = "20260706-audit-log";
+const ASSET_VERSION = "20260706-student-added-date";
 const CLOUD_CONFIG = globalThis.MIENRA_CLOUD || {};
 const SCHOOL_IDENTITY = {
   name: "EPP Mienrassou",
@@ -77,9 +77,9 @@ function seedState() {
   ].map(([name, level, fee]) => ({ id: uid("CLS"), name, level, fee }));
 
   const students = [
-    { id: uid("ELV"), matricule: "GSM-2026-0001", name: "Aka Mireille", gender: "F", birth: "2014-04-12", className: "6e", parent: "Aka Paul", phone: "0700000001", address: "Yopougon", status: "Actif" },
-    { id: uid("ELV"), matricule: "GSM-2026-0002", name: "Kouadio Jean", gender: "M", birth: "2015-09-20", className: "CM2", parent: "Kouadio Anne", phone: "0700000002", address: "Cocody", status: "Actif" },
-    { id: uid("ELV"), matricule: "GSM-2026-0003", name: "Traoré Aminata", gender: "F", birth: "2012-01-11", className: "4e", parent: "Traoré Moussa", phone: "0700000003", address: "Abobo", status: "Actif" }
+    { id: uid("ELV"), matricule: "GSM-2026-0001", name: "Aka Mireille", gender: "F", birth: "2014-04-12", className: "6e", parent: "Aka Paul", phone: "0700000001", address: "Yopougon", status: "Actif", addedDate: today() },
+    { id: uid("ELV"), matricule: "GSM-2026-0002", name: "Kouadio Jean", gender: "M", birth: "2015-09-20", className: "CM2", parent: "Kouadio Anne", phone: "0700000002", address: "Cocody", status: "Actif", addedDate: today() },
+    { id: uid("ELV"), matricule: "GSM-2026-0003", name: "Traoré Aminata", gender: "F", birth: "2012-01-11", className: "4e", parent: "Traoré Moussa", phone: "0700000003", address: "Abobo", status: "Actif", addedDate: today() }
   ];
 
   return {
@@ -140,6 +140,7 @@ function normalizeState(data) {
     ...data,
     school: { ...base.school, ...(data.school || {}) },
     years: data.years?.length ? data.years : base.years,
+    students: (data.students?.length ? data.students : base.students).map((row) => ({ ...row, addedDate: row.addedDate || row.createdAt || today() })),
     users: data.users?.length ? data.users : base.users,
     logs: normalizeLogs(data.logs || []),
     updatedAt: data.updatedAt || new Date().toISOString()
@@ -568,7 +569,7 @@ function rowActions(scope, id) {
 }
 
 function studentForm(item) {
-  return `<div class="form-grid">${field("Nom complet", "stName", item?.name || "")}<div><label>Genre</label><select id="stGender"><option ${item?.gender === "M" ? "selected" : ""}>M</option><option ${item?.gender === "F" ? "selected" : ""}>F</option></select></div>${field("Date naissance", "stBirth", item?.birth || "", "date")}<div><label>Classe</label><select id="stClass">${state.classes.map((row) => `<option ${item?.className === row.name ? "selected" : ""}>${clean(row.name)}</option>`).join("")}</select></div>${field("Parent/Tuteur", "stParent", item?.parent || "")}${field("Contact", "stPhone", item?.phone || "")}${field("Adresse", "stAddress", item?.address || "")}<div><label>Statut</label><select id="stStatus">${["Actif", "Inactif", "Transféré"].map((status) => `<option ${item?.status === status ? "selected" : ""}>${status}</option>`).join("")}</select></div></div>`;
+  return `<div class="form-grid">${field("Nom complet", "stName", item?.name || "")}<div><label>Genre</label><select id="stGender"><option ${item?.gender === "M" ? "selected" : ""}>M</option><option ${item?.gender === "F" ? "selected" : ""}>F</option></select></div>${field("Date naissance", "stBirth", item?.birth || "", "date")}${field("Date d'ajout", "stAddedDate", item?.addedDate || today(), "date")}<div><label>Classe</label><select id="stClass">${state.classes.map((row) => `<option ${item?.className === row.name ? "selected" : ""}>${clean(row.name)}</option>`).join("")}</select></div>${field("Parent/Tuteur", "stParent", item?.parent || "")}${field("Contact", "stPhone", item?.phone || "")}${field("Adresse", "stAddress", item?.address || "")}<div><label>Statut</label><select id="stStatus">${["Actif", "Inactif", "Transféré"].map((status) => `<option ${item?.status === status ? "selected" : ""}>${status}</option>`).join("")}</select></div></div>`;
 }
 
 function drawStudents() {
@@ -580,7 +581,7 @@ function drawStudents() {
   if (payStatus === "paid") rows = rows.filter((row) => balance(row.id) <= 0 && due(row.id) > 0);
   if (payStatus === "partial") rows = rows.filter((row) => balance(row.id) > 0 && paid(row.id) > 0);
   if (payStatus === "unpaid") rows = rows.filter((row) => balance(row.id) > 0 && paid(row.id) === 0);
-  $("studentsTable").innerHTML = `<table><thead><tr><th>Matricule</th><th>Élève</th><th>Classe</th><th>Parent</th><th>Paiement</th><th>Actions</th></tr></thead><tbody>${rows.map((row) => `<tr><td>${clean(row.matricule)}</td><td>${clean(row.name)}<br><small>${clean(row.gender)} · ${clean(row.status)}</small></td><td>${clean(row.className)}</td><td>${clean(row.parent)}<br><small>${clean(row.phone)}</small></td><td>${paymentStatus(row)}</td><td>${studentActions(row.id)}</td></tr>`).join("") || `<tr><td colspan="6">Aucun élève trouvé.</td></tr>`}</tbody></table>`;
+  $("studentsTable").innerHTML = `<table><thead><tr><th>Matricule</th><th>Élève</th><th>Date d'ajout</th><th>Classe</th><th>Parent</th><th>Paiement</th><th>Actions</th></tr></thead><tbody>${rows.map((row) => `<tr><td>${clean(row.matricule)}</td><td>${clean(row.name)}<br><small>${clean(row.gender)} · ${clean(row.status)}</small></td><td>${clean(row.addedDate || "-")}</td><td>${clean(row.className)}</td><td>${clean(row.parent)}<br><small>${clean(row.phone)}</small></td><td>${paymentStatus(row)}</td><td>${studentActions(row.id)}</td></tr>`).join("") || `<tr><td colspan="7">Aucun élève trouvé.</td></tr>`}</tbody></table>`;
 }
 
 function studentActions(id) {
@@ -674,7 +675,7 @@ function saveStudent() {
   if (!requireAction("students")) return;
   const name = $("stName").value.trim();
   if (!name) return alert("Le nom complet est obligatoire.");
-  const data = { name, gender: $("stGender").value, birth: $("stBirth").value, className: $("stClass").value, parent: $("stParent").value, phone: $("stPhone").value, address: $("stAddress").value, status: $("stStatus").value };
+  const data = { name, gender: $("stGender").value, birth: $("stBirth").value, addedDate: $("stAddedDate").value || today(), className: $("stClass").value, parent: $("stParent").value, phone: $("stPhone").value, address: $("stAddress").value, status: $("stStatus").value };
   if (editing) {
     Object.assign(state.students.find((row) => row.id === editing), data);
     log(`Élève modifié : ${name}`, "Élève");
@@ -865,11 +866,11 @@ function saveSettings() {
 function exportCSV(type) {
   if (!requireAction("exports")) return;
   let rows = [];
-  if (type === "students") rows = [["matricule", "nom", "classe", "parent", "contact", "attendu", "paye", "reste"], ...state.students.map((row) => [row.matricule, row.name, row.className, row.parent, row.phone, due(row.id), paid(row.id), balance(row.id)])];
+  if (type === "students") rows = [["matricule", "nom", "date_ajout", "classe", "parent", "contact", "attendu", "paye", "reste"], ...state.students.map((row) => [row.matricule, row.name, row.addedDate || "", row.className, row.parent, row.phone, due(row.id), paid(row.id), balance(row.id)])];
   if (type === "payments") rows = [["recu", "eleve", "matricule", "paye_par", "montant", "mode", "date", "caissier"], ...state.payments.map((row) => [row.id, student(row.studentId).name, student(row.studentId).matricule, paymentPayer(row), row.amount, row.mode, row.date, row.cashier])];
-  if (type === "paidStudents") rows = [["matricule", "nom", "classe", "parent", "contact", "attendu", "paye", "reste", "dernier_paye_par"], ...state.students.filter((row) => paid(row.id) > 0).map((row) => [row.matricule, row.name, row.className, row.parent, row.phone, due(row.id), paid(row.id), balance(row.id), paymentPayer(lastPaymentForStudent(row.id))])];
-  if (type === "noPaymentStudents") rows = [["matricule", "nom", "classe", "parent", "contact", "attendu", "paye", "reste"], ...state.students.filter((row) => paid(row.id) <= 0).map((row) => [row.matricule, row.name, row.className, row.parent, row.phone, due(row.id), paid(row.id), balance(row.id)])];
-  if (type === "unpaid") rows = [["matricule", "nom", "classe", "parent", "contact", "attendu", "paye", "reste", "statut", "dernier_paye_par"], ...state.students.map((row) => [row.matricule, row.name, row.className, row.parent, row.phone, due(row.id), paid(row.id), balance(row.id), financeStatus(row), lastPaymentForStudent(row.id) ? paymentPayer(lastPaymentForStudent(row.id)) : ""])];
+  if (type === "paidStudents") rows = [["matricule", "nom", "date_ajout", "classe", "parent", "contact", "attendu", "paye", "reste", "dernier_paye_par"], ...state.students.filter((row) => paid(row.id) > 0).map((row) => [row.matricule, row.name, row.addedDate || "", row.className, row.parent, row.phone, due(row.id), paid(row.id), balance(row.id), paymentPayer(lastPaymentForStudent(row.id))])];
+  if (type === "noPaymentStudents") rows = [["matricule", "nom", "date_ajout", "classe", "parent", "contact", "attendu", "paye", "reste"], ...state.students.filter((row) => paid(row.id) <= 0).map((row) => [row.matricule, row.name, row.addedDate || "", row.className, row.parent, row.phone, due(row.id), paid(row.id), balance(row.id)])];
+  if (type === "unpaid") rows = [["matricule", "nom", "date_ajout", "classe", "parent", "contact", "attendu", "paye", "reste", "statut", "dernier_paye_par"], ...state.students.map((row) => [row.matricule, row.name, row.addedDate || "", row.className, row.parent, row.phone, due(row.id), paid(row.id), balance(row.id), financeStatus(row), lastPaymentForStudent(row.id) ? paymentPayer(lastPaymentForStudent(row.id)) : ""])];
   if (type === "logs") rows = [["date", "iso", "type", "utilisateur", "role", "appareil", "action", "detail"], ...normalizeLogs(state.logs).map((row) => [row.date, row.iso, row.type, row.user, row.role, row.device, row.action, row.detail])];
   log(`Export CSV : ${type}`, "Export");
   download(`${type}.csv`, rows.map((row) => row.map((cell) => `"${String(cell ?? "").replaceAll('"', '""')}"`).join(";")).join("\n"), "text/csv;charset=utf-8");
