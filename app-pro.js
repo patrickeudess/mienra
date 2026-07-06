@@ -4,7 +4,7 @@ const DEVICE_KEY = `${DB_KEY}_device_id`;
 
 const $ = (id) => document.getElementById(id);
 const LOGO_SRC = "assets/mienra-logo.jpeg";
-const ASSET_VERSION = "20260706-restrict-delete-enrollments";
+const ASSET_VERSION = "20260706-edit-enrollments";
 const CLOUD_CONFIG = globalThis.MIENRA_CLOUD || {};
 const SCHOOL_IDENTITY = {
   name: "EPP Mienrassou",
@@ -28,6 +28,7 @@ const logoUrl = () => `${LOGO_SRC}?v=${ASSET_VERSION}`;
 let view = "dashboard";
 let session = null;
 let editing = null;
+let editingEnrollment = null;
 let activeReceipt = null;
 let dashboardDetail = null;
 let cloudSyncing = false;
@@ -487,6 +488,7 @@ function go(key) {
   if (!canPage(key)) return alert("Accès refusé pour ce rôle.");
   view = key;
   editing = null;
+  if (key !== "enrollments") editingEnrollment = null;
   if (key !== "dashboard") dashboardDetail = null;
   renderNav();
   renderView();
@@ -526,8 +528,9 @@ const pages = {
       <article class="panel"><div class="panel-head"><h2>Classes & frais</h2><span>${state.classes.length} classes</span></div><table><thead><tr><th>Classe</th><th>Niveau</th><th>Frais</th><th>Élèves</th><th>Actions</th></tr></thead><tbody>${state.classes.map((row) => `<tr><td>${clean(row.name)}</td><td>${clean(row.level)}</td><td>${money(row.fee)}</td><td>${state.students.filter((s) => s.className === row.name).length}</td><td>${rowActions("Class", row.id)}</td></tr>`).join("")}</tbody></table></article>`;
   },
   enrollments() {
+    const item = editingEnrollment ? state.enrollments.find((row) => row.id === editingEnrollment) : {};
     $("content").innerHTML = `
-      ${canAction("enrollments") ? `<article class="panel"><div class="panel-head"><h2>Nouvelle inscription</h2><span>Création d’un droit scolaire</span></div><div class="form-grid"><div><label>Élève</label><select id="enStudent">${state.students.map((row) => `<option value="${row.id}">${clean(row.name)} - ${clean(row.matricule)}</option>`).join("")}</select></div><div><label>Classe</label><select id="enClass" onchange="syncFee()">${state.classes.map((row) => `<option>${clean(row.name)}</option>`).join("")}</select></div><div><label>Année</label><select id="enYear">${state.years.map((year) => `<option ${year === currentYear() ? "selected" : ""}>${clean(year)}</option>`).join("")}</select></div>${field("Montant", "enAmount", "", "number")}${field("Remise", "enDiscount", 0, "number")}${field("Date", "enDate", today(), "date")}</div>${field("Note", "enNote", "Inscription annuelle")}<div class="actions"><button class="btn primary" onclick="saveEnrollment()">Valider l’inscription</button></div></article>` : readOnlyNotice("Inscriptions")}
+      ${canAction("enrollments") ? `<article class="panel"><div class="panel-head"><h2>${editingEnrollment ? "Modifier l’inscription" : "Nouvelle inscription"}</h2><span>${editingEnrollment ? "Correction réservée administrateur" : "Création d’un droit scolaire"}</span></div><div class="form-grid"><div><label>Élève</label><select id="enStudent">${state.students.map((row) => `<option value="${row.id}" ${item?.studentId === row.id ? "selected" : ""}>${clean(row.name)} - ${clean(row.matricule)}</option>`).join("")}</select></div><div><label>Classe</label><select id="enClass" onchange="syncFee(true)">${state.classes.map((row) => `<option ${item?.className === row.name ? "selected" : ""}>${clean(row.name)}</option>`).join("")}</select></div><div><label>Année</label><select id="enYear">${state.years.map((year) => `<option ${year === (item?.year || currentYear()) ? "selected" : ""}>${clean(year)}</option>`).join("")}</select></div>${field("Montant", "enAmount", item?.amount ?? "", "number")}${field("Remise", "enDiscount", item?.discount ?? 0, "number")}${field("Date", "enDate", item?.date || today(), "date")}</div>${field("Note", "enNote", item?.note || "Inscription annuelle")}<div class="actions"><button class="btn primary" onclick="saveEnrollment()">${editingEnrollment ? "Enregistrer la modification" : "Valider l’inscription"}</button>${editingEnrollment ? `<button class="btn quiet" onclick="editingEnrollment=null;pages.enrollments()">Annuler</button>` : ""}</div></article>` : readOnlyNotice("Inscriptions")}
       <article class="panel"><div class="panel-head"><h2>Historique des inscriptions</h2><span>${state.enrollments.filter((row) => row.year === currentYear()).length} lignes - ${clean(currentYear())}</span></div>${enrollmentsTable()}</article>`;
     syncFee();
   },
@@ -778,23 +781,37 @@ function deleteClass(id) {
   pages.classes();
 }
 
-function syncFee() { if ($("enAmount")) $("enAmount").value = classFee(state.classes, $("enClass")?.value); }
+function syncFee(force = false) {
+  if ($("enAmount") && (force || !editingEnrollment)) $("enAmount").value = classFee(state.classes, $("enClass")?.value);
+}
 
 function saveEnrollment() {
   if (!requireAction("enrollments")) return;
-  const enrollment = { id: uid("INS"), studentId: $("enStudent").value, className: $("enClass").value, year: $("enYear").value, amount: Number($("enAmount").value || 0), discount: Number($("enDiscount").value || 0), date: $("enDate").value, note: $("enNote").value };
-  state.enrollments.push(enrollment);
+  if (editingEnrollment && !requireAction("deleteEnrollments")) return;
+  const enrollment = { id: editingEnrollment || uid("INS"), studentId: $("enStudent").value, className: $("enClass").value, year: $("enYear").value, amount: Number($("enAmount").value || 0), discount: Number($("enDiscount").value || 0), date: $("enDate").value, note: $("enNote").value };
+  if (editingEnrollment) {
+    Object.assign(state.enrollments.find((row) => row.id === editingEnrollment), enrollment);
+  } else {
+    state.enrollments.push(enrollment);
+  }
   student(enrollment.studentId).className = enrollment.className;
   if (!state.years.includes(enrollment.year)) state.years.push(enrollment.year);
   state.activeYear = enrollment.year;
-  log(`Inscription validée : ${student(enrollment.studentId).name}`, "Inscription");
+  log(`${editingEnrollment ? "Inscription modifiée" : "Inscription validée"} : ${student(enrollment.studentId).name}`, "Inscription");
+  editingEnrollment = null;
   saveState();
   pages.enrollments();
 }
 
 function enrollmentsTable() {
   const rows = state.enrollments.filter((row) => row.year === currentYear());
-  return `<table><thead><tr><th>Élève</th><th>Classe</th><th>Année</th><th>Montant</th><th>Remise</th><th>Net</th><th>Date</th><th>Action</th></tr></thead><tbody>${rows.map((row) => `<tr><td>${clean(student(row.studentId).name)}<br><small>${clean(student(row.studentId).matricule)}</small></td><td>${clean(row.className)}</td><td>${clean(row.year)}</td><td>${money(row.amount)}</td><td>${money(row.discount)}</td><td>${money(row.amount - row.discount)}</td><td>${clean(row.date)}</td><td>${canAction("deleteEnrollments") ? `<button class="btn danger small" onclick="deleteEnrollment('${row.id}')">Supprimer</button>` : `<span class="muted">Lecture seule</span>`}</td></tr>`).join("") || `<tr><td colspan="8">Aucune inscription pour cette année scolaire.</td></tr>`}</tbody></table>`;
+  return `<table><thead><tr><th>Élève</th><th>Classe</th><th>Année</th><th>Montant</th><th>Remise</th><th>Net</th><th>Date</th><th>Action</th></tr></thead><tbody>${rows.map((row) => `<tr><td>${clean(student(row.studentId).name)}<br><small>${clean(student(row.studentId).matricule)}</small></td><td>${clean(row.className)}</td><td>${clean(row.year)}</td><td>${money(row.amount)}</td><td>${money(row.discount)}</td><td>${money(row.amount - row.discount)}</td><td>${clean(row.date)}</td><td>${canAction("deleteEnrollments") ? `<button class="btn quiet small" onclick="editEnrollment('${row.id}')">Modifier</button> <button class="btn danger small" onclick="deleteEnrollment('${row.id}')">Supprimer</button>` : `<span class="muted">Lecture seule</span>`}</td></tr>`).join("") || `<tr><td colspan="8">Aucune inscription pour cette année scolaire.</td></tr>`}</tbody></table>`;
+}
+
+function editEnrollment(id) {
+  if (!requireAction("deleteEnrollments")) return;
+  editingEnrollment = id;
+  pages.enrollments();
 }
 
 function deleteEnrollment(id) {
