@@ -4,7 +4,7 @@ const DEVICE_KEY = `${DB_KEY}_device_id`;
 
 const $ = (id) => document.getElementById(id);
 const LOGO_SRC = "assets/mienra-logo.jpeg";
-const ASSET_VERSION = "20260706-student-added-date";
+const ASSET_VERSION = "20260706-payment-tracking-title";
 const CLOUD_CONFIG = globalThis.MIENRA_CLOUD || {};
 const SCHOOL_IDENTITY = {
   name: "EPP Mienrassou",
@@ -41,7 +41,7 @@ const menu = [
   ["enrollments", "Inscriptions", "✓"],
   ["payments", "Paiements", "+"],
   ["receipts", "Reçus", "#"],
-  ["unpaid", "Impayés", "!"],
+  ["unpaid", "Suivi des paiements", "!"],
   ["reports", "Rapports", "▤"],
   ["users", "Utilisateurs", "◎"],
   ["settings", "Paramètres", "⚙"],
