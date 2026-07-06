@@ -1,215 +1,490 @@
-const DB_KEY = 'mienra_web_app_v1';
-const $ = (id) => document.getElementById(id);
-const money = (n) => `${Number(n || 0).toLocaleString('fr-FR')} FCFA`;
-const today = () => new Date().toISOString().slice(0, 10);
-const uid = (p) => `${p}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
-const escapeHtml = (v) => String(v ?? '').replace(/[&<>"]/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[s]));
+const DB_KEY = "mienra_web_app_v2";
 
-let page = 'dashboard';
+const $ = (id) => document.getElementById(id);
+const fmt = new Intl.NumberFormat("fr-FR");
+const money = (value) => `${fmt.format(Number(value || 0))} FCFA`;
+const today = () => new Date().toISOString().slice(0, 10);
+const uid = (prefix) => `${prefix}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+const clean = (value) => String(value ?? "").replace(/[&<>"']/g, (s) => ({
+  "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
+})[s]);
+
+let view = "dashboard";
 let session = null;
-let editId = null;
-let lastReceipt = null;
+let editing = null;
+let activeReceipt = null;
 let state = loadState();
 
 const menu = [
-  ['dashboard', 'Tableau de bord'],
-  ['students', 'Élèves'],
-  ['classes', 'Classes & frais'],
-  ['enrollments', 'Inscriptions'],
-  ['payments', 'Paiements'],
-  ['receipts', 'Reçus'],
-  ['unpaid', 'Impayés'],
-  ['reports', 'Rapports'],
-  ['users', 'Utilisateurs'],
-  ['settings', 'Paramètres'],
-  ['backup', 'Sauvegardes']
+  ["dashboard", "Tableau de bord", "◼"],
+  ["students", "Élèves", "●"],
+  ["classes", "Classes & frais", "▦"],
+  ["enrollments", "Inscriptions", "✓"],
+  ["payments", "Paiements", "+"],
+  ["receipts", "Reçus", "#"],
+  ["unpaid", "Impayés", "!"],
+  ["reports", "Rapports", "▤"],
+  ["users", "Utilisateurs", "◎"],
+  ["settings", "Paramètres", "⚙"],
+  ["backup", "Sauvegardes", "⇩"]
 ];
 
 function seedState() {
   const classes = [
-    ['CP1', 'Primaire', 90000], ['CP2', 'Primaire', 95000], ['CE1', 'Primaire', 100000],
-    ['CE2', 'Primaire', 105000], ['CM1', 'Primaire', 120000], ['CM2', 'Primaire', 130000],
-    ['6e', 'Collège', 180000], ['5e', 'Collège', 180000], ['4e', 'Collège', 200000], ['3e', 'Collège', 220000]
-  ].map(([name, level, fee]) => ({ id: uid('CLS'), name, level, fee }));
+    ["CP1", "Primaire", 90000], ["CP2", "Primaire", 95000],
+    ["CE1", "Primaire", 100000], ["CE2", "Primaire", 105000],
+    ["CM1", "Primaire", 120000], ["CM2", "Primaire", 130000],
+    ["6e", "Collège", 180000], ["5e", "Collège", 180000],
+    ["4e", "Collège", 200000], ["3e", "Collège", 220000]
+  ].map(([name, level, fee]) => ({ id: uid("CLS"), name, level, fee }));
+
   const students = [
-    { id: uid('ELV'), matricule: 'GSM-2026-0001', name: 'Aka Mireille', gender: 'F', birth: '2014-04-12', className: '6e', parent: 'Aka Paul', phone: '0700000001', address: 'Yopougon', status: 'Actif' },
-    { id: uid('ELV'), matricule: 'GSM-2026-0002', name: 'Kouadio Jean', gender: 'M', birth: '2015-09-20', className: 'CM2', parent: 'Kouadio Anne', phone: '0700000002', address: 'Cocody', status: 'Actif' },
-    { id: uid('ELV'), matricule: 'GSM-2026-0003', name: 'Traoré Aminata', gender: 'F', birth: '2012-01-11', className: '4e', parent: 'Traoré Moussa', phone: '0700000003', address: 'Abobo', status: 'Actif' }
+    { id: uid("ELV"), matricule: "GSM-2026-0001", name: "Aka Mireille", gender: "F", birth: "2014-04-12", className: "6e", parent: "Aka Paul", phone: "0700000001", address: "Yopougon", status: "Actif" },
+    { id: uid("ELV"), matricule: "GSM-2026-0002", name: "Kouadio Jean", gender: "M", birth: "2015-09-20", className: "CM2", parent: "Kouadio Anne", phone: "0700000002", address: "Cocody", status: "Actif" },
+    { id: uid("ELV"), matricule: "GSM-2026-0003", name: "Traoré Aminata", gender: "F", birth: "2012-01-11", className: "4e", parent: "Traoré Moussa", phone: "0700000003", address: "Abobo", status: "Actif" }
   ];
-  const enrollments = students.map(s => ({ id: uid('INS'), studentId: s.id, year: '2026-2027', className: s.className, amount: classFee(classes, s.className), discount: 0, date: today(), note: 'Inscription annuelle' }));
+
   return {
-    school: { name: 'Groupe Scolaire MIENRA', code: 'GSM', year: '2026-2027', receiptPrefix: 'REC', matriculeYear: '2026', phone: '+225 07 00 00 00 00', email: 'contact@mienra.ci', address: 'Abidjan, Côte d’Ivoire', director: 'Directeur de l’école', logo: 'M', receiptFooter: 'Merci pour votre paiement.' },
-    years: ['2025-2026', '2026-2027'],
+    school: {
+      name: "Groupe Scolaire MIENRA",
+      code: "GSM",
+      year: "2026-2027",
+      phone: "+225 07 00 00 00 00",
+      email: "contact@mienra.ci",
+      address: "Abidjan, Côte d’Ivoire",
+      director: "Directeur de l’école",
+      logo: "M",
+      receiptPrefix: "REC",
+      receiptFooter: "Merci pour votre paiement."
+    },
+    years: ["2025-2026", "2026-2027"],
     users: [
-      { id: uid('USR'), name: 'Administrateur', login: 'admin', password: 'admin123', role: 'Administrateur', active: true },
-      { id: uid('USR'), name: 'Directeur', login: 'directeur', password: 'directeur123', role: 'Directeur', active: true },
-      { id: uid('USR'), name: 'Secrétaire', login: 'secretaire', password: 'secretaire123', role: 'Secrétaire', active: true }
+      { id: uid("USR"), name: "Administrateur", login: "admin", password: "admin123", role: "Administrateur", active: true },
+      { id: uid("USR"), name: "Directeur", login: "directeur", password: "directeur123", role: "Directeur", active: true },
+      { id: uid("USR"), name: "Secrétaire", login: "secretaire", password: "secretaire123", role: "Secrétaire", active: true }
     ],
-    classes, students, enrollments,
+    classes,
+    students,
+    enrollments: students.map((student) => ({
+      id: uid("INS"),
+      studentId: student.id,
+      year: "2026-2027",
+      className: student.className,
+      amount: classFee(classes, student.className),
+      discount: 0,
+      date: today(),
+      note: "Inscription annuelle"
+    })),
     payments: [
-      { id: 'REC-2026-0001', studentId: students[0].id, amount: 180000, mode: 'Espèces', date: today(), cashier: 'Secrétaire', note: 'Paiement complet' },
-      { id: 'REC-2026-0002', studentId: students[1].id, amount: 100000, mode: 'Mobile Money', date: today(), cashier: 'Secrétaire', note: 'Premier versement' }
+      { id: "REC-2026-0001", studentId: students[0].id, amount: 180000, mode: "Espèces", date: today(), cashier: "Secrétaire", note: "Paiement complet" },
+      { id: "REC-2026-0002", studentId: students[1].id, amount: 100000, mode: "Mobile Money", date: today(), cashier: "Secrétaire", note: "Premier versement" }
     ],
     logs: [],
     backups: []
   };
 }
 
-function classFee(classes, name) { return Number(classes.find(c => c.name === name)?.fee || 0); }
-function loadState() { try { return JSON.parse(localStorage.getItem(DB_KEY)) || seedState(); } catch { return seedState(); } }
-function saveState() { localStorage.setItem(DB_KEY, JSON.stringify(state)); }
-function log(action) { state.logs.unshift({ date: new Date().toLocaleString('fr-FR'), user: session?.name || 'Système', action }); state.logs = state.logs.slice(0, 200); saveState(); }
-function student(id) { return state.students.find(s => s.id === id) || {}; }
-function totalDue(id) { return state.enrollments.filter(e => e.studentId === id).reduce((s, e) => s + Number(e.amount || 0) - Number(e.discount || 0), 0); }
-function totalPaid(id) { return state.payments.filter(p => p.studentId === id).reduce((s, p) => s + Number(p.amount || 0), 0); }
-function balance(id) { return totalDue(id) - totalPaid(id); }
-function rate(id) { const d = totalDue(id); return d ? Math.min(100, Math.round((totalPaid(id) / d) * 100)) : 0; }
-function canManage() { return ['Administrateur', 'Directeur', 'Secrétaire'].includes(session?.role); }
+function loadState() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(DB_KEY));
+    return saved ? normalizeState(saved) : seedState();
+  } catch {
+    return seedState();
+  }
+}
 
-function init() { showLogin(); }
-function showLogin() {
-  document.getElementById('root').innerHTML = `
-    <div class="login"><div class="login-card">
-      <h1>MIENRA Web</h1>
-      <p>Application web de gestion scolaire : inscriptions, paiements, reçus, impayés et rapports.</p>
-      <label>Identifiant</label><input id="login" value="admin">
-      <br><br><label>Mot de passe</label><input id="password" type="password" value="admin123">
-      <div class="btns"><button class="btn primary" onclick="login()">Se connecter</button><button class="btn light" onclick="enterAsAdmin()">Accès test rapide</button></div>
-      <div class="notice" style="margin-top:14px">Comptes : admin/admin123 · directeur/directeur123 · secretaire/secretaire123</div>
-    </div></div>`;
+function normalizeState(data) {
+  const base = seedState();
+  return {
+    ...base,
+    ...data,
+    school: { ...base.school, ...(data.school || {}) },
+    years: data.years?.length ? data.years : base.years,
+    users: data.users?.length ? data.users : base.users,
+    logs: data.logs || []
+  };
 }
+
+function saveState() { localStorage.setItem(DB_KEY, JSON.stringify(state)); }
+function log(action) {
+  state.logs.unshift({ date: new Date().toLocaleString("fr-FR"), user: session?.name || "Système", action });
+  state.logs = state.logs.slice(0, 300);
+  saveState();
+}
+
+function classFee(classes, name) { return Number(classes.find((item) => item.name === name)?.fee || 0); }
+function student(id) { return state.students.find((item) => item.id === id) || {}; }
+function due(id) { return state.enrollments.filter((item) => item.studentId === id).reduce((sum, item) => sum + Number(item.amount || 0) - Number(item.discount || 0), 0); }
+function paid(id) { return state.payments.filter((item) => item.studentId === id).reduce((sum, item) => sum + Number(item.amount || 0), 0); }
+function balance(id) { return due(id) - paid(id); }
+function percent(id) { const total = due(id); return total ? Math.min(100, Math.round((paid(id) / total) * 100)) : 0; }
+function totals() {
+  const expected = state.students.reduce((sum, item) => sum + due(item.id), 0);
+  const collected = state.students.reduce((sum, item) => sum + paid(item.id), 0);
+  return { expected, collected, remaining: expected - collected, rate: expected ? Math.round((collected / expected) * 100) : 0 };
+}
+
+function init() { renderLogin(); }
+
+function renderLogin() {
+  $("root").innerHTML = `
+    <section class="login">
+      <div class="login-panel">
+        <div class="login-brand"><div class="mark">M</div><div><h1>MIENRA Web</h1><p>Gestion scolaire testable par lien GitHub Pages.</p></div></div>
+        <label>Identifiant</label><input id="login" value="admin" autocomplete="username">
+        <label>Mot de passe</label><input id="password" type="password" value="admin123" autocomplete="current-password">
+        <div class="actions"><button class="btn primary" onclick="login()">Se connecter</button><button class="btn quiet" onclick="quickLogin()">Mode démo</button></div>
+        <div class="hint">Comptes test : admin/admin123, directeur/directeur123, secretaire/secretaire123</div>
+      </div>
+    </section>`;
+}
+
 function login() {
-  const u = state.users.find(u => u.login === $('login').value.trim() && u.password === $('password').value.trim() && u.active);
-  if (!u) return alert('Identifiants incorrects ou utilisateur inactif.');
-  session = u; log('Connexion'); drawApp();
+  const username = $("login").value.trim();
+  const password = $("password").value.trim();
+  const user = state.users.find((item) => item.login === username && item.password === password && item.active);
+  if (!user) return alert("Identifiants incorrects ou compte inactif.");
+  session = user;
+  log("Connexion");
+  renderShell();
 }
-function enterAsAdmin() { session = state.users[0]; drawApp(); }
-function logout() { session = null; showLogin(); }
-function drawApp() {
-  document.getElementById('root').innerHTML = `
+
+function quickLogin() {
+  session = state.users.find((item) => item.login === "admin") || state.users[0];
+  log("Connexion démo");
+  renderShell();
+}
+
+function logout() { session = null; renderLogin(); }
+
+function renderShell() {
+  $("root").innerHTML = `
     <div class="app">
-      <aside class="side"><div class="brand">MIENRA</div><div class="tag">Application web GitHub Pages</div>
-      <div class="user"><b>${escapeHtml(state.school.name)}</b><br><span class="small" style="color:#dbeafe">${escapeHtml(session.name)} · ${escapeHtml(session.role)}</span><br><button class="btn light" style="margin-top:10px" onclick="logout()">Déconnexion</button></div>
-      <div class="nav" id="nav"></div></aside>
-      <main class="main"><div class="top"><h1 id="title"></h1><div class="pill">Version web testable par lien GitHub Pages</div></div><div id="view"></div></main>
+      <aside class="sidebar">
+        <div class="brand-row"><div class="mark">${clean(state.school.logo || "M")}</div><div><strong>MIENRA</strong><span>${clean(state.school.year)}</span></div></div>
+        <div class="account"><b>${clean(session.name)}</b><span>${clean(session.role)}</span><button class="btn small quiet" onclick="logout()">Déconnexion</button></div>
+        <nav id="nav"></nav>
+      </aside>
+      <main class="workspace">
+        <header class="topbar">
+          <div><p>${clean(state.school.name)}</p><h1 id="pageTitle"></h1></div>
+          <div class="top-actions"><button class="btn quiet" onclick="downloadBackup()">Sauvegarder</button><button class="btn secondary" onclick="go('payments')">Nouveau paiement</button></div>
+        </header>
+        <section id="content"></section>
+      </main>
     </div>`;
-  renderNav(); render();
+  renderNav();
+  renderView();
 }
-function renderNav() { $('nav').innerHTML = menu.map(([k, t]) => `<button class="${page === k ? 'active' : ''}" onclick="go('${k}')">${t}</button>`).join(''); }
-function go(k) { page = k; editId = null; renderNav(); render(); }
-function render() { $('title').textContent = menu.find(m => m[0] === page)[1]; pages[page](); }
+
+function renderNav() {
+  $("nav").innerHTML = menu.map(([key, label, icon]) => `<button class="${view === key ? "active" : ""}" onclick="go('${key}')"><span>${icon}</span>${label}</button>`).join("");
+}
+
+function go(key) { view = key; editing = null; renderNav(); renderView(); }
+function renderView() { $("pageTitle").textContent = menu.find(([key]) => key === view)?.[1] || "MIENRA"; pages[view](); }
 
 const pages = {
   dashboard() {
-    const expected = state.students.reduce((s, st) => s + totalDue(st.id), 0);
-    const paid = state.students.reduce((s, st) => s + totalPaid(st.id), 0);
-    const unpaid = expected - paid;
-    const rateGlobal = expected ? Math.round((paid / expected) * 100) : 0;
-    $('view').innerHTML = `
-      <div class="grid"><div class="stat"><b>${state.students.length}</b><span>Élèves</span></div><div class="stat"><b>${money(expected)}</b><span>Attendu</span></div><div class="stat"><b>${money(paid)}</b><span>Encaissé</span></div><div class="stat"><b>${rateGlobal}%</b><span>Taux paiement</span></div></div>
-      <div class="two"><div class="card"><h2>Situation par classe</h2>${classSummary()}</div><div class="card"><h2>Dernières activités</h2>${logs(8)}</div></div>`;
+    const t = totals();
+    $("content").innerHTML = `
+      <div class="stats">${stat("Élèves", state.students.length)}${stat("Montant attendu", money(t.expected))}${stat("Montant encaissé", money(t.collected))}${stat("Reste à payer", money(t.remaining), t.remaining > 0 ? "danger" : "ok")}</div>
+      <div class="layout-two">
+        <article class="panel"><div class="panel-head"><h2>Recouvrement par classe</h2><span>${t.rate}% encaissé</span></div>${classSummary()}</article>
+        <article class="panel"><div class="panel-head"><h2>Activité récente</h2><span>${state.logs.length} opérations</span></div>${logsTable(9)}</article>
+      </div>`;
   },
   students() {
-    const s = editId ? state.students.find(x => x.id === editId) : {};
-    $('view').innerHTML = `
-      <div class="card"><h2>${editId ? 'Modifier' : 'Ajouter'} un élève</h2>${studentForm(s)}<div class="btns"><button class="btn primary" onclick="saveStudent()">Enregistrer</button>${editId ? '<button class="btn light" onclick="editId=null;pages.students()">Annuler</button>' : ''}</div></div>
-      <div class="card"><h2>Liste des élèves</h2><div class="form-grid"><input id="qStudent" placeholder="Recherche nom, matricule, parent, contact" oninput="drawStudentsTable()"><select id="filterClass" onchange="drawStudentsTable()"><option value="">Toutes les classes</option>${state.classes.map(c => `<option>${c.name}</option>`).join('')}</select><select id="filterPay" onchange="drawStudentsTable()"><option value="">Tous paiements</option><option value="soldé">Soldés</option><option value="partiel">Partiels</option><option value="impayé">Impayés</option></select></div><div id="studentsTable"></div></div>`;
-    drawStudentsTable();
+    const item = editing ? state.students.find((row) => row.id === editing) : {};
+    $("content").innerHTML = `
+      <article class="panel"><div class="panel-head"><h2>${editing ? "Modifier un élève" : "Ajouter un élève"}</h2><span>Identité, classe et parent</span></div>${studentForm(item)}<div class="actions"><button class="btn primary" onclick="saveStudent()">Enregistrer</button>${editing ? `<button class="btn quiet" onclick="editing=null;pages.students()">Annuler</button>` : ""}</div></article>
+      <article class="panel"><div class="panel-head"><h2>Liste des élèves</h2><span>${state.students.length} dossiers</span></div><div class="filters"><input id="studentSearch" placeholder="Rechercher nom, matricule, parent, contact..." oninput="drawStudents()"><select id="studentClass" onchange="drawStudents()"><option value="">Toutes les classes</option>${state.classes.map((row) => `<option>${clean(row.name)}</option>`).join("")}</select><select id="studentPayment" onchange="drawStudents()"><option value="">Tous statuts</option><option value="paid">Soldés</option><option value="partial">Partiels</option><option value="unpaid">Impayés</option></select></div><div id="studentsTable"></div></article>`;
+    drawStudents();
   },
   classes() {
-    const c = editId ? state.classes.find(x => x.id === editId) : {};
-    $('view').innerHTML = `
-      <div class="card"><h2>${editId ? 'Modifier' : 'Ajouter'} une classe</h2><div class="form-grid"><div><label>Classe</label><input id="className" value="${escapeHtml(c?.name || '')}"></div><div><label>Niveau</label><select id="level"><option ${c?.level === 'Primaire' ? 'selected' : ''}>Primaire</option><option ${c?.level === 'Collège' ? 'selected' : ''}>Collège</option><option ${c?.level === 'Lycée' ? 'selected' : ''}>Lycée</option></select></div><div><label>Frais annuels</label><input id="fee" type="number" value="${c?.fee || 100000}"></div></div><div class="btns"><button class="btn primary" onclick="saveClass()">Enregistrer</button></div></div>
-      <div class="card"><h2>Classes et frais scolaires</h2><table><tr><th>Classe</th><th>Niveau</th><th>Frais</th><th>Élèves</th><th>Actions</th></tr>${state.classes.map(c => `<tr><td>${c.name}</td><td>${c.level}</td><td>${money(c.fee)}</td><td>${state.students.filter(s => s.className === c.name).length}</td><td><button class="btn light" onclick="editClass('${c.id}')">Modifier</button> <button class="btn danger" onclick="deleteClass('${c.id}')">Supprimer</button></td></tr>`).join('')}</table></div>`;
+    const item = editing ? state.classes.find((row) => row.id === editing) : {};
+    $("content").innerHTML = `
+      <article class="panel"><div class="panel-head"><h2>${editing ? "Modifier une classe" : "Ajouter une classe"}</h2><span>Frais scolaires annuels</span></div><div class="form-grid">${field("Classe", "className", item?.name || "")}<div><label>Niveau</label><select id="level">${["Maternelle", "Primaire", "Collège", "Lycée", "Supérieur"].map((level) => `<option ${item?.level === level ? "selected" : ""}>${level}</option>`).join("")}</select></div>${field("Frais annuels", "fee", item?.fee || 100000, "number")}</div><div class="actions"><button class="btn primary" onclick="saveClass()">Enregistrer</button></div></article>
+      <article class="panel"><div class="panel-head"><h2>Classes & frais</h2><span>${state.classes.length} classes</span></div><table><thead><tr><th>Classe</th><th>Niveau</th><th>Frais</th><th>Élèves</th><th>Actions</th></tr></thead><tbody>${state.classes.map((row) => `<tr><td>${clean(row.name)}</td><td>${clean(row.level)}</td><td>${money(row.fee)}</td><td>${state.students.filter((s) => s.className === row.name).length}</td><td>${rowActions("Class", row.id)}</td></tr>`).join("")}</tbody></table></article>`;
   },
   enrollments() {
-    $('view').innerHTML = `
-      <div class="card"><h2>Nouvelle inscription</h2><div class="form-grid"><div><label>Élève</label><select id="enStudent" onchange="syncEnrollmentFee()">${state.students.map(s => `<option value="${s.id}">${s.name} - ${s.matricule}</option>`).join('')}</select></div><div><label>Classe</label><select id="enClass" onchange="syncEnrollmentFee()">${state.classes.map(c => `<option>${c.name}</option>`).join('')}</select></div><div><label>Année</label><select id="enYear">${state.years.map(y => `<option ${y === state.school.year ? 'selected' : ''}>${y}</option>`).join('')}</select></div><div><label>Montant</label><input id="enAmount" type="number"></div><div><label>Remise</label><input id="enDiscount" type="number" value="0"></div><div><label>Date</label><input id="enDate" type="date" value="${today()}"></div></div><div><label>Note</label><input id="enNote" value="Inscription annuelle"></div><div class="btns"><button class="btn primary" onclick="saveEnrollment()">Valider l'inscription</button></div></div>
-      <div class="card"><h2>Historique des inscriptions</h2>${enrollmentsTable()}</div>`;
-    syncEnrollmentFee();
+    $("content").innerHTML = `
+      <article class="panel"><div class="panel-head"><h2>Nouvelle inscription</h2><span>Création d’un droit scolaire</span></div><div class="form-grid"><div><label>Élève</label><select id="enStudent">${state.students.map((row) => `<option value="${row.id}">${clean(row.name)} - ${clean(row.matricule)}</option>`).join("")}</select></div><div><label>Classe</label><select id="enClass" onchange="syncFee()">${state.classes.map((row) => `<option>${clean(row.name)}</option>`).join("")}</select></div><div><label>Année</label><select id="enYear">${state.years.map((year) => `<option ${year === state.school.year ? "selected" : ""}>${clean(year)}</option>`).join("")}</select></div>${field("Montant", "enAmount", "", "number")}${field("Remise", "enDiscount", 0, "number")}${field("Date", "enDate", today(), "date")}</div>${field("Note", "enNote", "Inscription annuelle")}<div class="actions"><button class="btn primary" onclick="saveEnrollment()">Valider l’inscription</button></div></article>
+      <article class="panel"><div class="panel-head"><h2>Historique des inscriptions</h2><span>${state.enrollments.length} lignes</span></div>${enrollmentsTable()}</article>`;
+    syncFee();
   },
   payments() {
-    $('view').innerHTML = `
-      <div class="card"><h2>Nouveau paiement</h2><div class="form-grid"><div><label>Élève</label><select id="payStudent" onchange="payInfo()">${state.students.map(s => `<option value="${s.id}">${s.name} - reste ${money(balance(s.id))}</option>`).join('')}</select></div><div><label>Montant payé</label><input id="payAmount" type="number" value="50000"></div><div><label>Mode</label><select id="payMode"><option>Espèces</option><option>Mobile Money</option><option>Chèque</option><option>Virement</option><option>Carte bancaire</option></select></div><div><label>Date</label><input id="payDate" type="date" value="${today()}"></div><div><label>Caissier</label><input id="cashier" value="${escapeHtml(session.name)}"></div><div><label>Note</label><input id="payNote" value="Versement frais scolaires"></div></div><div class="notice" id="payInfo"></div><div class="btns"><button class="btn primary" onclick="savePayment()">Enregistrer et générer reçu</button></div></div>
-      <div class="card"><h2>Historique des paiements</h2>${paymentsTable()}</div>`;
-    payInfo();
+    $("content").innerHTML = `
+      <article class="panel"><div class="panel-head"><h2>Nouveau paiement</h2><span>Encaissement et reçu</span></div><div class="form-grid"><div><label>Élève</label><select id="payStudent" onchange="paymentInfo()">${state.students.map((row) => `<option value="${row.id}">${clean(row.name)} - reste ${money(balance(row.id))}</option>`).join("")}</select></div>${field("Montant payé", "payAmount", 50000, "number")}<div><label>Mode</label><select id="payMode"><option>Espèces</option><option>Mobile Money</option><option>Chèque</option><option>Virement</option><option>Carte bancaire</option></select></div>${field("Date", "payDate", today(), "date")}${field("Caissier", "cashier", session.name)}${field("Note", "payNote", "Versement frais scolaires")}</div><div class="notice" id="payInfo"></div><div class="actions"><button class="btn primary" onclick="savePayment()">Enregistrer et générer le reçu</button></div></article>
+      <article class="panel"><div class="panel-head"><h2>Historique des paiements</h2><span>${state.payments.length} reçus</span></div>${paymentsTable()}</article>`;
+    paymentInfo();
   },
   receipts() { receiptView(); },
   unpaid() {
-    const rows = state.students.filter(s => balance(s.id) > 0).sort((a, b) => balance(b.id) - balance(a.id));
-    $('view').innerHTML = `<div class="card"><h2>Liste des impayés</h2><div class="notice">Total à recouvrer : <b>${money(rows.reduce((a, s) => a + balance(s.id), 0))}</b></div><table><tr><th>Élève</th><th>Classe</th><th>Attendu</th><th>Payé</th><th>Reste</th><th>Parent</th><th>Action</th></tr>${rows.map(s => `<tr><td>${s.name}<br><span class="small">${s.matricule}</span></td><td>${s.className}</td><td>${money(totalDue(s.id))}</td><td>${money(totalPaid(s.id))}</td><td class="bad">${money(balance(s.id))}</td><td>${s.parent}<br>${s.phone}</td><td><button class="btn secondary" onclick="goPay('${s.id}')">Payer</button></td></tr>`).join('') || '<tr><td colspan="7">Aucun impayé</td></tr>'}</table></div>`;
+    const rows = state.students.filter((row) => balance(row.id) > 0).sort((a, b) => balance(b.id) - balance(a.id));
+    $("content").innerHTML = `<article class="panel"><div class="panel-head"><h2>Impayés</h2><span>${money(rows.reduce((sum, row) => sum + balance(row.id), 0))} à recouvrer</span></div><table><thead><tr><th>Élève</th><th>Classe</th><th>Attendu</th><th>Payé</th><th>Reste</th><th>Parent</th><th>Action</th></tr></thead><tbody>${rows.map((row) => `<tr><td>${clean(row.name)}<br><small>${clean(row.matricule)}</small></td><td>${clean(row.className)}</td><td>${money(due(row.id))}</td><td>${money(paid(row.id))}</td><td class="amount-danger">${money(balance(row.id))}</td><td>${clean(row.parent)}<br><small>${clean(row.phone)}</small></td><td><button class="btn secondary small" onclick="goPay('${row.id}')">Payer</button></td></tr>`).join("") || `<tr><td colspan="7">Aucun impayé.</td></tr>`}</tbody></table></article>`;
   },
   reports() {
-    const expected = state.students.reduce((s, st) => s + totalDue(st.id), 0);
-    const paid = state.students.reduce((s, st) => s + totalPaid(st.id), 0);
-    $('view').innerHTML = `<div class="card"><h2>Rapports financiers</h2><div class="grid"><div class="stat"><b>${money(expected)}</b><span>Total attendu</span></div><div class="stat"><b>${money(paid)}</b><span>Total encaissé</span></div><div class="stat"><b>${money(expected-paid)}</b><span>Impayés</span></div><div class="stat"><b>${expected ? Math.round(paid/expected*100) : 0}%</b><span>Taux</span></div></div><div class="btns"><button class="btn secondary" onclick="exportCSV('students')">Exporter élèves CSV</button><button class="btn secondary" onclick="exportCSV('payments')">Exporter paiements CSV</button><button class="btn secondary" onclick="exportCSV('unpaid')">Exporter impayés CSV</button><button class="btn light" onclick="window.print()">Imprimer</button></div></div><div class="card"><h2>Rapport par classe</h2>${classSummary()}</div>`;
+    const t = totals();
+    $("content").innerHTML = `<div class="stats">${stat("Attendu", money(t.expected))}${stat("Encaissé", money(t.collected))}${stat("Impayés", money(t.remaining), "danger")}${stat("Taux", `${t.rate}%`)}</div><article class="panel"><div class="panel-head"><h2>Exports et impression</h2><span>Données du navigateur</span></div><div class="actions"><button class="btn secondary" onclick="exportCSV('students')">Exporter élèves CSV</button><button class="btn secondary" onclick="exportCSV('payments')">Exporter paiements CSV</button><button class="btn secondary" onclick="exportCSV('unpaid')">Exporter impayés CSV</button><button class="btn quiet" onclick="window.print()">Imprimer le rapport</button></div></article><article class="panel"><div class="panel-head"><h2>Rapport par classe</h2><span>Synthèse financière</span></div>${classSummary()}</article>`;
   },
   users() {
-    const u = editId ? state.users.find(x => x.id === editId) : {};
-    $('view').innerHTML = `<div class="card"><h2>${editId ? 'Modifier' : 'Ajouter'} utilisateur</h2><div class="form-grid"><div><label>Nom</label><input id="userName" value="${escapeHtml(u?.name || '')}"></div><div><label>Login</label><input id="userLogin" value="${escapeHtml(u?.login || '')}"></div><div><label>Mot de passe</label><input id="userPass" value="${escapeHtml(u?.password || '123456')}"></div><div><label>Rôle</label><select id="userRole"><option ${u?.role === 'Administrateur' ? 'selected' : ''}>Administrateur</option><option ${u?.role === 'Directeur' ? 'selected' : ''}>Directeur</option><option ${u?.role === 'Secrétaire' ? 'selected' : ''}>Secrétaire</option><option ${u?.role === 'Consultation' ? 'selected' : ''}>Consultation</option></select></div><div><label>Statut</label><select id="userActive"><option value="true" ${u?.active !== false ? 'selected' : ''}>Actif</option><option value="false" ${u?.active === false ? 'selected' : ''}>Inactif</option></select></div></div><div class="btns"><button class="btn primary" onclick="saveUser()">Enregistrer</button></div></div><div class="card"><h2>Utilisateurs</h2><table><tr><th>Nom</th><th>Login</th><th>Rôle</th><th>Statut</th><th>Actions</th></tr>${state.users.map(u => `<tr><td>${u.name}</td><td>${u.login}</td><td>${u.role}</td><td>${u.active?'Actif':'Inactif'}</td><td><button class="btn light" onclick="editUser('${u.id}')">Modifier</button> <button class="btn danger" onclick="deleteUser('${u.id}')">Supprimer</button></td></tr>`).join('')}</table></div>`;
+    const item = editing ? state.users.find((row) => row.id === editing) : {};
+    $("content").innerHTML = `<article class="panel"><div class="panel-head"><h2>${editing ? "Modifier un utilisateur" : "Ajouter un utilisateur"}</h2><span>Comptes locaux de test</span></div><div class="form-grid">${field("Nom", "userName", item?.name || "")}${field("Identifiant", "userLogin", item?.login || "")}${field("Mot de passe", "userPass", item?.password || "123456")}<div><label>Rôle</label><select id="userRole">${["Administrateur", "Directeur", "Secrétaire", "Consultation"].map((role) => `<option ${item?.role === role ? "selected" : ""}>${role}</option>`).join("")}</select></div><div><label>Statut</label><select id="userActive"><option value="true" ${item?.active !== false ? "selected" : ""}>Actif</option><option value="false" ${item?.active === false ? "selected" : ""}>Inactif</option></select></div></div><div class="actions"><button class="btn primary" onclick="saveUser()">Enregistrer</button></div></article><article class="panel"><div class="panel-head"><h2>Utilisateurs</h2><span>${state.users.length} comptes</span></div><table><thead><tr><th>Nom</th><th>Identifiant</th><th>Rôle</th><th>Statut</th><th>Actions</th></tr></thead><tbody>${state.users.map((row) => `<tr><td>${clean(row.name)}</td><td>${clean(row.login)}</td><td>${clean(row.role)}</td><td>${row.active ? "Actif" : "Inactif"}</td><td>${rowActions("User", row.id)}</td></tr>`).join("")}</tbody></table></article>`;
   },
   settings() {
-    const s = state.school;
-    $('view').innerHTML = `<div class="card"><h2>Paramètres de l'établissement</h2><div class="form-grid"><div><label>Nom école</label><input id="schoolName" value="${escapeHtml(s.name)}"></div><div><label>Code</label><input id="schoolCode" value="${escapeHtml(s.code)}"></div><div><label>Année active</label><input id="schoolYear" value="${escapeHtml(s.year)}"></div><div><label>Téléphone</label><input id="schoolPhone" value="${escapeHtml(s.phone)}"></div><div><label>Email</label><input id="schoolEmail" value="${escapeHtml(s.email)}"></div><div><label>Adresse</label><input id="schoolAddress" value="${escapeHtml(s.address)}"></div><div><label>Directeur</label><input id="director" value="${escapeHtml(s.director)}"></div><div><label>Préfixe reçu</label><input id="receiptPrefix" value="${escapeHtml(s.receiptPrefix)}"></div><div><label>Année matricule</label><input id="matriculeYear" value="${escapeHtml(s.matriculeYear)}"></div><div><label>Logo texte</label><input id="logo" value="${escapeHtml(s.logo)}"></div></div><label>Message reçu</label><textarea id="receiptFooter">${escapeHtml(s.receiptFooter)}</textarea><div class="btns"><button class="btn primary" onclick="saveSettings()">Enregistrer paramètres</button></div></div>`;
+    const item = state.school;
+    $("content").innerHTML = `<article class="panel"><div class="panel-head"><h2>Paramètres de l’établissement</h2><span>Identité sur reçus et exports</span></div><div class="form-grid">${field("Nom école", "schoolName", item.name)}${field("Code", "schoolCode", item.code)}${field("Année active", "schoolYear", item.year)}${field("Téléphone", "schoolPhone", item.phone)}${field("Email", "schoolEmail", item.email)}${field("Adresse", "schoolAddress", item.address)}${field("Directeur", "director", item.director)}${field("Préfixe reçu", "receiptPrefix", item.receiptPrefix)}${field("Logo texte", "logo", item.logo)}</div><div><label>Message reçu</label><textarea id="receiptFooter">${clean(item.receiptFooter)}</textarea></div><div class="actions"><button class="btn primary" onclick="saveSettings()">Enregistrer les paramètres</button></div></article>`;
   },
   backup() {
-    $('view').innerHTML = `<div class="card"><h2>Sauvegardes</h2><p>Cette version GitHub Pages conserve les données dans le navigateur. Exportez un fichier JSON pour transférer les données.</p><div class="btns"><button class="btn secondary" onclick="downloadBackup()">Exporter sauvegarde JSON</button><button class="btn warn" onclick="resetApp()">Réinitialiser application</button></div><br><label>Importer une sauvegarde JSON</label><input type="file" accept=".json" onchange="importBackup(this)"></div><div class="card"><h2>Journal</h2>${logs(40)}</div>`;
+    $("content").innerHTML = `<article class="panel"><div class="panel-head"><h2>Sauvegardes</h2><span>Export/import JSON</span></div><p class="muted">Cette version GitHub Pages stocke les données dans le navigateur de chaque testeur. Exportez un fichier JSON pour transférer ou archiver une base de test.</p><div class="actions"><button class="btn secondary" onclick="downloadBackup()">Exporter JSON</button><button class="btn danger" onclick="resetApp()">Réinitialiser</button></div><label>Importer une sauvegarde JSON</label><input type="file" accept=".json" onchange="importBackup(this)"></article><article class="panel"><div class="panel-head"><h2>Journal</h2><span>${state.logs.length} opérations</span></div>${logsTable(80)}</article>`;
   }
 };
 
-function studentForm(s) {
-  return `<div class="form-grid"><div><label>Nom complet</label><input id="stName" value="${escapeHtml(s?.name || '')}"></div><div><label>Genre</label><select id="stGender"><option ${s?.gender === 'M' ? 'selected' : ''}>M</option><option ${s?.gender === 'F' ? 'selected' : ''}>F</option></select></div><div><label>Date naissance</label><input id="stBirth" type="date" value="${escapeHtml(s?.birth || '')}"></div><div><label>Classe</label><select id="stClass">${state.classes.map(c => `<option ${s?.className === c.name ? 'selected' : ''}>${c.name}</option>`).join('')}</select></div><div><label>Parent/Tuteur</label><input id="stParent" value="${escapeHtml(s?.parent || '')}"></div><div><label>Contact</label><input id="stPhone" value="${escapeHtml(s?.phone || '')}"></div><div><label>Adresse</label><input id="stAddress" value="${escapeHtml(s?.address || '')}"></div><div><label>Statut</label><select id="stStatus"><option ${s?.status === 'Actif' ? 'selected' : ''}>Actif</option><option ${s?.status === 'Inactif' ? 'selected' : ''}>Inactif</option><option ${s?.status === 'Transféré' ? 'selected' : ''}>Transféré</option></select></div></div>`;
+function stat(label, value, tone = "") { return `<div class="stat ${tone}"><span>${label}</span><strong>${value}</strong></div>`; }
+function field(label, id, value = "", type = "text") { return `<div><label>${label}</label><input id="${id}" type="${type}" value="${clean(value)}"></div>`; }
+function rowActions(scope, id) { return `<button class="btn quiet small" onclick="edit${scope}('${id}')">Modifier</button> <button class="btn danger small" onclick="delete${scope}('${id}')">Supprimer</button>`; }
+
+function studentForm(item) {
+  return `<div class="form-grid">${field("Nom complet", "stName", item?.name || "")}<div><label>Genre</label><select id="stGender"><option ${item?.gender === "M" ? "selected" : ""}>M</option><option ${item?.gender === "F" ? "selected" : ""}>F</option></select></div>${field("Date naissance", "stBirth", item?.birth || "", "date")}<div><label>Classe</label><select id="stClass">${state.classes.map((row) => `<option ${item?.className === row.name ? "selected" : ""}>${clean(row.name)}</option>`).join("")}</select></div>${field("Parent/Tuteur", "stParent", item?.parent || "")}${field("Contact", "stPhone", item?.phone || "")}${field("Adresse", "stAddress", item?.address || "")}<div><label>Statut</label><select id="stStatus">${["Actif", "Inactif", "Transféré"].map((status) => `<option ${item?.status === status ? "selected" : ""}>${status}</option>`).join("")}</select></div></div>`;
 }
-function drawStudentsTable() {
-  const q = ($('qStudent')?.value || '').toLowerCase();
-  const fc = $('filterClass')?.value || '';
-  const fp = $('filterPay')?.value || '';
-  let rows = state.students.filter(s => [s.name, s.matricule, s.parent, s.phone, s.className].join(' ').toLowerCase().includes(q));
-  if (fc) rows = rows.filter(s => s.className === fc);
-  if (fp === 'soldé') rows = rows.filter(s => balance(s.id) <= 0 && totalDue(s.id) > 0);
-  if (fp === 'partiel') rows = rows.filter(s => balance(s.id) > 0 && totalPaid(s.id) > 0);
-  if (fp === 'impayé') rows = rows.filter(s => balance(s.id) > 0 && totalPaid(s.id) === 0);
-  $('studentsTable').innerHTML = `<table><tr><th>Matricule</th><th>Élève</th><th>Classe</th><th>Parent</th><th>Paiement</th><th>Actions</th></tr>${rows.map(s => `<tr><td>${s.matricule}</td><td>${s.name}<br><span class="small">${s.gender} · ${s.status}</span></td><td>${s.className}</td><td>${s.parent}<br>${s.phone}</td><td>${paymentStatus(s)}</td><td><button class="btn light" onclick="editStudent('${s.id}')">Modifier</button> <button class="btn secondary" onclick="quickEnroll('${s.id}')">Inscrire</button> <button class="btn danger" onclick="deleteStudent('${s.id}')">Supprimer</button></td></tr>`).join('') || '<tr><td colspan="6">Aucun élève trouvé</td></tr>'}</table>`;
+
+function drawStudents() {
+  const q = ($("studentSearch")?.value || "").toLowerCase();
+  const className = $("studentClass")?.value || "";
+  const payStatus = $("studentPayment")?.value || "";
+  let rows = state.students.filter((row) => [row.name, row.matricule, row.parent, row.phone, row.className].join(" ").toLowerCase().includes(q));
+  if (className) rows = rows.filter((row) => row.className === className);
+  if (payStatus === "paid") rows = rows.filter((row) => balance(row.id) <= 0 && due(row.id) > 0);
+  if (payStatus === "partial") rows = rows.filter((row) => balance(row.id) > 0 && paid(row.id) > 0);
+  if (payStatus === "unpaid") rows = rows.filter((row) => balance(row.id) > 0 && paid(row.id) === 0);
+  $("studentsTable").innerHTML = `<table><thead><tr><th>Matricule</th><th>Élève</th><th>Classe</th><th>Parent</th><th>Paiement</th><th>Actions</th></tr></thead><tbody>${rows.map((row) => `<tr><td>${clean(row.matricule)}</td><td>${clean(row.name)}<br><small>${clean(row.gender)} · ${clean(row.status)}</small></td><td>${clean(row.className)}</td><td>${clean(row.parent)}<br><small>${clean(row.phone)}</small></td><td>${paymentStatus(row)}</td><td><button class="btn quiet small" onclick="editStudent('${row.id}')">Modifier</button> <button class="btn secondary small" onclick="quickEnroll('${row.id}')">Inscrire</button> <button class="btn danger small" onclick="deleteStudent('${row.id}')">Supprimer</button></td></tr>`).join("") || `<tr><td colspan="6">Aucun élève trouvé.</td></tr>`}</tbody></table>`;
 }
-function paymentStatus(s) { const r = rate(s.id); const b = balance(s.id); return `<b class="${b<=0?'ok':totalPaid(s.id)>0?'mid':'bad'}">${b<=0?'Soldé':totalPaid(s.id)>0?'Partiel':'Impayé'}</b><div class="progress"><div class="bar" style="width:${r}%"></div></div><span class="small">${r}% · reste ${money(b)}</span>`; }
+
+function paymentStatus(row) {
+  const left = balance(row.id);
+  const collected = paid(row.id);
+  const label = left <= 0 ? "Soldé" : collected > 0 ? "Partiel" : "Impayé";
+  const tone = left <= 0 ? "amount-ok" : collected > 0 ? "amount-warn" : "amount-danger";
+  return `<b class="${tone}">${label}</b><div class="progress"><span style="width:${percent(row.id)}%"></span></div><small>${percent(row.id)}% · reste ${money(left)}</small>`;
+}
+
 function saveStudent() {
-  const name = $('stName').value.trim(); if (!name) return alert('Nom obligatoire');
-  const data = { name, gender: $('stGender').value, birth: $('stBirth').value, className: $('stClass').value, parent: $('stParent').value, phone: $('stPhone').value, address: $('stAddress').value, status: $('stStatus').value };
-  if (editId) { Object.assign(state.students.find(s => s.id === editId), data); log(`Élève modifié : ${name}`); }
-  else { const n = String(state.students.length + 1).padStart(4, '0'); state.students.push({ id: uid('ELV'), matricule: `${state.school.code}-${state.school.matriculeYear}-${n}`, ...data }); log(`Élève ajouté : ${name}`); }
-  editId = null; saveState(); pages.students();
+  const name = $("stName").value.trim();
+  if (!name) return alert("Le nom complet est obligatoire.");
+  const data = { name, gender: $("stGender").value, birth: $("stBirth").value, className: $("stClass").value, parent: $("stParent").value, phone: $("stPhone").value, address: $("stAddress").value, status: $("stStatus").value };
+  if (editing) {
+    Object.assign(state.students.find((row) => row.id === editing), data);
+    log(`Élève modifié : ${name}`);
+  } else {
+    const number = String(state.students.length + 1).padStart(4, "0");
+    state.students.push({ id: uid("ELV"), matricule: `${state.school.code}-${state.school.year.slice(0, 4)}-${number}`, ...data });
+    log(`Élève ajouté : ${name}`);
+  }
+  editing = null;
+  saveState();
+  pages.students();
 }
-function editStudent(id) { editId = id; pages.students(); }
-function deleteStudent(id) { if (!confirm('Supprimer cet élève et ses données liées ?')) return; state.students = state.students.filter(s => s.id !== id); state.enrollments = state.enrollments.filter(e => e.studentId !== id); state.payments = state.payments.filter(p => p.studentId !== id); log('Élève supprimé'); saveState(); pages.students(); }
-function quickEnroll(id) { page = 'enrollments'; renderNav(); pages.enrollments(id); }
 
-function saveClass() { const name = $('className').value.trim(); if (!name) return alert('Classe obligatoire'); const data = { name, level: $('level').value, fee: Number($('fee').value) }; if (editId) { Object.assign(state.classes.find(c => c.id === editId), data); log(`Classe modifiée : ${name}`); } else { state.classes.push({ id: uid('CLS'), ...data }); log(`Classe ajoutée : ${name}`); } editId = null; saveState(); pages.classes(); }
-function editClass(id) { editId = id; pages.classes(); }
-function deleteClass(id) { if (!confirm('Supprimer cette classe ?')) return; state.classes = state.classes.filter(c => c.id !== id); saveState(); pages.classes(); }
-function syncEnrollmentFee() { const fee = classFee(state.classes, $('enClass')?.value); if ($('enAmount')) $('enAmount').value = fee; }
-function saveEnrollment() { const e = { id: uid('INS'), studentId: $('enStudent').value, className: $('enClass').value, year: $('enYear').value, amount: Number($('enAmount').value), discount: Number($('enDiscount').value || 0), date: $('enDate').value, note: $('enNote').value }; state.enrollments.push(e); const st = student(e.studentId); st.className = e.className; log(`Inscription validée : ${st.name}`); saveState(); pages.enrollments(); }
-function enrollmentsTable() { return `<table><tr><th>Élève</th><th>Classe</th><th>Année</th><th>Montant</th><th>Remise</th><th>Net</th><th>Date</th><th>Action</th></tr>${state.enrollments.map(e => `<tr><td>${student(e.studentId).name}<br><span class="small">${student(e.studentId).matricule}</span></td><td>${e.className}</td><td>${e.year}</td><td>${money(e.amount)}</td><td>${money(e.discount)}</td><td>${money(e.amount-e.discount)}</td><td>${e.date}</td><td><button class="btn danger" onclick="deleteEnrollment('${e.id}')">Supprimer</button></td></tr>`).join('')}</table>`; }
-function deleteEnrollment(id) { if (!confirm('Supprimer cette inscription ?')) return; state.enrollments = state.enrollments.filter(e => e.id !== id); log('Inscription supprimée'); saveState(); pages.enrollments(); }
+function editStudent(id) { editing = id; pages.students(); }
+function deleteStudent(id) {
+  if (!confirm("Supprimer cet élève, ses inscriptions et ses paiements ?")) return;
+  state.students = state.students.filter((row) => row.id !== id);
+  state.enrollments = state.enrollments.filter((row) => row.studentId !== id);
+  state.payments = state.payments.filter((row) => row.studentId !== id);
+  log("Élève supprimé");
+  saveState();
+  pages.students();
+}
 
-function payInfo() { const id = $('payStudent')?.value; if ($('payInfo')) $('payInfo').innerHTML = `Attendu : <b>${money(totalDue(id))}</b> · Payé : <b>${money(totalPaid(id))}</b> · Reste : <b>${money(balance(id))}</b>`; }
-function savePayment() { const sid = $('payStudent').value, amount = Number($('payAmount').value); if (amount <= 0) return alert('Montant invalide'); const p = { id: `${state.school.receiptPrefix}-${new Date().getFullYear()}-${String(state.payments.length + 1).padStart(4, '0')}`, studentId: sid, amount, mode: $('payMode').value, date: $('payDate').value, cashier: $('cashier').value, note: $('payNote').value }; state.payments.unshift(p); lastReceipt = p.id; log(`Paiement enregistré : ${student(sid).name} - ${money(amount)}`); saveState(); page = 'receipts'; renderNav(); receiptView(); }
-function paymentsTable() { return `<table><tr><th>Reçu</th><th>Élève</th><th>Montant</th><th>Mode</th><th>Date</th><th>Caissier</th><th>Actions</th></tr>${state.payments.map(p => `<tr><td>${p.id}</td><td>${student(p.studentId).name}<br><span class="small">${student(p.studentId).matricule}</span></td><td>${money(p.amount)}</td><td>${p.mode}</td><td>${p.date}<br><span class="small">${p.note}</span></td><td>${p.cashier}</td><td><button class="btn light" onclick="openReceipt('${p.id}')">Reçu</button> <button class="btn danger" onclick="deletePayment('${p.id}')">Supprimer</button></td></tr>`).join('')}</table>`; }
-function deletePayment(id) { if (!confirm('Supprimer ce paiement ?')) return; state.payments = state.payments.filter(p => p.id !== id); log('Paiement supprimé'); saveState(); pages.payments(); }
-function openReceipt(id) { lastReceipt = id; page = 'receipts'; renderNav(); receiptView(); }
-function receiptView() { const p = state.payments.find(x => x.id === lastReceipt) || state.payments[0]; if (!p) { $('view').innerHTML = '<div class="card empty">Aucun reçu disponible.</div>'; return; } const s = student(p.studentId); $('view').innerHTML = `<div class="card"><h2>Reçu de paiement</h2><div class="receipt"><div class="logo-box">${escapeHtml(state.school.logo)}</div><h2>${escapeHtml(state.school.name)}</h2><p style="text-align:center">${escapeHtml(state.school.address)} | ${escapeHtml(state.school.phone)} | ${escapeHtml(state.school.email)}</p><hr><div class="two"><div><p><b>N° reçu :</b> ${p.id}</p><p><b>Date :</b> ${p.date}</p><p><b>Élève :</b> ${s.name}</p><p><b>Matricule :</b> ${s.matricule}</p><p><b>Classe :</b> ${s.className}</p></div><div><p><b>Montant payé :</b> ${money(p.amount)}</p><p><b>Mode :</b> ${p.mode}</p><p><b>Total attendu :</b> ${money(totalDue(s.id))}</p><p><b>Total payé :</b> ${money(totalPaid(s.id))}</p><p><b>Reste :</b> ${money(balance(s.id))}</p></div></div><p><b>Observation :</b> ${escapeHtml(p.note || '-')}</p><br><div class="two"><p>Caissier : ${escapeHtml(p.cashier)}<br><br>Signature : ____________________</p><p>Direction : ${escapeHtml(state.school.director)}<br><br>Cachet : ____________________</p></div><p style="text-align:center" class="small">${escapeHtml(state.school.receiptFooter)}</p></div><div class="btns"><button class="btn secondary" onclick="window.print()">Imprimer / Enregistrer PDF</button><button class="btn light" onclick="go('payments')">Retour paiements</button></div></div>`; }
-function goPay(id) { page = 'payments'; renderNav(); pages.payments(); $('payStudent').value = id; payInfo(); }
+function quickEnroll(id) { view = "enrollments"; renderNav(); pages.enrollments(); $("enStudent").value = id; }
 
-function classSummary() { return `<table><tr><th>Classe</th><th>Niveau</th><th>Élèves</th><th>Attendu</th><th>Payé</th><th>Reste</th></tr>${state.classes.map(c => { const ids = state.students.filter(s => s.className === c.name).map(s => s.id); const d = ids.reduce((a, id) => a + totalDue(id), 0); const p = ids.reduce((a, id) => a + totalPaid(id), 0); return `<tr><td>${c.name}</td><td>${c.level}</td><td>${ids.length}</td><td>${money(d)}</td><td>${money(p)}</td><td class="${d-p>0?'bad':'ok'}">${money(d-p)}</td></tr>`; }).join('')}</table>`; }
-function logs(n) { return `<table><tr><th>Date</th><th>Utilisateur</th><th>Action</th></tr>${state.logs.slice(0, n).map(l => `<tr><td>${l.date}</td><td>${escapeHtml(l.user)}</td><td>${escapeHtml(l.action)}</td></tr>`).join('') || '<tr><td colspan="3">Aucune activité</td></tr>'}</table>`; }
-function saveUser() { const data = { name: $('userName').value, login: $('userLogin').value, password: $('userPass').value, role: $('userRole').value, active: $('userActive').value === 'true' }; if (editId) Object.assign(state.users.find(u => u.id === editId), data); else state.users.push({ id: uid('USR'), ...data }); log(`Utilisateur enregistré : ${data.login}`); editId = null; saveState(); pages.users(); }
-function editUser(id) { editId = id; pages.users(); }
-function deleteUser(id) { if (!confirm('Supprimer cet utilisateur ?')) return; state.users = state.users.filter(u => u.id !== id); saveState(); pages.users(); }
-function saveSettings() { Object.assign(state.school, { name: $('schoolName').value, code: $('schoolCode').value, year: $('schoolYear').value, phone: $('schoolPhone').value, email: $('schoolEmail').value, address: $('schoolAddress').value, director: $('director').value, receiptPrefix: $('receiptPrefix').value, matriculeYear: $('matriculeYear').value, logo: $('logo').value, receiptFooter: $('receiptFooter').value }); if (!state.years.includes(state.school.year)) state.years.push(state.school.year); log('Paramètres enregistrés'); saveState(); drawApp(); }
+function saveClass() {
+  const name = $("className").value.trim();
+  if (!name) return alert("La classe est obligatoire.");
+  const data = { name, level: $("level").value, fee: Number($("fee").value || 0) };
+  if (editing) {
+    Object.assign(state.classes.find((row) => row.id === editing), data);
+    log(`Classe modifiée : ${name}`);
+  } else {
+    state.classes.push({ id: uid("CLS"), ...data });
+    log(`Classe ajoutée : ${name}`);
+  }
+  editing = null;
+  saveState();
+  pages.classes();
+}
 
-function exportCSV(type) { let rows = []; if (type === 'students') rows = [['matricule','nom','classe','parent','contact','attendu','paye','reste'], ...state.students.map(s => [s.matricule, s.name, s.className, s.parent, s.phone, totalDue(s.id), totalPaid(s.id), balance(s.id)])]; if (type === 'payments') rows = [['recu','eleve','matricule','montant','mode','date','caissier'], ...state.payments.map(p => [p.id, student(p.studentId).name, student(p.studentId).matricule, p.amount, p.mode, p.date, p.cashier])]; if (type === 'unpaid') rows = [['matricule','nom','classe','parent','contact','reste'], ...state.students.filter(s => balance(s.id) > 0).map(s => [s.matricule, s.name, s.className, s.parent, s.phone, balance(s.id)])]; download(`${type}.csv`, rows.map(r => r.map(x => `"${String(x ?? '').replaceAll('"','""')}"`).join(';')).join('\n'), 'text/csv'); }
-function downloadBackup() { download('mienra-web-sauvegarde.json', JSON.stringify(state, null, 2), 'application/json'); }
-function download(name, content, type) { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([content], { type })); a.download = name; a.click(); }
-function importBackup(input) { const file = input.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = () => { try { state = JSON.parse(reader.result); saveState(); log('Sauvegarde importée'); drawApp(); } catch { alert('Fichier invalide'); } }; reader.readAsText(file); }
-function resetApp() { if (!confirm('Réinitialiser toutes les données ?')) return; state = seedState(); saveState(); drawApp(); }
+function editClass(id) { editing = id; pages.classes(); }
+function deleteClass(id) {
+  if (!confirm("Supprimer cette classe ?")) return;
+  state.classes = state.classes.filter((row) => row.id !== id);
+  saveState();
+  pages.classes();
+}
+
+function syncFee() { if ($("enAmount")) $("enAmount").value = classFee(state.classes, $("enClass")?.value); }
+
+function saveEnrollment() {
+  const enrollment = { id: uid("INS"), studentId: $("enStudent").value, className: $("enClass").value, year: $("enYear").value, amount: Number($("enAmount").value || 0), discount: Number($("enDiscount").value || 0), date: $("enDate").value, note: $("enNote").value };
+  state.enrollments.push(enrollment);
+  student(enrollment.studentId).className = enrollment.className;
+  if (!state.years.includes(enrollment.year)) state.years.push(enrollment.year);
+  log(`Inscription validée : ${student(enrollment.studentId).name}`);
+  saveState();
+  pages.enrollments();
+}
+
+function enrollmentsTable() {
+  return `<table><thead><tr><th>Élève</th><th>Classe</th><th>Année</th><th>Montant</th><th>Remise</th><th>Net</th><th>Date</th><th>Action</th></tr></thead><tbody>${state.enrollments.map((row) => `<tr><td>${clean(student(row.studentId).name)}<br><small>${clean(student(row.studentId).matricule)}</small></td><td>${clean(row.className)}</td><td>${clean(row.year)}</td><td>${money(row.amount)}</td><td>${money(row.discount)}</td><td>${money(row.amount - row.discount)}</td><td>${clean(row.date)}</td><td><button class="btn danger small" onclick="deleteEnrollment('${row.id}')">Supprimer</button></td></tr>`).join("")}</tbody></table>`;
+}
+
+function deleteEnrollment(id) {
+  if (!confirm("Supprimer cette inscription ?")) return;
+  state.enrollments = state.enrollments.filter((row) => row.id !== id);
+  log("Inscription supprimée");
+  saveState();
+  pages.enrollments();
+}
+
+function paymentInfo() {
+  const id = $("payStudent")?.value;
+  if (id && $("payInfo")) $("payInfo").innerHTML = `Attendu : <b>${money(due(id))}</b> · Payé : <b>${money(paid(id))}</b> · Reste : <b>${money(balance(id))}</b>`;
+}
+
+function savePayment() {
+  const studentId = $("payStudent").value;
+  const amount = Number($("payAmount").value || 0);
+  if (amount <= 0) return alert("Le montant doit être supérieur à zéro.");
+  const receipt = `${state.school.receiptPrefix}-${new Date().getFullYear()}-${String(state.payments.length + 1).padStart(4, "0")}`;
+  const payment = { id: receipt, studentId, amount, mode: $("payMode").value, date: $("payDate").value, cashier: $("cashier").value, note: $("payNote").value };
+  state.payments.unshift(payment);
+  activeReceipt = payment.id;
+  log(`Paiement enregistré : ${student(studentId).name} - ${money(amount)}`);
+  saveState();
+  view = "receipts";
+  renderNav();
+  receiptView();
+}
+
+function paymentsTable() {
+  return `<table><thead><tr><th>Reçu</th><th>Élève</th><th>Montant</th><th>Mode</th><th>Date</th><th>Caissier</th><th>Actions</th></tr></thead><tbody>${state.payments.map((row) => `<tr><td>${clean(row.id)}</td><td>${clean(student(row.studentId).name)}<br><small>${clean(student(row.studentId).matricule)}</small></td><td>${money(row.amount)}</td><td>${clean(row.mode)}</td><td>${clean(row.date)}<br><small>${clean(row.note)}</small></td><td>${clean(row.cashier)}</td><td><button class="btn quiet small" onclick="openReceipt('${row.id}')">Reçu</button> <button class="btn danger small" onclick="deletePayment('${row.id}')">Supprimer</button></td></tr>`).join("")}</tbody></table>`;
+}
+
+function deletePayment(id) {
+  if (!confirm("Supprimer ce paiement ?")) return;
+  state.payments = state.payments.filter((row) => row.id !== id);
+  log("Paiement supprimé");
+  saveState();
+  pages.payments();
+}
+
+function openReceipt(id) { activeReceipt = id; view = "receipts"; renderNav(); receiptView(); }
+
+function receiptView() {
+  const payment = state.payments.find((row) => row.id === activeReceipt) || state.payments[0];
+  if (!payment) { $("content").innerHTML = `<article class="panel empty">Aucun reçu disponible.</article>`; return; }
+  const row = student(payment.studentId);
+  $("content").innerHTML = `<article class="panel"><div class="panel-head"><h2>Reçu de paiement</h2><span>${clean(payment.id)}</span></div><div class="receipt"><div class="receipt-title"><div class="mark">${clean(state.school.logo)}</div><div><h2>${clean(state.school.name)}</h2><p>${clean(state.school.address)} · ${clean(state.school.phone)} · ${clean(state.school.email)}</p></div></div><div class="receipt-grid"><p><b>N° reçu</b><span>${clean(payment.id)}</span></p><p><b>Date</b><span>${clean(payment.date)}</span></p><p><b>Élève</b><span>${clean(row.name)}</span></p><p><b>Matricule</b><span>${clean(row.matricule)}</span></p><p><b>Classe</b><span>${clean(row.className)}</span></p><p><b>Mode</b><span>${clean(payment.mode)}</span></p><p><b>Montant payé</b><span>${money(payment.amount)}</span></p><p><b>Reste</b><span>${money(balance(row.id))}</span></p></div><p><b>Observation :</b> ${clean(payment.note || "-")}</p><div class="signatures"><p>Caissier<br><b>${clean(payment.cashier)}</b></p><p>Direction<br><b>${clean(state.school.director)}</b></p></div><small>${clean(state.school.receiptFooter)}</small></div><div class="actions"><button class="btn secondary" onclick="window.print()">Imprimer / PDF</button><button class="btn quiet" onclick="go('payments')">Retour paiements</button></div></article>`;
+}
+
+function goPay(id) { view = "payments"; renderNav(); pages.payments(); $("payStudent").value = id; paymentInfo(); }
+
+function classSummary() {
+  return `<table><thead><tr><th>Classe</th><th>Niveau</th><th>Élèves</th><th>Attendu</th><th>Payé</th><th>Reste</th></tr></thead><tbody>${state.classes.map((row) => {
+    const ids = state.students.filter((item) => item.className === row.name).map((item) => item.id);
+    const expected = ids.reduce((sum, id) => sum + due(id), 0);
+    const collected = ids.reduce((sum, id) => sum + paid(id), 0);
+    return `<tr><td>${clean(row.name)}</td><td>${clean(row.level)}</td><td>${ids.length}</td><td>${money(expected)}</td><td>${money(collected)}</td><td class="${expected - collected > 0 ? "amount-danger" : "amount-ok"}">${money(expected - collected)}</td></tr>`;
+  }).join("")}</tbody></table>`;
+}
+
+function logsTable(limit) {
+  return `<table><thead><tr><th>Date</th><th>Utilisateur</th><th>Action</th></tr></thead><tbody>${state.logs.slice(0, limit).map((row) => `<tr><td>${clean(row.date)}</td><td>${clean(row.user)}</td><td>${clean(row.action)}</td></tr>`).join("") || `<tr><td colspan="3">Aucune activité.</td></tr>`}</tbody></table>`;
+}
+
+function saveUser() {
+  const data = { name: $("userName").value.trim(), login: $("userLogin").value.trim(), password: $("userPass").value, role: $("userRole").value, active: $("userActive").value === "true" };
+  if (!data.name || !data.login || !data.password) return alert("Nom, identifiant et mot de passe sont obligatoires.");
+  if (editing) Object.assign(state.users.find((row) => row.id === editing), data);
+  else state.users.push({ id: uid("USR"), ...data });
+  log(`Utilisateur enregistré : ${data.login}`);
+  editing = null;
+  saveState();
+  pages.users();
+}
+
+function editUser(id) { editing = id; pages.users(); }
+function deleteUser(id) {
+  if (state.users.length <= 1) return alert("Il faut conserver au moins un utilisateur.");
+  if (!confirm("Supprimer cet utilisateur ?")) return;
+  state.users = state.users.filter((row) => row.id !== id);
+  saveState();
+  pages.users();
+}
+
+function saveSettings() {
+  Object.assign(state.school, {
+    name: $("schoolName").value,
+    code: $("schoolCode").value,
+    year: $("schoolYear").value,
+    phone: $("schoolPhone").value,
+    email: $("schoolEmail").value,
+    address: $("schoolAddress").value,
+    director: $("director").value,
+    receiptPrefix: $("receiptPrefix").value,
+    logo: $("logo").value,
+    receiptFooter: $("receiptFooter").value
+  });
+  if (!state.years.includes(state.school.year)) state.years.push(state.school.year);
+  log("Paramètres enregistrés");
+  saveState();
+  renderShell();
+}
+
+function exportCSV(type) {
+  let rows = [];
+  if (type === "students") rows = [["matricule", "nom", "classe", "parent", "contact", "attendu", "paye", "reste"], ...state.students.map((row) => [row.matricule, row.name, row.className, row.parent, row.phone, due(row.id), paid(row.id), balance(row.id)])];
+  if (type === "payments") rows = [["recu", "eleve", "matricule", "montant", "mode", "date", "caissier"], ...state.payments.map((row) => [row.id, student(row.studentId).name, student(row.studentId).matricule, row.amount, row.mode, row.date, row.cashier])];
+  if (type === "unpaid") rows = [["matricule", "nom", "classe", "parent", "contact", "reste"], ...state.students.filter((row) => balance(row.id) > 0).map((row) => [row.matricule, row.name, row.className, row.parent, row.phone, balance(row.id)])];
+  download(`${type}.csv`, rows.map((row) => row.map((cell) => `"${String(cell ?? "").replaceAll('"', '""')}"`).join(";")).join("\n"), "text/csv;charset=utf-8");
+}
+
+function downloadBackup() {
+  const stamp = new Date().toISOString().slice(0, 10);
+  download(`mienra-sauvegarde-${stamp}.json`, JSON.stringify(state, null, 2), "application/json");
+}
+
+function download(name, content, type) {
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(new Blob([content], { type }));
+  link.download = name;
+  link.click();
+  URL.revokeObjectURL(link.href);
+}
+
+function importBackup(input) {
+  const file = input.files?.[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      state = normalizeState(JSON.parse(reader.result));
+      saveState();
+      log("Sauvegarde importée");
+      renderShell();
+    } catch {
+      alert("Fichier JSON invalide.");
+    }
+  };
+  reader.readAsText(file);
+}
+
+function resetApp() {
+  if (!confirm("Réinitialiser toutes les données de test ?")) return;
+  state = seedState();
+  saveState();
+  renderShell();
+}
 
 init();
