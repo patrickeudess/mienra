@@ -4,7 +4,7 @@ const DEVICE_KEY = `${DB_KEY}_device_id`;
 
 const $ = (id) => document.getElementById(id);
 const LOGO_SRC = "assets/mienra-logo.jpeg";
-const ASSET_VERSION = "20260706-payment-tracking-title";
+const ASSET_VERSION = "20260706-payment-methods";
 const CLOUD_CONFIG = globalThis.MIENRA_CLOUD || {};
 const SCHOOL_IDENTITY = {
   name: "EPP Mienrassou",
@@ -117,7 +117,7 @@ function seedState() {
     })),
     payments: [
       { id: "REC-2026-0001", studentId: students[0].id, amount: 180000, mode: "Espèces", date: today(), cashier: "Secrétaire", note: "Paiement complet" },
-      { id: "REC-2026-0002", studentId: students[1].id, amount: 100000, mode: "Mobile Money", date: today(), cashier: "Secrétaire", note: "Premier versement" }
+      { id: "REC-2026-0002", studentId: students[1].id, amount: 100000, mode: "Orange Money", date: today(), cashier: "Secrétaire", note: "Premier versement" }
     ],
     logs: [],
     backups: []
@@ -511,7 +511,7 @@ const pages = {
   },
   payments() {
     $("content").innerHTML = `
-      ${canAction("payments") ? `<article class="panel"><div class="panel-head"><h2>Nouveau paiement</h2><span>Encaissement et reçu</span></div><div class="form-grid"><div><label>Élève</label><select id="payStudent" onchange="paymentInfo()">${state.students.map((row) => `<option value="${row.id}">${clean(row.name)} - reste ${money(balance(row.id))}</option>`).join("")}</select></div>${field("Montant payé", "payAmount", 50000, "number")}${field("Payé par", "paidBy", "")}<div><label>Mode</label><select id="payMode"><option>Espèces</option><option>Mobile Money</option><option>Chèque</option><option>Virement</option><option>Carte bancaire</option></select></div>${field("Date", "payDate", today(), "date")}${field("Caissier", "cashier", session.name)}${field("Note", "payNote", "Versement frais scolaires")}</div><div class="notice" id="payInfo"></div><div class="actions"><button class="btn primary" onclick="savePayment()">Enregistrer et générer le reçu</button></div></article>` : readOnlyNotice("Paiements")}
+      ${canAction("payments") ? `<article class="panel"><div class="panel-head"><h2>Nouveau paiement</h2><span>Encaissement et reçu</span></div><div class="form-grid"><div><label>Élève</label><select id="payStudent" onchange="paymentInfo()">${state.students.map((row) => `<option value="${row.id}">${clean(row.name)} - reste ${money(balance(row.id))}</option>`).join("")}</select></div>${field("Montant payé", "payAmount", 50000, "number")}${field("Payé par", "paidBy", "")}<div><label>Mode</label><select id="payMode"><option>Espèces</option><option>Orange Money</option><option>Moov Money</option><option>MTN Money</option><option>Wave</option></select></div>${field("Date", "payDate", today(), "date")}${field("Caissier", "cashier", session.name)}${field("Note", "payNote", "Versement frais scolaires")}</div><div class="notice" id="payInfo"></div><div class="actions"><button class="btn primary" onclick="savePayment()">Enregistrer et générer le reçu</button></div></article>` : readOnlyNotice("Paiements")}
       <article class="panel"><div class="panel-head"><h2>Historique des paiements</h2><span>${state.payments.length} reçus</span></div>${paymentsTable()}</article>`;
     paymentInfo();
   },
