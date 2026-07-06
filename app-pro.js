@@ -4,7 +4,7 @@ const DEVICE_KEY = `${DB_KEY}_device_id`;
 
 const $ = (id) => document.getElementById(id);
 const LOGO_SRC = "assets/mienra-logo.jpeg";
-const ASSET_VERSION = "20260706-clean-combined-finance";
+const ASSET_VERSION = "20260706-harmonized-payment-tracking";
 const CLOUD_CONFIG = globalThis.MIENRA_CLOUD || {};
 const SCHOOL_IDENTITY = {
   name: "EPP Mienrassou",
@@ -512,7 +512,7 @@ function renderNav() {
 }
 
 function go(key) {
-  const financeAliases = { enrollments: "enrollments", payments: "payments", unpaid: "tracking" };
+  const financeAliases = { enrollments: "payments", payments: "payments", unpaid: "tracking" };
   if (financeAliases[key]) {
     financeTab = financeAliases[key];
     key = "finance";
@@ -531,7 +531,7 @@ function showFinanceTab(tab) {
   financeTab = tab || "tracking";
   view = "finance";
   editing = null;
-  if (financeTab !== "enrollments") editingEnrollment = null;
+  editingEnrollment = null;
   renderNav();
   renderView();
 }
@@ -558,18 +558,14 @@ const pages = {
   },
   finance() {
     const allowedTabs = [
-      canAction("enrollments") ? "enrollments" : null,
       canAction("payments") ? "payments" : null,
       "tracking"
     ].filter(Boolean);
     if (!allowedTabs.includes(financeTab)) financeTab = allowedTabs[0] || "tracking";
     const t = totals();
-    const item = editingEnrollment ? state.enrollments.find((row) => row.id === editingEnrollment) : {};
-    const enrollmentPanel = `${canAction("enrollments") ? `<article class="panel"><div class="panel-head"><h2>${editingEnrollment ? "Modifier l’inscription" : "Nouvelle inscription"}</h2><span>${editingEnrollment ? "Correction réservée administrateur" : "Création d’un droit scolaire"}</span></div><div class="form-grid"><div><label>Élève</label><select id="enStudent">${state.students.map((row) => `<option value="${row.id}" ${item?.studentId === row.id ? "selected" : ""}>${clean(row.name)} - ${clean(row.matricule)}</option>`).join("")}</select></div><div><label>Classe</label><select id="enClass" onchange="syncFee(true)">${state.classes.map((row) => `<option ${item?.className === row.name ? "selected" : ""}>${clean(row.name)}</option>`).join("")}</select></div><div><label>Année</label><select id="enYear">${state.years.map((year) => `<option ${year === (item?.year || currentYear()) ? "selected" : ""}>${clean(year)}</option>`).join("")}</select></div>${field("Montant", "enAmount", item?.amount ?? "", "number")}${field("Remise", "enDiscount", item?.discount ?? 0, "number")}${field("Date", "enDate", item?.date || today(), "date")}</div>${field("Note", "enNote", item?.note || "Inscription annuelle")}<div class="actions"><button class="btn primary" onclick="saveEnrollment()">${editingEnrollment ? "Enregistrer la modification" : "Valider l’inscription"}</button>${editingEnrollment ? `<button class="btn quiet" onclick="editingEnrollment=null;pages.finance()">Annuler</button>` : ""}</div></article>` : readOnlyNotice("Inscriptions")}<article class="panel"><div class="panel-head"><h2>Historique des inscriptions</h2><span>${state.enrollments.filter((row) => row.year === currentYear()).length} lignes - ${clean(currentYear())}</span></div>${enrollmentsTable()}</article>`;
-    const paymentPanel = `${canAction("payments") ? `<article class="panel"><div class="panel-head"><h2>Nouveau paiement</h2><span>Encaissement et reçu - ${clean(currentYear())}</span></div><div class="form-grid"><div class="student-picker"><label>Rechercher l’élève</label><input id="paySearch" placeholder="Nom, matricule, parent, contact..." oninput="drawPaymentStudentResults()"><select id="payStudent" onchange="paymentInfo()">${state.students.map((row) => `<option value="${row.id}">${clean(row.name)} - ${clean(row.matricule)} - reste ${money(balance(row.id))}</option>`).join("")}</select><div id="payStudentResults" class="picker-results"></div></div>${field("Montant payé", "payAmount", 50000, "number")}${field("Payé par", "paidBy", "")}<div><label>Mode</label><select id="payMode"><option>Espèces</option><option>Orange Money</option><option>Moov Money</option><option>MTN Money</option><option>Wave</option></select></div>${field("Date", "payDate", today(), "date")}${field("Caissier", "cashier", session.name)}${field("Note", "payNote", "Versement frais scolaires")}</div><div class="notice" id="payInfo"></div><div class="actions"><button class="btn primary" onclick="savePayment()">Enregistrer et générer le reçu</button></div></article>` : readOnlyNotice("Paiements")}<article class="panel"><div class="panel-head"><h2>Historique des paiements</h2><span>${state.payments.filter((row) => row.year === currentYear()).length} reçus - ${clean(currentYear())}</span></div>${paymentsTable()}</article>`;
-    const trackingPanel = `${canAction("dailyPoint") ? dailyPointPanel() : ""}<article class="panel"><div class="panel-head"><h2>Suivi des paiements</h2><span>${money(t.remaining)} à recouvrer</span></div>${financialFilters("unpaid")}<div id="unpaidTable"></div></article>`;
-    $("content").innerHTML = `<div class="subtabs">${allowedTabs.map((tab) => `<button class="${financeTab === tab ? "active" : ""}" onclick="showFinanceTab('${tab}')">${tab === "enrollments" ? "Inscriptions" : tab === "payments" ? "Paiements" : "Suivi des paiements"}</button>`).join("")}</div>${financeTab === "enrollments" ? enrollmentPanel : financeTab === "payments" ? paymentPanel : trackingPanel}`;
-    if (financeTab === "enrollments") syncFee();
+    const paymentPanel = `${canAction("payments") ? `<article class="panel"><div class="panel-head"><h2>Nouveau paiement</h2><span>Encaissement et reçu - ${clean(currentYear())}</span></div><div class="form-grid"><div class="student-picker"><label>Rechercher l’élève</label><input id="paySearch" placeholder="Nom, matricule, parent, contact..." oninput="drawPaymentStudentResults()"><select id="payStudent" onchange="paymentInfo()">${state.students.map((row) => `<option value="${row.id}">${clean(row.name)} - ${clean(row.matricule)} - reste ${money(balance(row.id))}</option>`).join("")}</select><div id="payStudentResults" class="picker-results"></div></div>${field("Montant payé", "payAmount", 50000, "number")}${field("Payé par", "paidBy", "")}<div><label>Mode</label><select id="payMode"><option>Espèces</option><option>Orange Money</option><option>Moov Money</option><option>MTN Money</option><option>Wave</option></select></div>${field("Date", "payDate", today(), "date")}${field("Caissier", "cashier", session.name)}${field("Note", "payNote", "Versement frais scolaires")}</div><div class="notice" id="payInfo"></div><div class="actions"><button class="btn primary" onclick="savePayment()">Enregistrer et générer le reçu</button></div></article>` : readOnlyNotice("Paiements")}`;
+    const trackingPanel = `${canAction("dailyPoint") ? dailyPointPanel() : ""}<article class="panel"><div class="panel-head"><h2>Suivi des paiements</h2><span>${money(t.remaining)} à recouvrer</span></div>${financialFilters("unpaid")}<div id="unpaidTable"></div></article><article class="panel"><div class="panel-head"><h2>Historique des paiements</h2><span>${state.payments.filter((row) => row.year === currentYear()).length} reçus - ${clean(currentYear())}</span></div>${paymentsTable()}</article>`;
+    $("content").innerHTML = `<div class="subtabs">${allowedTabs.map((tab) => `<button class="${financeTab === tab ? "active" : ""}" onclick="showFinanceTab('${tab}')">${tab === "payments" ? "Paiements" : "Suivi des paiements"}</button>`).join("")}</div>${financeTab === "payments" ? paymentPanel : trackingPanel}`;
     if (financeTab === "payments") { drawPaymentStudentResults(); paymentInfo(); }
     if (financeTab === "tracking") { if (canAction("dailyPoint")) drawDailyPoint(); drawUnpaid(); }
   },
@@ -660,7 +656,6 @@ function drawStudents() {
 function studentActions(id) {
   const actions = [];
   if (canAction("students")) actions.push(`<button class="btn quiet small" onclick="editStudent('${id}')">Modifier</button>`, `<button class="btn danger small" onclick="deleteStudent('${id}')">Supprimer</button>`);
-  if (canAction("enrollments")) actions.splice(1, 0, `<button class="btn secondary small" onclick="quickEnroll('${id}')">Inscrire</button>`);
   return actions.length ? actions.join(" ") : `<span class="muted">Lecture seule</span>`;
 }
 
