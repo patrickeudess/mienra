@@ -4,7 +4,7 @@ const DEVICE_KEY = `${DB_KEY}_device_id`;
 
 const $ = (id) => document.getElementById(id);
 const LOGO_SRC = "assets/mienra-logo.jpeg";
-const ASSET_VERSION = "20260706-dashboard-gender-breakdown";
+const ASSET_VERSION = "20260706-stop-demo-reseed";
 const CLOUD_CONFIG = globalThis.MIENRA_CLOUD || {};
 const SCHOOL_IDENTITY = {
   name: "EPP Mienrassou",
@@ -100,10 +100,10 @@ function seedState() {
     years: ["2025-2026", "2026-2027"],
     activeYear: "2026-2027",
     users: [
-      { id: uid("USR"), name: "Administrateur", login: "admin", password: "admin123", role: "Administrateur", active: true },
-      { id: uid("USR"), name: "Directeur", login: "directeur", password: "directeur123", role: "Directeur", active: true },
-      { id: uid("USR"), name: "Secrétaire", login: "secretaire", password: "secretaire123", role: "Secrétaire", active: true },
-      { id: uid("USR"), name: "Consultation", login: "consultation", password: "consultation123", role: "Consultation", active: true }
+      { id: "USR-ADMIN", name: "Administrateur", login: "admin", password: "admin123", role: "Administrateur", active: true },
+      { id: "USR-DIRECTEUR", name: "Directeur", login: "directeur", password: "directeur123", role: "Directeur", active: true },
+      { id: "USR-SECRETAIRE", name: "Secrétaire", login: "secretaire", password: "secretaire123", role: "Secrétaire", active: true },
+      { id: "USR-CONSULTATION", name: "Consultation", login: "consultation", password: "consultation123", role: "Consultation", active: true }
     ],
     classes,
     students,
@@ -126,25 +126,38 @@ function seedState() {
   };
 }
 
+function blankState() {
+  const base = seedState();
+  return {
+    ...base,
+    classes: [],
+    students: [],
+    enrollments: [],
+    payments: [],
+    logs: []
+  };
+}
+
 function loadState() {
   try {
     const saved = JSON.parse(localStorage.getItem(DB_KEY));
-    return saved ? normalizeState(saved) : seedState();
+    return saved ? normalizeState(saved) : (cloudEnabled() ? blankState() : seedState());
   } catch {
-    return seedState();
+    return cloudEnabled() ? blankState() : seedState();
   }
 }
 
 function normalizeState(data) {
-  const base = seedState();
+  const base = blankState();
   const normalized = {
     ...base,
     ...data,
     school: { ...base.school, ...(data.school || {}) },
     years: data.years?.length ? data.years : base.years,
-    students: (data.students?.length ? data.students : base.students).map((row) => ({ ...row, addedDate: row.addedDate || row.createdAt || today() })),
-    enrollments: (data.enrollments?.length ? data.enrollments : base.enrollments).map((row) => ({ ...row, year: row.year || data.activeYear || data.school?.year || base.school.year })),
-    payments: (data.payments?.length ? data.payments : base.payments).map((row) => ({ ...row, year: row.year || data.activeYear || data.school?.year || base.school.year })),
+    classes: Array.isArray(data.classes) ? data.classes : base.classes,
+    students: (Array.isArray(data.students) ? data.students : base.students).map((row) => ({ ...row, addedDate: row.addedDate || row.createdAt || today() })),
+    enrollments: (Array.isArray(data.enrollments) ? data.enrollments : base.enrollments).map((row) => ({ ...row, year: row.year || data.activeYear || data.school?.year || base.school.year })),
+    payments: (Array.isArray(data.payments) ? data.payments : base.payments).map((row) => ({ ...row, year: row.year || data.activeYear || data.school?.year || base.school.year })),
     users: data.users?.length ? data.users : base.users,
     logs: normalizeLogs(data.logs || []),
     activeYear: data.activeYear || data.school?.year || base.activeYear,
@@ -1086,8 +1099,8 @@ function importBackup(input) {
 
 function resetApp() {
   if (!requireAction("backup")) return;
-  if (!confirm("Réinitialiser toutes les données de test ?")) return;
-  state = seedState();
+  if (!confirm("Réinitialiser les données de l'application ?")) return;
+  state = cloudEnabled() ? blankState() : seedState();
   log("Réinitialisation des données", "Sauvegarde");
   renderShell();
 }
