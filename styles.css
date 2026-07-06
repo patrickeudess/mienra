@@ -349,6 +349,35 @@ th {
   margin-bottom: 18px;
 }
 
+.document-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  text-align: center;
+  margin-bottom: 18px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.document-header h2 {
+  margin: 0;
+  color: var(--nav);
+}
+
+.document-header p {
+  margin: 5px 0 0;
+  color: var(--muted);
+}
+
+.document-logo {
+  width: 126px;
+  height: 126px;
+  object-fit: contain;
+  flex: 0 0 auto;
+  background: #fff;
+}
+
 .receipt-logo {
   width: 116px;
   height: 116px;
@@ -425,6 +454,7 @@ th {
   .panel { padding: 14px; }
   nav { grid-template-columns: 1fr; }
   .signatures { grid-template-columns: 1fr; }
+  .document-header { flex-direction: column; }
 }
 
 @media print {
@@ -434,4 +464,5 @@ th {
   .workspace { padding: 0; }
   .panel { border: 0; box-shadow: none; padding: 0; }
   .receipt { border: 0; }
+  .document-logo { width: 118px; height: 118px; }
 }
