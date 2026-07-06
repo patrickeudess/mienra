@@ -1,7 +1,7 @@
 window.MIENRA_CLOUD = {
-  enabled: false,
+  enabled: true,
   provider: "supabase",
-  supabaseUrl: "",
-  supabaseAnonKey: "",
+  supabaseUrl: "https://xixhyehyoucjuashplyx.supabase.co",
+  supabaseAnonKey: "sb_publishable_Mi5JzAR37yqwZGPAt6oEdA_qphIj_GE",
   stateId: "epp-mienrassou"
 };
