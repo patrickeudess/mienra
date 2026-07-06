@@ -1,0 +1,57 @@
+# Publie l'application web MIENRA (EPP Mienrassou) sur GitHub Pages.
+#
+# À chaque push (branche de travail ou branche par défaut), le site statique
+# de la racine du dépôt est republié : les modifications apparaissent donc
+# automatiquement sur https://patrickeudess.github.io/mienra/
+#
+# Réglage unique à faire une fois côté dépôt :
+#   Settings → Pages → Build and deployment → Source : « GitHub Actions »
+name: Déploiement GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - claude/mienra-school-app-ag0l9x
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Un seul déploiement à la fois ; on n'annule pas celui en cours.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # On n'expédie que les fichiers réellement servis par le site
+      # (pas le code Electron/React, ni prisma, ni node_modules).
+      - name: Assembler le site statique
+        run: |
+          mkdir -p _site
+          cp index.html styles.css cloud-config.js app-pro.js app.js _site/
+          cp -r assets _site/
+          touch _site/.nojekyll
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploiement.outputs.page_url }}
+    steps:
+      - id: deploiement
+        uses: actions/deploy-pages@v4
