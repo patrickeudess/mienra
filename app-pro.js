@@ -2,7 +2,7 @@ const DB_KEY = "mienra_web_app_v2";
 
 const $ = (id) => document.getElementById(id);
 const LOGO_SRC = "assets/mienra-logo.jpeg";
-const ASSET_VERSION = "20260706-shared-sync";
+const ASSET_VERSION = "20260706-paid-by";
 const CLOUD_CONFIG = globalThis.MIENRA_CLOUD || {};
 const SCHOOL_IDENTITY = {
   name: "EPP Mienrassou",
@@ -257,6 +257,12 @@ function receiptAmounts(payment) {
   const remaining = Number.isFinite(payment.balanceAfter) ? Number(payment.balanceAfter) : expected - totalPaid;
   return { expected, paidBefore, currentPaid, totalPaid, remaining };
 }
+function paymentPayer(payment) {
+  return payment.paidBy || student(payment.studentId).parent || "-";
+}
+function lastPaymentForStudent(studentId) {
+  return state.payments.find((row) => row.studentId === studentId);
+}
 function totals() {
   const expected = state.students.reduce((sum, item) => sum + due(item.id), 0);
   const collected = state.students.reduce((sum, item) => sum + paid(item.id), 0);
@@ -409,7 +415,7 @@ const pages = {
   },
   payments() {
     $("content").innerHTML = `
-      ${canAction("payments") ? `<article class="panel"><div class="panel-head"><h2>Nouveau paiement</h2><span>Encaissement et reçu</span></div><div class="form-grid"><div><label>Élève</label><select id="payStudent" onchange="paymentInfo()">${state.students.map((row) => `<option value="${row.id}">${clean(row.name)} - reste ${money(balance(row.id))}</option>`).join("")}</select></div>${field("Montant payé", "payAmount", 50000, "number")}<div><label>Mode</label><select id="payMode"><option>Espèces</option><option>Mobile Money</option><option>Chèque</option><option>Virement</option><option>Carte bancaire</option></select></div>${field("Date", "payDate", today(), "date")}${field("Caissier", "cashier", session.name)}${field("Note", "payNote", "Versement frais scolaires")}</div><div class="notice" id="payInfo"></div><div class="actions"><button class="btn primary" onclick="savePayment()">Enregistrer et générer le reçu</button></div></article>` : readOnlyNotice("Paiements")}
+      ${canAction("payments") ? `<article class="panel"><div class="panel-head"><h2>Nouveau paiement</h2><span>Encaissement et reçu</span></div><div class="form-grid"><div><label>Élève</label><select id="payStudent" onchange="paymentInfo()">${state.students.map((row) => `<option value="${row.id}">${clean(row.name)} - reste ${money(balance(row.id))}</option>`).join("")}</select></div>${field("Montant payé", "payAmount", 50000, "number")}${field("Payé par", "paidBy", "")}<div><label>Mode</label><select id="payMode"><option>Espèces</option><option>Mobile Money</option><option>Chèque</option><option>Virement</option><option>Carte bancaire</option></select></div>${field("Date", "payDate", today(), "date")}${field("Caissier", "cashier", session.name)}${field("Note", "payNote", "Versement frais scolaires")}</div><div class="notice" id="payInfo"></div><div class="actions"><button class="btn primary" onclick="savePayment()">Enregistrer et générer le reçu</button></div></article>` : readOnlyNotice("Paiements")}
       <article class="panel"><div class="panel-head"><h2>Historique des paiements</h2><span>${state.payments.length} reçus</span></div>${paymentsTable()}</article>`;
     paymentInfo();
   },
@@ -421,7 +427,7 @@ const pages = {
   },
   reports() {
     const t = totals();
-    $("content").innerHTML = `<article class="panel printable-document">${documentHeader("Rapport financier")}<div class="stats">${stat("Attendu", money(t.expected))}${stat("Encaissé", money(t.collected))}${stat("Impayés", money(t.remaining), "danger")}${stat("Taux", `${t.rate}%`)}</div></article><article class="panel"><div class="panel-head"><h2>Exports et impression</h2><span>Données du navigateur</span></div><div class="actions">${canAction("exports") ? `<button class="btn secondary" onclick="exportCSV('students')">Exporter élèves CSV</button><button class="btn secondary" onclick="exportCSV('payments')">Exporter paiements CSV</button><button class="btn secondary" onclick="exportCSV('unpaid')">Exporter impayés CSV</button>` : ""}<button class="btn quiet" onclick="window.print()">Imprimer le rapport</button></div></article><article class="panel printable-document"><div class="panel-head"><h2>Rapport par classe</h2><span>Synthèse financière</span></div>${classSummary()}</article>`;
+    $("content").innerHTML = `<article class="panel printable-document">${documentHeader("Rapport financier")}<div class="stats">${stat("Attendu", money(t.expected))}${stat("Encaissé", money(t.collected))}${stat("Impayés", money(t.remaining), "danger")}${stat("Taux", `${t.rate}%`)}</div></article><article class="panel"><div class="panel-head"><h2>Exports et impression</h2><span>Données du navigateur</span></div><div class="actions">${canAction("exports") ? `<button class="btn secondary" onclick="exportCSV('students')">Exporter élèves CSV</button><button class="btn secondary" onclick="exportCSV('payments')">Exporter paiements CSV</button><button class="btn secondary" onclick="exportCSV('paidStudents')">Élèves qui ont payé CSV</button><button class="btn secondary" onclick="exportCSV('noPaymentStudents')">Élèves sans paiement CSV</button><button class="btn secondary" onclick="exportCSV('unpaid')">Exporter impayés CSV</button>` : ""}<button class="btn quiet" onclick="window.print()">Imprimer le rapport</button></div></article><article class="panel printable-document"><div class="panel-head"><h2>Rapport par classe</h2><span>Synthèse financière</span></div>${classSummary()}</article>`;
   },
   users() {
     const item = editing ? state.users.find((row) => row.id === editing) : {};
@@ -528,10 +534,11 @@ function filterFinancialStudents(prefix, rows = state.students) {
 }
 
 function financialRows(rows, emptyMessage = "Aucun élève trouvé.") {
-  return `<table><thead><tr><th>Élève</th><th>Classe</th><th>Frais classe</th><th>Déjà payé</th><th>Reste à payer</th><th>Statut</th><th>Parent</th><th>Action</th></tr></thead><tbody>${rows.map((row) => {
+  return `<table><thead><tr><th>Élève</th><th>Classe</th><th>Frais classe</th><th>Déjà payé</th><th>Reste à payer</th><th>Statut</th><th>Payé par</th><th>Parent</th><th>Action</th></tr></thead><tbody>${rows.map((row) => {
     const left = balance(row.id);
-    return `<tr><td>${clean(row.name)}<br><small>${clean(row.matricule)}</small></td><td>${clean(row.className)}</td><td>${money(due(row.id))}</td><td class="amount-ok">${money(paid(row.id))}</td><td class="${left > 0 ? "amount-danger" : "amount-ok"}">${money(left)}</td><td>${financeStatus(row)}</td><td>${clean(row.parent)}<br><small>${clean(row.phone)}</small></td><td>${canAction("payments") ? `<button class="btn secondary small" onclick="goPay('${row.id}')">Payer</button>` : `<span class="muted">Lecture seule</span>`}</td></tr>`;
-  }).join("") || `<tr><td colspan="8">${emptyMessage}</td></tr>`}</tbody></table>`;
+    const lastPayment = lastPaymentForStudent(row.id);
+    return `<tr><td>${clean(row.name)}<br><small>${clean(row.matricule)}</small></td><td>${clean(row.className)}</td><td>${money(due(row.id))}</td><td class="amount-ok">${money(paid(row.id))}</td><td class="${left > 0 ? "amount-danger" : "amount-ok"}">${money(left)}</td><td>${financeStatus(row)}</td><td>${lastPayment ? clean(paymentPayer(lastPayment)) : "-"}</td><td>${clean(row.parent)}<br><small>${clean(row.phone)}</small></td><td>${canAction("payments") ? `<button class="btn secondary small" onclick="goPay('${row.id}')">Payer</button>` : `<span class="muted">Lecture seule</span>`}</td></tr>`;
+  }).join("") || `<tr><td colspan="9">${emptyMessage}</td></tr>`}</tbody></table>`;
 }
 
 function drawUnpaid() {
@@ -654,6 +661,7 @@ function deleteEnrollment(id) {
 
 function paymentInfo() {
   const id = $("payStudent")?.value;
+  if (id && $("paidBy") && !$("paidBy").value) $("paidBy").value = student(id).parent || "";
   if (id && $("payInfo")) $("payInfo").innerHTML = `Attendu : <b>${money(due(id))}</b> · Payé : <b>${money(paid(id))}</b> · Reste : <b>${money(balance(id))}</b>`;
 }
 
@@ -667,7 +675,7 @@ function savePayment() {
   const balanceBefore = expectedAtPayment - paidBefore;
   if (balanceBefore > 0 && amount > balanceBefore) return alert(`Le montant saisi dépasse le reste à payer (${money(balanceBefore)}).`);
   const receipt = `${state.school.receiptPrefix}-${new Date().getFullYear()}-${String(state.payments.length + 1).padStart(4, "0")}`;
-  const payment = { id: receipt, studentId, amount, expectedAtPayment, paidBefore, totalPaidAfter: paidBefore + amount, balanceAfter: expectedAtPayment - paidBefore - amount, mode: $("payMode").value, date: $("payDate").value, cashier: $("cashier").value, note: $("payNote").value };
+  const payment = { id: receipt, studentId, amount, expectedAtPayment, paidBefore, totalPaidAfter: paidBefore + amount, balanceAfter: expectedAtPayment - paidBefore - amount, paidBy: $("paidBy").value.trim() || student(studentId).parent || "", mode: $("payMode").value, date: $("payDate").value, cashier: $("cashier").value, note: $("payNote").value };
   state.payments.unshift(payment);
   activeReceipt = payment.id;
   log(`Paiement enregistré : ${student(studentId).name} - ${money(amount)}`);
@@ -678,7 +686,7 @@ function savePayment() {
 }
 
 function paymentsTable() {
-  return `<table><thead><tr><th>Reçu</th><th>Élève</th><th>Montant</th><th>Reste après paiement</th><th>Mode</th><th>Date</th><th>Caissier</th><th>Actions</th></tr></thead><tbody>${state.payments.map((row) => `<tr><td>${clean(row.id)}</td><td>${clean(student(row.studentId).name)}<br><small>${clean(student(row.studentId).matricule)}</small></td><td>${money(row.amount)}</td><td class="${receiptAmounts(row).remaining > 0 ? "amount-danger" : "amount-ok"}">${money(receiptAmounts(row).remaining)}</td><td>${clean(row.mode)}</td><td>${clean(row.date)}<br><small>${clean(row.note)}</small></td><td>${clean(row.cashier)}</td><td><button class="btn quiet small" onclick="openReceipt('${row.id}')">Reçu</button>${canAction("payments") ? ` <button class="btn danger small" onclick="deletePayment('${row.id}')">Supprimer</button>` : ""}</td></tr>`).join("")}</tbody></table>`;
+  return `<table><thead><tr><th>Reçu</th><th>Élève</th><th>Payé par</th><th>Montant</th><th>Reste après paiement</th><th>Mode</th><th>Date</th><th>Caissier</th><th>Actions</th></tr></thead><tbody>${state.payments.map((row) => `<tr><td>${clean(row.id)}</td><td>${clean(student(row.studentId).name)}<br><small>${clean(student(row.studentId).matricule)}</small></td><td>${clean(paymentPayer(row))}</td><td>${money(row.amount)}</td><td class="${receiptAmounts(row).remaining > 0 ? "amount-danger" : "amount-ok"}">${money(receiptAmounts(row).remaining)}</td><td>${clean(row.mode)}</td><td>${clean(row.date)}<br><small>${clean(row.note)}</small></td><td>${clean(row.cashier)}</td><td><button class="btn quiet small" onclick="openReceipt('${row.id}')">Reçu</button>${canAction("payments") ? ` <button class="btn danger small" onclick="deletePayment('${row.id}')">Supprimer</button>` : ""}</td></tr>`).join("")}</tbody></table>`;
 }
 
 function deletePayment(id) {
@@ -697,7 +705,7 @@ function receiptView() {
   if (!payment) { $("content").innerHTML = `<article class="panel empty">Aucun reçu disponible.</article>`; return; }
   const row = student(payment.studentId);
   const amounts = receiptAmounts(payment);
-  $("content").innerHTML = `<article class="panel"><div class="panel-head"><h2>Reçu de paiement</h2><span>${clean(payment.id)}</span></div><div class="receipt">${documentHeader("Reçu de paiement")}<div class="receipt-grid"><p><b>N° reçu</b><span>${clean(payment.id)}</span></p><p><b>Date</b><span>${clean(payment.date)}</span></p><p><b>Élève</b><span>${clean(row.name)}</span></p><p><b>Matricule</b><span>${clean(row.matricule)}</span></p><p><b>Classe</b><span>${clean(row.className)}</span></p><p><b>Mode</b><span>${clean(payment.mode)}</span></p><p><b>Frais classe</b><span>${money(amounts.expected)}</span></p><p><b>Déjà payé</b><span>${money(amounts.paidBefore)}</span></p><p><b>Montant payé</b><span>${money(amounts.currentPaid)}</span></p><p><b>Total payé</b><span>${money(amounts.totalPaid)}</span></p><p><b>Reste à payer</b><span class="${amounts.remaining > 0 ? "amount-danger" : "amount-ok"}">${money(amounts.remaining)}</span></p></div><p><b>Observation :</b> ${clean(payment.note || "-")}</p><div class="signatures"><p>Caissier<br><b>${clean(payment.cashier)}</b></p><p>Direction<br><b>${clean(state.school.director)}</b></p></div><small>${clean(state.school.receiptFooter)}</small></div><div class="actions"><button class="btn secondary" onclick="window.print()">Imprimer / PDF</button><button class="btn quiet" onclick="go('payments')">Retour paiements</button></div></article>`;
+  $("content").innerHTML = `<article class="panel"><div class="panel-head"><h2>Reçu de paiement</h2><span>${clean(payment.id)}</span></div><div class="receipt">${documentHeader("Reçu de paiement")}<div class="receipt-grid"><p><b>N° reçu</b><span>${clean(payment.id)}</span></p><p><b>Date</b><span>${clean(payment.date)}</span></p><p><b>Élève</b><span>${clean(row.name)}</span></p><p><b>Matricule</b><span>${clean(row.matricule)}</span></p><p><b>Classe</b><span>${clean(row.className)}</span></p><p><b>Payé par</b><span>${clean(paymentPayer(payment))}</span></p><p><b>Mode</b><span>${clean(payment.mode)}</span></p><p><b>Frais classe</b><span>${money(amounts.expected)}</span></p><p><b>Déjà payé</b><span>${money(amounts.paidBefore)}</span></p><p><b>Montant payé</b><span>${money(amounts.currentPaid)}</span></p><p><b>Total payé</b><span>${money(amounts.totalPaid)}</span></p><p><b>Reste à payer</b><span class="${amounts.remaining > 0 ? "amount-danger" : "amount-ok"}">${money(amounts.remaining)}</span></p></div><p><b>Observation :</b> ${clean(payment.note || "-")}</p><div class="signatures"><p>Caissier<br><b>${clean(payment.cashier)}</b></p><p>Direction<br><b>${clean(state.school.director)}</b></p></div><small>${clean(state.school.receiptFooter)}</small></div><div class="actions"><button class="btn secondary" onclick="window.print()">Imprimer / PDF</button><button class="btn quiet" onclick="go('payments')">Retour paiements</button></div></article>`;
 }
 
 function goPay(id) { if (!requireAction("payments")) return; view = "payments"; renderNav(); pages.payments(); $("payStudent").value = id; paymentInfo(); }
@@ -762,8 +770,10 @@ function exportCSV(type) {
   if (!requireAction("exports")) return;
   let rows = [];
   if (type === "students") rows = [["matricule", "nom", "classe", "parent", "contact", "attendu", "paye", "reste"], ...state.students.map((row) => [row.matricule, row.name, row.className, row.parent, row.phone, due(row.id), paid(row.id), balance(row.id)])];
-  if (type === "payments") rows = [["recu", "eleve", "matricule", "montant", "mode", "date", "caissier"], ...state.payments.map((row) => [row.id, student(row.studentId).name, student(row.studentId).matricule, row.amount, row.mode, row.date, row.cashier])];
-  if (type === "unpaid") rows = [["matricule", "nom", "classe", "parent", "contact", "attendu", "paye", "reste", "statut"], ...state.students.map((row) => [row.matricule, row.name, row.className, row.parent, row.phone, due(row.id), paid(row.id), balance(row.id), financeStatus(row)])];
+  if (type === "payments") rows = [["recu", "eleve", "matricule", "paye_par", "montant", "mode", "date", "caissier"], ...state.payments.map((row) => [row.id, student(row.studentId).name, student(row.studentId).matricule, paymentPayer(row), row.amount, row.mode, row.date, row.cashier])];
+  if (type === "paidStudents") rows = [["matricule", "nom", "classe", "parent", "contact", "attendu", "paye", "reste", "dernier_paye_par"], ...state.students.filter((row) => paid(row.id) > 0).map((row) => [row.matricule, row.name, row.className, row.parent, row.phone, due(row.id), paid(row.id), balance(row.id), paymentPayer(lastPaymentForStudent(row.id))])];
+  if (type === "noPaymentStudents") rows = [["matricule", "nom", "classe", "parent", "contact", "attendu", "paye", "reste"], ...state.students.filter((row) => paid(row.id) <= 0).map((row) => [row.matricule, row.name, row.className, row.parent, row.phone, due(row.id), paid(row.id), balance(row.id)])];
+  if (type === "unpaid") rows = [["matricule", "nom", "classe", "parent", "contact", "attendu", "paye", "reste", "statut", "dernier_paye_par"], ...state.students.map((row) => [row.matricule, row.name, row.className, row.parent, row.phone, due(row.id), paid(row.id), balance(row.id), financeStatus(row), lastPaymentForStudent(row.id) ? paymentPayer(lastPaymentForStudent(row.id)) : ""])];
   download(`${type}.csv`, rows.map((row) => row.map((cell) => `"${String(cell ?? "").replaceAll('"', '""')}"`).join(";")).join("\n"), "text/csv;charset=utf-8");
 }
 
