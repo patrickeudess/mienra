@@ -168,7 +168,7 @@ export function registerElevesHandlers(): void {
 
       await journaliser('CREATION_ELEVE', {
         utilisateurId: auteur,
-        details: `${eleve.matricule} — ${eleve.nom} ${eleve.prenom}`
+        details: `${eleve.matricule} : ${eleve.nom} ${eleve.prenom}`
       })
       return { ok: true, data: { id: eleve.id, matricule: eleve.matricule } }
     }
@@ -208,7 +208,7 @@ export function registerElevesHandlers(): void {
 
       await journaliser('MODIFICATION_ELEVE', {
         utilisateurId: auteur,
-        details: `${existant.matricule} — ${donnees.nom} ${donnees.prenom}`
+        details: `${existant.matricule} : ${donnees.nom} ${donnees.prenom}`
       })
       return { ok: true, data: { id: eleveId } }
     }
@@ -243,7 +243,7 @@ export function registerElevesHandlers(): void {
 
       await journaliser('SUPPRESSION_ELEVE', {
         utilisateurId: auteur,
-        details: `${eleve.matricule} — ${eleve.nom} ${eleve.prenom}`
+        details: `${eleve.matricule} : ${eleve.nom} ${eleve.prenom}`
       })
       return { ok: true, data: null }
     }

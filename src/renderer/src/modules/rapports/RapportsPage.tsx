@@ -166,7 +166,7 @@ export function RapportsPage(): JSX.Element {
               onChange={(e) => setClasseId(e.target.value ? Number(e.target.value) : undefined)}
               className={CHAMP}
             >
-              <option value="">— Choisir —</option>
+              <option value="">Choisir…</option>
               {classes.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.nom}
@@ -186,7 +186,7 @@ export function RapportsPage(): JSX.Element {
               onChange={(e) => setNiveau(e.target.value ? (e.target.value as Niveau) : undefined)}
               className={CHAMP}
             >
-              <option value="">— Choisir —</option>
+              <option value="">Choisir…</option>
               {NIVEAUX.map((n) => (
                 <option key={n} value={n}>
                   {NIVEAU_LABELS[n]}

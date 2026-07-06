@@ -80,7 +80,7 @@ export function UtilisateurFormModal({
 
   return (
     <Modal
-      titre={compte ? `Modifier — ${compte.identifiant}` : 'Nouvel utilisateur'}
+      titre={compte ? `Modifier : ${compte.identifiant}` : 'Nouvel utilisateur'}
       ouvert={ouvert}
       onFermer={onFermer}
       largeur="max-w-md"

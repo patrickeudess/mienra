@@ -177,7 +177,7 @@ export function registerPaiementsHandlers(): void {
       })
       await journaliser('PAIEMENT', {
         utilisateurId: auteur,
-        details: `${resultat.numeroRecu} — ${inscription?.eleve.matricule} ${inscription?.eleve.nom} ${inscription?.eleve.prenom}, ${donnees.montant} FCFA (${donnees.mode})`
+        details: `${resultat.numeroRecu} : ${inscription?.eleve.matricule} ${inscription?.eleve.nom} ${inscription?.eleve.prenom}, ${donnees.montant} FCFA (${donnees.mode})`
       })
       return {
         ok: true,
@@ -256,7 +256,7 @@ export function registerPaiementsHandlers(): void {
 
       await journaliser('PAIEMENT', {
         utilisateurId: auteur,
-        details: `Annulation ${paiement.numeroRecu} — ${paiement.inscription.eleve.matricule} ${paiement.inscription.eleve.nom} ${paiement.inscription.eleve.prenom}, ${paiement.montant} FCFA`
+        details: `Annulation ${paiement.numeroRecu} : ${paiement.inscription.eleve.matricule} ${paiement.inscription.eleve.nom} ${paiement.inscription.eleve.prenom}, ${paiement.montant} FCFA`
       })
       return { ok: true, data: null }
     }

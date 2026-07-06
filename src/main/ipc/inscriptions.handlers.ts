@@ -136,7 +136,7 @@ export function registerInscriptionsHandlers(): void {
 
       await journaliser('INSCRIPTION', {
         utilisateurId: auteur,
-        details: `${inscription.eleve.matricule} — ${inscription.eleve.nom} ${inscription.eleve.prenom} en ${inscription.classe.nom} (${inscription.anneeScolaire.libelle}), total ${inscription.montantTotal} FCFA`
+        details: `${inscription.eleve.matricule} : ${inscription.eleve.nom} ${inscription.eleve.prenom} en ${inscription.classe.nom} (${inscription.anneeScolaire.libelle}), total ${inscription.montantTotal} FCFA`
       })
       return { ok: true, data: { id: inscription.id } }
     }
@@ -181,7 +181,7 @@ export function registerInscriptionsHandlers(): void {
 
       await journaliser('INSCRIPTION', {
         utilisateurId: auteur,
-        details: `Modification — ${existante.eleve.matricule} ${existante.eleve.nom} ${existante.eleve.prenom}, nouveau total ${nouveauTotal} FCFA`
+        details: `Modification : ${existante.eleve.matricule} ${existante.eleve.nom} ${existante.eleve.prenom}, nouveau total ${nouveauTotal} FCFA`
       })
       return { ok: true, data: { id: inscriptionId } }
     }
@@ -217,7 +217,7 @@ export function registerInscriptionsHandlers(): void {
 
       await journaliser('INSCRIPTION', {
         utilisateurId: auteur,
-        details: `Suppression — ${inscription.eleve.matricule} ${inscription.eleve.nom} ${inscription.eleve.prenom}`
+        details: `Suppression : ${inscription.eleve.matricule} ${inscription.eleve.nom} ${inscription.eleve.prenom}`
       })
       return { ok: true, data: null }
     }

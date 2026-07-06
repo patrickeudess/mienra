@@ -84,7 +84,7 @@ export function registerRapportsHandlers(): void {
 
         await journaliser('EXPORT_RAPPORT', {
           utilisateurId: auteur,
-          details: `${TYPE_RAPPORT_LABELS[data.type]} (${formatFichier.toUpperCase()}) — ${data.sousTitre}`
+          details: `${TYPE_RAPPORT_LABELS[data.type]} (${formatFichier.toUpperCase()}) : ${data.sousTitre}`
         })
         return { ok: true, data: { chemin } }
       } catch (e) {

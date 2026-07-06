@@ -268,7 +268,7 @@ export function PaiementsPage(): JSX.Element {
         onEncaisse={(numeroRecu, paiementId) => {
           setMessage({
             type: 'succes',
-            texte: `Paiement encaissé — le reçu ${numeroRecu} a été généré automatiquement.`,
+            texte: `Paiement encaissé : le reçu ${numeroRecu} a été généré automatiquement.`,
             paiementId
           })
           void charger()

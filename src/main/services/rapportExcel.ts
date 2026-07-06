@@ -27,8 +27,8 @@ export async function genererRapportExcel(
   // ----------------------------------------------------------- en-tête
   feuille.mergeCells(1, 1, 1, nbColonnes)
   const titreEcole = feuille.getCell(1, 1)
-  const coordonnees = [ecole?.adresse, ecole?.telephone, ecole?.email].filter(Boolean).join(' — ')
-  titreEcole.value = `${ecole?.nom ?? 'MIENRA'}${coordonnees ? ` — ${coordonnees}` : ''}`
+  const coordonnees = [ecole?.adresse, ecole?.telephone, ecole?.email].filter(Boolean).join(' : ')
+  titreEcole.value = `${ecole?.nom ?? 'MIENRA'}${coordonnees ? ` : ${coordonnees}` : ''}`
   titreEcole.font = { bold: true, size: 14, color: { argb: BLANC } }
   titreEcole.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: BLEU } }
   titreEcole.alignment = { vertical: 'middle' }
@@ -40,7 +40,7 @@ export async function genererRapportExcel(
 
   feuille.mergeCells(3, 1, 3, nbColonnes)
   feuille.getCell(3, 1).value =
-    `${data.sousTitre} — généré le ${new Date(data.genereLe).toLocaleDateString('fr-FR')}`
+    `${data.sousTitre} : généré le ${new Date(data.genereLe).toLocaleDateString('fr-FR')}`
   feuille.getCell(3, 1).font = { size: 10, color: { argb: 'FF6B7280' } }
 
   // ------------------------------------------------------------ tableau

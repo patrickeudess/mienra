@@ -244,7 +244,7 @@ export function ParametresPage(): JSX.Element {
 
       {/* Modale classe */}
       <Modal
-        titre={classeEnEdition ? `Modifier — ${classeEnEdition.nom}` : 'Nouvelle classe'}
+        titre={classeEnEdition ? `Modifier : ${classeEnEdition.nom}` : 'Nouvelle classe'}
         ouvert={modalClasse}
         onFermer={() => setModalClasse(false)}
         largeur="max-w-md"

@@ -30,7 +30,7 @@ export function HistoriqueModal({ ouvert, onFermer, historique }: HistoriqueModa
           <span className="font-mono text-xs text-primary-700">({historique.matricule})</span>
         </p>
         <p className="text-sm text-gray-500">
-          {historique.classe} — {historique.anneeScolaire}
+          {historique.classe} : {historique.anneeScolaire}
         </p>
       </div>
 

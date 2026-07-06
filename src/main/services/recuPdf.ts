@@ -119,7 +119,7 @@ export async function genererRecuPdf(
     font: policeGras,
     color: rgb(1, 1, 1)
   })
-  const sousTitre = [ecole?.adresse, ecole?.telephone, ecole?.email].filter(Boolean).join('  —  ')
+  const sousTitre = [ecole?.adresse, ecole?.telephone, ecole?.email].filter(Boolean).join('  :  ')
   if (sousTitre) {
     page.drawText(sousTitre, { x: 96, y: 375, size: 8.5, font: police, color: rgb(0.8, 0.85, 0.92) })
   }
@@ -147,7 +147,7 @@ export async function genererRecuPdf(
     policeGras,
     (y -= pas),
     'Classe',
-    `${paiement.inscription.classe.nom} — ${paiement.inscription.anneeScolaire.libelle}`
+    `${paiement.inscription.classe.nom} : ${paiement.inscription.anneeScolaire.libelle}`
   )
   ligne(
     page,
@@ -203,7 +203,7 @@ export async function genererRecuPdf(
   page.drawLine({ start: { x: 40, y: 62 }, end: { x: 200, y: 62 }, thickness: 0.8, color: GRIS })
   page.drawText('Signature et cachet', { x: 40, y: 50, size: 8.5, font: police, color: GRIS })
   page.drawText(
-    'Reçu généré par MIENRA — logiciel de gestion scolaire. Merci de conserver ce document.',
+    'Reçu généré par MIENRA : logiciel de gestion scolaire. Merci de conserver ce document.',
     { x: 40, y: 24, size: 7.5, font: police, color: GRIS }
   )
 

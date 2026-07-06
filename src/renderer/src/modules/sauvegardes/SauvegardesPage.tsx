@@ -95,7 +95,7 @@ export function SauvegardesPage(): JSX.Element {
         <div>
           <h1 className="text-2xl font-bold text-primary-900">Sauvegardes</h1>
           <p className="text-sm text-gray-500">
-            Une copie est créée automatiquement à chaque fermeture — les 10 dernières sont conservées.
+            Une copie est créée automatiquement à chaque fermeture : les 10 dernières sont conservées.
           </p>
         </div>
         <div className="flex gap-2">

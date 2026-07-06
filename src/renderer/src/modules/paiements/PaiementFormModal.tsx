@@ -104,7 +104,7 @@ export function PaiementFormModal({ ouvert, onFermer, onEncaisse }: PaiementForm
                 <p className="text-sm">
                   <strong>{inscription.nomComplet}</strong>{' '}
                   <span className="font-mono text-xs text-primary-800">({inscription.matricule})</span>{' '}
-                  — {inscription.classe}, {inscription.anneeScolaire}
+                  : {inscription.classe}, {inscription.anneeScolaire}
                 </p>
                 <button
                   type="button"
@@ -156,7 +156,7 @@ export function PaiementFormModal({ ouvert, onFermer, onEncaisse }: PaiementForm
                         <span>
                           {i.nomComplet}{' '}
                           <span className="text-xs text-gray-500">
-                            — {i.classe}, {i.anneeScolaire}
+                            : {i.classe}, {i.anneeScolaire}
                           </span>
                         </span>
                         <span className="text-xs font-medium text-amber-700">
@@ -207,7 +207,7 @@ export function PaiementFormModal({ ouvert, onFermer, onEncaisse }: PaiementForm
         {/* Caissier */}
         {utilisateur && (
           <p className="rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600">
-            Caissier : <strong>{utilisateur.nom}</strong> — le numéro de reçu sera généré
+            Caissier : <strong>{utilisateur.nom}</strong>. Le numéro de reçu sera généré
             automatiquement (ex. REC-2026-00001).
           </p>
         )}

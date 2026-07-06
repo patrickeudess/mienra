@@ -101,7 +101,7 @@ export async function genererRapportPdf(
     font: policeGras,
     color: BLANC
   })
-  const sousEcole = [ecole?.adresse, ecole?.telephone, ecole?.email].filter(Boolean).join('  —  ')
+  const sousEcole = [ecole?.adresse, ecole?.telephone, ecole?.email].filter(Boolean).join('  :  ')
   if (sousEcole) {
     page.drawText(sousEcole, {
       x: MARGE,
@@ -270,7 +270,7 @@ export async function genererRapportPdf(
 
   // ------------------------------------------------ pieds de page
   pages.forEach((p, i) => {
-    p.drawText(`MIENRA — ${data.titre} — page ${i + 1} / ${pages.length}`, {
+    p.drawText(`MIENRA : ${data.titre}, page ${i + 1} / ${pages.length}`, {
       x: MARGE,
       y: 20,
       size: 7.5,

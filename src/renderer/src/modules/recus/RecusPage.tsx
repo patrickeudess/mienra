@@ -54,7 +54,7 @@ export function RecusPage(): JSX.Element {
     setImpressionEnCours(null)
     setMessage(
       resultat.ok
-        ? { type: 'succes', texte: `Reçu ${paiement.numeroRecu} ouvert — lancez l'impression depuis le lecteur PDF.` }
+        ? { type: 'succes', texte: `Reçu ${paiement.numeroRecu} ouvert : lancez l'impression depuis le lecteur PDF.` }
         : { type: 'erreur', texte: resultat.erreur }
     )
   }

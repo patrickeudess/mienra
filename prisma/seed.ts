@@ -88,7 +88,7 @@ async function seedDemo(): Promise<void> {
     where: { id: 1 },
     data: {
       nom: 'Groupe Scolaire MIENRA',
-      adresse: 'Yopougon, Abidjan — Côte d’Ivoire',
+      adresse: 'Yopougon, Abidjan, Côte d’Ivoire',
       telephone: '+225 07 00 00 00 00',
       email: 'contact@gs-mienra.ci',
       code: 'MIENRA',

@@ -91,7 +91,7 @@ export function EleveFormModal({ ouvert, onFermer, eleve, onEnregistre }: EleveF
   }
 
   return (
-    <Modal titre={eleve ? `Modifier — ${eleve.matricule}` : 'Nouvel élève'} ouvert={ouvert} onFermer={onFermer}>
+    <Modal titre={eleve ? `Modifier : ${eleve.matricule}` : 'Nouvel élève'} ouvert={ouvert} onFermer={onFermer}>
       <form onSubmit={handleSubmit(onSubmit)} noValidate className="grid grid-cols-2 gap-4">
         {eleve === undefined && (
           <p className="col-span-2 rounded-lg bg-primary-50 px-3 py-2 text-xs text-primary-800">

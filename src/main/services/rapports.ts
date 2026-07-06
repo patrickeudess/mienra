@@ -75,7 +75,7 @@ export async function genererRapport(
   }
   if (params.niveau) morceaux.push(`Niveau ${NIVEAU_LABELS[params.niveau]}`)
   if (mode) morceaux.push(`Mode ${MODE_PAIEMENT_LABELS[mode]}`)
-  const sousTitre = morceaux.join(' — ') || 'Toutes périodes confondues'
+  const sousTitre = morceaux.join(' : ') || 'Toutes périodes confondues'
 
   const commun = {
     type: params.type,

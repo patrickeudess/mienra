@@ -45,7 +45,7 @@ export function registerRecusHandlers(): void {
 
       await journaliser('IMPRESSION_RECU', {
         utilisateurId: auteur,
-        details: `${paiement.numeroRecu} — ${paiement.inscription.eleve.matricule}`
+        details: `${paiement.numeroRecu} : ${paiement.inscription.eleve.matricule}`
       })
       return { ok: true, data: { chemin } }
     }

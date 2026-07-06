@@ -198,7 +198,7 @@ export function UtilisateursPage(): JSX.Element {
       />
 
       <Modal
-        titre={`Réinitialiser le mot de passe${resetCible ? ` — ${resetCible.identifiant}` : ''}`}
+        titre={`Réinitialiser le mot de passe${resetCible ? ` : ${resetCible.identifiant}` : ''}`}
         ouvert={resetCible !== null}
         onFermer={() => setResetCible(null)}
         largeur="max-w-md"

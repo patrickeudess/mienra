@@ -55,7 +55,7 @@ export function registerSauvegardesHandlers(): void {
       if (!chemin) return { ok: false, erreur: 'La base de données est introuvable.' }
 
       const nom = chemin.split(/[\\/]/).pop() ?? chemin
-      await journaliser('SAUVEGARDE', { utilisateurId: auteurId, details: `Manuelle — ${nom}` })
+      await journaliser('SAUVEGARDE', { utilisateurId: auteurId, details: `Manuelle : ${nom}` })
       return { ok: true, data: { nom } }
     }
   )

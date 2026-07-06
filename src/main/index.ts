@@ -39,7 +39,7 @@ function createWindow(): void {
     minHeight: 600,
     show: false,
     autoHideMenuBar: true,
-    title: 'MIENRA — Gestion scolaire',
+    title: 'MIENRA : Gestion scolaire',
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.js'),
       // Sécurité : le renderer n'a aucun accès Node direct,

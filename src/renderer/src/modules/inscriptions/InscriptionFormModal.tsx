@@ -142,7 +142,7 @@ export function InscriptionFormModal({
 
   return (
     <Modal
-      titre={inscription ? `Modifier l'inscription — ${inscription.matricule}` : 'Nouvelle inscription'}
+      titre={inscription ? `Modifier l'inscription : ${inscription.matricule}` : 'Nouvelle inscription'}
       ouvert={ouvert}
       onFermer={onFermer}
     >
@@ -151,7 +151,7 @@ export function InscriptionFormModal({
         {inscription ? (
           <p className="rounded-lg bg-gray-50 px-3 py-2 text-sm">
             Élève : <strong>{inscription.nomComplet}</strong>{' '}
-            <span className="font-mono text-xs text-primary-800">({inscription.matricule})</span> —{' '}
+            <span className="font-mono text-xs text-primary-800">({inscription.matricule})</span> :{' '}
             {inscription.anneeScolaire}
           </p>
         ) : (
@@ -219,7 +219,7 @@ export function InscriptionFormModal({
               Classe *
             </label>
             <select id="classeId" className={CHAMP} {...register('classeId', { valueAsNumber: true })}>
-              <option value="">— Choisir —</option>
+              <option value="">Choisir…</option>
               {classes.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.nom}
