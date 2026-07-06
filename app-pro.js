@@ -4,7 +4,7 @@ const DEVICE_KEY = `${DB_KEY}_device_id`;
 
 const $ = (id) => document.getElementById(id);
 const LOGO_SRC = "assets/mienra-logo.jpeg";
-const ASSET_VERSION = "20260706-cap-fees-and-payments";
+const ASSET_VERSION = "20260706-user-locks-payment-tracking";
 const CLOUD_CONFIG = globalThis.MIENRA_CLOUD || {};
 const SCHOOL_IDENTITY = {
   name: "EPP Mienrassou",
@@ -510,14 +510,12 @@ const pages = {
     const t = totals();
     $("content").innerHTML = `
       ${dashboardDetail ? dashboardDetailPanel(dashboardDetail) : ""}
-      ${canAction("dailyPoint") ? dailyPointPanel() : ""}
       <div class="stats">${stat("Élèves", state.students.length)}${stat("Montant attendu", money(t.expected))}${stat("Montant encaissé", money(t.collected))}${stat("Reste à payer", money(t.remaining), t.remaining > 0 ? "danger" : "ok")}</div>
       <div class="layout-two">
         <article class="panel"><div class="panel-head"><h2>Recouvrement par classe</h2><span>${t.rate}% encaissé</span></div>${classSummary()}</article>
         <article class="panel"><div class="panel-head"><h2>Activité récente</h2><span>${state.logs.length} opérations</span></div>${logsTable(9)}</article>
       </div>`;
     attachDashboardStatActions();
-    if (canAction("dailyPoint")) drawDailyPoint();
     if (dashboardDetail) drawDashboardDetail();
   },
   students() {
@@ -550,7 +548,8 @@ const pages = {
   receipts() { receiptView(); },
   unpaid() {
     const t = totals();
-    $("content").innerHTML = `<article class="panel"><div class="panel-head"><h2>Suivi des paiements</h2><span>${money(t.remaining)} à recouvrer</span></div>${financialFilters("unpaid")}<div id="unpaidTable"></div></article>`;
+    $("content").innerHTML = `${canAction("dailyPoint") ? dailyPointPanel() : ""}<article class="panel"><div class="panel-head"><h2>Suivi des paiements</h2><span>${money(t.remaining)} à recouvrer</span></div>${financialFilters("unpaid")}<div id="unpaidTable"></div></article>`;
+    if (canAction("dailyPoint")) drawDailyPoint();
     drawUnpaid();
   },
   reports() {
@@ -559,7 +558,7 @@ const pages = {
   },
   users() {
     const item = editing ? state.users.find((row) => row.id === editing) : {};
-    $("content").innerHTML = `<article class="panel"><div class="panel-head"><h2>${editing ? "Modifier un utilisateur" : "Ajouter un utilisateur"}</h2><span>Comptes locaux de test</span></div><div class="form-grid">${field("Nom", "userName", item?.name || "")}${field("Identifiant", "userLogin", item?.login || "")}${field("Mot de passe", "userPass", item?.password || "123456")}<div><label>Rôle</label><select id="userRole">${["Administrateur", "Directeur", "Secrétaire", "Consultation"].map((role) => `<option ${item?.role === role ? "selected" : ""}>${role}</option>`).join("")}</select></div><div><label>Statut</label><select id="userActive"><option value="true" ${item?.active !== false ? "selected" : ""}>Actif</option><option value="false" ${item?.active === false ? "selected" : ""}>Inactif</option></select></div></div><div class="actions"><button class="btn primary" onclick="saveUser()">Enregistrer</button></div></article><article class="panel"><div class="panel-head"><h2>Utilisateurs</h2><span>${state.users.length} comptes</span></div><table><thead><tr><th>Nom</th><th>Identifiant</th><th>Rôle</th><th>Statut</th><th>Actions</th></tr></thead><tbody>${state.users.map((row) => `<tr><td>${clean(row.name)}</td><td>${clean(row.login)}</td><td>${clean(row.role)}</td><td>${row.active ? "Actif" : "Inactif"}</td><td>${rowActions("User", row.id)}</td></tr>`).join("")}</tbody></table></article>`;
+    $("content").innerHTML = `<article class="panel"><div class="panel-head"><h2>${editing ? "Modifier un utilisateur" : "Ajouter un utilisateur"}</h2><span>Comptes locaux de test</span></div><div class="form-grid">${field("Nom", "userName", item?.name || "")}${field("Identifiant", "userLogin", item?.login || "")}${field("Mot de passe", "userPass", item?.password || "123456")}<div><label>Rôle</label><select id="userRole">${["Administrateur", "Directeur", "Secrétaire", "Consultation"].map((role) => `<option ${item?.role === role ? "selected" : ""}>${role}</option>`).join("")}</select></div><div><label>Statut</label><select id="userActive"><option value="true" ${item?.active !== false ? "selected" : ""}>Actif</option><option value="false" ${item?.active === false ? "selected" : ""}>Verrouillé</option></select></div></div><div class="actions"><button class="btn primary" onclick="saveUser()">Enregistrer</button></div></article><article class="panel"><div class="panel-head"><h2>Utilisateurs</h2><span>${state.users.length} comptes</span></div><table><thead><tr><th>Nom</th><th>Identifiant</th><th>Rôle</th><th>Statut</th><th>Actions</th></tr></thead><tbody>${state.users.map((row) => `<tr><td>${clean(row.name)}</td><td>${clean(row.login)}</td><td>${clean(row.role)}</td><td>${row.active ? "Actif" : "Verrouillé"}</td><td>${userActions(row)}</td></tr>`).join("")}</tbody></table></article>`;
   },
   settings() {
     const item = state.school;
@@ -598,6 +597,13 @@ function actionForScope(scope) { return ({ Class: "classes", User: "users" })[sc
 function rowActions(scope, id) {
   if (!canAction(actionForScope(scope))) return `<span class="muted">Lecture seule</span>`;
   return `<button class="btn quiet small" onclick="edit${scope}('${id}')">Modifier</button> <button class="btn danger small" onclick="delete${scope}('${id}')">Supprimer</button>`;
+}
+
+function userActions(row) {
+  if (!canAction("users")) return `<span class="muted">Lecture seule</span>`;
+  const lockLabel = row.active ? "Verrouiller" : "Déverrouiller";
+  const lockClass = row.active ? "danger" : "secondary";
+  return `<button class="btn quiet small" onclick="editUser('${row.id}')">Modifier</button> <button class="btn ${lockClass} small" onclick="toggleUserLock('${row.id}')">${lockLabel}</button> <button class="btn danger small" onclick="deleteUser('${row.id}')">Supprimer</button>`;
 }
 
 function studentForm(item) {
@@ -939,6 +945,11 @@ function saveUser() {
   if (!requireAction("users")) return;
   const data = { name: $("userName").value.trim(), login: $("userLogin").value.trim(), password: $("userPass").value, role: $("userRole").value, active: $("userActive").value === "true" };
   if (!data.name || !data.login || !data.password) return alert("Nom, identifiant et mot de passe sont obligatoires.");
+  if (editing && session?.id === editing && !data.active) return alert("Vous ne pouvez pas verrouiller votre propre compte pendant cette session.");
+  if (editing) {
+    const activeAdmins = state.users.filter((row) => row.role === "Administrateur" && row.active && row.id !== editing).length;
+    if ((!data.active || data.role !== "Administrateur") && state.users.find((row) => row.id === editing)?.role === "Administrateur" && activeAdmins === 0) return alert("Il faut conserver au moins un administrateur actif.");
+  }
   if (editing) Object.assign(state.users.find((row) => row.id === editing), data);
   else state.users.push({ id: uid("USR"), ...data });
   log(`Utilisateur enregistré : ${data.login}`, "Utilisateur", data.role);
@@ -948,9 +959,24 @@ function saveUser() {
 }
 
 function editUser(id) { if (!requireAction("users")) return; editing = id; pages.users(); }
+function toggleUserLock(id) {
+  if (!requireAction("users")) return;
+  const user = state.users.find((row) => row.id === id);
+  if (!user) return;
+  if (session?.id === id && user.active) return alert("Vous ne pouvez pas verrouiller votre propre compte pendant cette session.");
+  const activeAdmins = state.users.filter((row) => row.role === "Administrateur" && row.active && row.id !== id).length;
+  if (user.active && user.role === "Administrateur" && activeAdmins === 0) return alert("Il faut conserver au moins un administrateur actif.");
+  user.active = !user.active;
+  log(`${user.active ? "Utilisateur déverrouillé" : "Utilisateur verrouillé"} : ${user.login}`, "Utilisateur", user.role);
+  saveState();
+  pages.users();
+}
 function deleteUser(id) {
   if (!requireAction("users")) return;
   if (state.users.length <= 1) return alert("Il faut conserver au moins un utilisateur.");
+  const user = state.users.find((row) => row.id === id);
+  if (session?.id === id) return alert("Vous ne pouvez pas supprimer votre propre compte pendant cette session.");
+  if (user?.role === "Administrateur" && state.users.filter((row) => row.role === "Administrateur" && row.active && row.id !== id).length === 0) return alert("Il faut conserver au moins un administrateur actif.");
   if (!confirm("Supprimer cet utilisateur ?")) return;
   state.users = state.users.filter((row) => row.id !== id);
   saveState();
