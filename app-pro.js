@@ -1,8 +1,9 @@
 const DB_KEY = "mienra_web_app_v2";
+const DB_BACKUP_KEY = `${DB_KEY}_last_good`;
 
 const $ = (id) => document.getElementById(id);
 const LOGO_SRC = "assets/mienra-logo.jpeg";
-const ASSET_VERSION = "20260706-paid-by";
+const ASSET_VERSION = "20260706-safe-merge";
 const CLOUD_CONFIG = globalThis.MIENRA_CLOUD || {};
 const SCHOOL_IDENTITY = {
   name: "EPP Mienrassou",
@@ -139,10 +140,47 @@ function normalizeState(data) {
     school: { ...base.school, ...(data.school || {}) },
     years: data.years?.length ? data.years : base.years,
     users: data.users?.length ? data.users : base.users,
-    logs: data.logs || []
+    logs: data.logs || [],
+    updatedAt: data.updatedAt || new Date().toISOString()
   };
   normalized.school = migrateSchoolIdentity(normalized.school);
   return normalized;
+}
+
+function mergeById(remoteRows = [], localRows = []) {
+  const rows = new Map();
+  remoteRows.forEach((row) => row?.id && rows.set(row.id, row));
+  localRows.forEach((row) => row?.id && rows.set(row.id, { ...(rows.get(row.id) || {}), ...row }));
+  return [...rows.values()];
+}
+
+function mergeLogs(remoteRows = [], localRows = []) {
+  const rows = new Map();
+  [...remoteRows, ...localRows].forEach((row) => {
+    const key = [row.date, row.user, row.action].join("|");
+    if (key.trim()) rows.set(key, row);
+  });
+  return [...rows.values()].slice(0, 300);
+}
+
+function mergeStates(localData, remoteData) {
+  const local = normalizeState(localData || {});
+  const remote = normalizeState(remoteData || {});
+  const localTime = new Date(local.updatedAt || 0).getTime();
+  const remoteTime = new Date(remote.updatedAt || 0).getTime();
+  const newestBase = localTime >= remoteTime ? local : remote;
+  return normalizeState({
+    ...newestBase,
+    school: { ...remote.school, ...local.school },
+    years: [...new Set([...(remote.years || []), ...(local.years || [])])],
+    classes: mergeById(remote.classes, local.classes),
+    students: mergeById(remote.students, local.students),
+    enrollments: mergeById(remote.enrollments, local.enrollments),
+    payments: mergeById(remote.payments, local.payments),
+    users: mergeById(remote.users, local.users),
+    logs: mergeLogs(remote.logs, local.logs),
+    updatedAt: new Date(Math.max(localTime || 0, remoteTime || 0, Date.now())).toISOString()
+  });
 }
 
 function migrateSchoolIdentity(school) {
@@ -160,8 +198,19 @@ function migrateSchoolIdentity(school) {
   };
 }
 
-function saveLocalState() { localStorage.setItem(DB_KEY, JSON.stringify(state)); }
+function saveRecoverySnapshot() {
+  try {
+    const current = localStorage.getItem(DB_KEY);
+    if (current) localStorage.setItem(DB_BACKUP_KEY, current);
+  } catch {}
+}
+
+function saveLocalState() {
+  saveRecoverySnapshot();
+  localStorage.setItem(DB_KEY, JSON.stringify(state));
+}
 function saveState() {
+  state.updatedAt = new Date().toISOString();
   saveLocalState();
   pushSharedState();
 }
@@ -192,8 +241,9 @@ async function pullSharedState() {
     if (!response.ok) throw new Error(`Lecture Supabase impossible (${response.status})`);
     const rows = await response.json();
     if (rows[0]?.data) {
-      state = normalizeState(rows[0].data);
+      state = mergeStates(state, { ...rows[0].data, updatedAt: rows[0].data.updatedAt || rows[0].updated_at });
       saveLocalState();
+      await pushSharedState();
     } else {
       await pushSharedState();
     }
@@ -438,7 +488,7 @@ const pages = {
     $("content").innerHTML = `<article class="panel"><div class="panel-head"><h2>Paramètres de l’établissement</h2><span>Identité sur reçus et exports</span></div><div class="settings-logo"><img src="${logoUrl()}" alt="Logo EPP Mienrassou"><span>Logo officiel et informations de EPP Mienrassou utilisés sur les reçus et documents imprimables.</span></div><div class="form-grid">${field("Nom école", "schoolName", item.name)}${field("Code", "schoolCode", item.code)}${field("Année active", "schoolYear", item.year)}${field("Téléphone", "schoolPhone", item.phone)}${field("Email", "schoolEmail", item.email)}${field("Adresse", "schoolAddress", item.address)}${field("Directeur", "director", item.director)}${field("Préfixe reçu", "receiptPrefix", item.receiptPrefix)}${field("Logo texte secours", "logo", item.logo)}</div><div><label>Message reçu</label><textarea id="receiptFooter">${clean(item.receiptFooter)}</textarea></div><div class="actions"><button class="btn primary" onclick="saveSettings()">Enregistrer les paramètres</button></div></article>`;
   },
   backup() {
-    $("content").innerHTML = `<article class="panel"><div class="panel-head"><h2>Sauvegardes</h2><span>Export/import JSON</span></div><p class="muted">Les données sont stockées dans le navigateur de chaque utilisateur. Exportez un fichier JSON pour transférer ou archiver une base de test.</p><div class="actions"><button class="btn secondary" onclick="downloadBackup()">Exporter JSON</button><button class="btn danger" onclick="resetApp()">Réinitialiser</button></div><label>Importer une sauvegarde JSON</label><input type="file" accept=".json" onchange="importBackup(this)"></article><article class="panel"><div class="panel-head"><h2>Journal</h2><span>${state.logs.length} opérations</span></div>${logsTable(80)}</article>`;
+    $("content").innerHTML = `<article class="panel"><div class="panel-head"><h2>Sauvegardes</h2><span>Export/import JSON</span></div><p class="muted">Mode actuel : ${syncLabel()}. Exportez un fichier JSON pour archiver la base et utilisez la restauration locale si une actualisation a masqué des données récentes.</p><div class="actions"><button class="btn secondary" onclick="downloadBackup()">Exporter JSON</button><button class="btn quiet" onclick="restoreLocalBackup()">Restaurer copie locale</button><button class="btn danger" onclick="resetApp()">Réinitialiser</button></div><label>Importer une sauvegarde JSON</label><input type="file" accept=".json" onchange="importBackup(this)"></article><article class="panel"><div class="panel-head"><h2>Journal</h2><span>${state.logs.length} opérations</span></div>${logsTable(80)}</article>`;
   }
 };
 
@@ -781,6 +831,23 @@ function downloadBackup() {
   if (!requireAction("backup")) return;
   const stamp = new Date().toISOString().slice(0, 10);
   download(`mienra-sauvegarde-${stamp}.json`, JSON.stringify(state, null, 2), "application/json");
+}
+
+function restoreLocalBackup() {
+  if (!requireAction("backup")) return;
+  const saved = localStorage.getItem(DB_BACKUP_KEY);
+  if (!saved) return alert("Aucune copie locale de secours trouvée sur ce navigateur.");
+  if (!confirm("Restaurer la dernière copie locale de secours ?")) return;
+  try {
+    state = mergeStates(state, JSON.parse(saved));
+    state.updatedAt = new Date().toISOString();
+    saveLocalState();
+    pushSharedState();
+    log("Copie locale restaurée");
+    renderShell();
+  } catch {
+    alert("La copie locale de secours est invalide.");
+  }
 }
 
 function download(name, content, type) {
