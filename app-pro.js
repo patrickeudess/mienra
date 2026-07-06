@@ -4,7 +4,7 @@ const DEVICE_KEY = `${DB_KEY}_device_id`;
 
 const $ = (id) => document.getElementById(id);
 const LOGO_SRC = "assets/mienra-logo.jpeg";
-const ASSET_VERSION = "20260706-school-year-filter";
+const ASSET_VERSION = "20260706-admin-daily-point";
 const CLOUD_CONFIG = globalThis.MIENRA_CLOUD || {};
 const SCHOOL_IDENTITY = {
   name: "EPP Mienrassou",
@@ -51,7 +51,7 @@ const menu = [
 const roleAccess = {
   Administrateur: {
     pages: ["dashboard", "students", "classes", "enrollments", "payments", "receipts", "unpaid", "reports", "users", "settings", "backup"],
-    actions: ["students", "classes", "enrollments", "payments", "users", "settings", "backup", "exports"]
+    actions: ["students", "classes", "enrollments", "payments", "deletePayments", "dailyPoint", "users", "settings", "backup", "exports"]
   },
   Directeur: {
     pages: ["dashboard", "students", "classes", "enrollments", "payments", "receipts", "unpaid", "reports", "settings"],
@@ -502,12 +502,14 @@ const pages = {
     const t = totals();
     $("content").innerHTML = `
       ${dashboardDetail ? dashboardDetailPanel(dashboardDetail) : ""}
+      ${canAction("dailyPoint") ? dailyPointPanel() : ""}
       <div class="stats">${stat("Élèves", state.students.length)}${stat("Montant attendu", money(t.expected))}${stat("Montant encaissé", money(t.collected))}${stat("Reste à payer", money(t.remaining), t.remaining > 0 ? "danger" : "ok")}</div>
       <div class="layout-two">
         <article class="panel"><div class="panel-head"><h2>Recouvrement par classe</h2><span>${t.rate}% encaissé</span></div>${classSummary()}</article>
         <article class="panel"><div class="panel-head"><h2>Activité récente</h2><span>${state.logs.length} opérations</span></div>${logsTable(9)}</article>
       </div>`;
     attachDashboardStatActions();
+    if (canAction("dailyPoint")) drawDailyPoint();
     if (dashboardDetail) drawDashboardDetail();
   },
   students() {
@@ -657,6 +659,33 @@ function financialRows(rows, emptyMessage = "Aucun élève trouvé.") {
   }).join("") || `<tr><td colspan="9">${emptyMessage}</td></tr>`}</tbody></table>`;
 }
 
+function dailyPointPanel() {
+  return `<article class="panel">
+    <div class="panel-head"><h2>Point journalier</h2><span>Réservé administrateur - ${clean(currentYear())}</span></div>
+    <div class="filters"><input id="dailyPointDate" type="date" value="${today()}" onchange="drawDailyPoint()"><button class="btn secondary" onclick="drawDailyPoint()">Actualiser</button></div>
+    <div id="dailyPointTable"></div>
+  </article>`;
+}
+
+function drawDailyPoint() {
+  if (!$("dailyPointTable")) return;
+  const date = $("dailyPointDate")?.value || today();
+  const rows = state.payments.filter((row) => row.year === currentYear() && row.date === date);
+  const studentIds = [...new Set(rows.map((row) => row.studentId))];
+  const collected = rows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
+  const t = totals();
+  const byStudent = studentIds.map((id) => {
+    const dayPayments = rows.filter((row) => row.studentId === id);
+    return {
+      row: student(id),
+      dayAmount: dayPayments.reduce((sum, item) => sum + Number(item.amount || 0), 0),
+      payers: [...new Set(dayPayments.map(paymentPayer))].join(", "),
+      receipts: dayPayments.map((item) => item.id).join(", ")
+    };
+  });
+  $("dailyPointTable").innerHTML = `<div class="mini-stats"><span>Enfants ayant payé : <b>${studentIds.length}</b></span><span>Montant du jour : <b class="amount-ok">${money(collected)}</b></span><span>Reste total : <b class="${t.remaining > 0 ? "amount-danger" : "amount-ok"}">${money(t.remaining)}</b></span></div><table><thead><tr><th>Élève</th><th>Classe</th><th>Reçus</th><th>Payé par</th><th>Montant jour</th><th>Total payé</th><th>Reste</th></tr></thead><tbody>${byStudent.map((item) => `<tr><td>${clean(item.row.name)}<br><small>${clean(item.row.matricule)}</small></td><td>${clean(item.row.className)}</td><td>${clean(item.receipts)}</td><td>${clean(item.payers || "-")}</td><td class="amount-ok">${money(item.dayAmount)}</td><td>${money(paid(item.row.id))}</td><td class="${balance(item.row.id) > 0 ? "amount-danger" : "amount-ok"}">${money(balance(item.row.id))}</td></tr>`).join("") || `<tr><td colspan="7">Aucun paiement enregistré pour cette date.</td></tr>`}</tbody></table>`;
+}
+
 function drawUnpaid() {
   if (!$("unpaidTable")) return;
   const rows = filterFinancialStudents("unpaid").sort((a, b) => balance(b.id) - balance(a.id));
@@ -791,6 +820,8 @@ function savePayment() {
   const expectedAtPayment = due(studentId);
   const paidBefore = paid(studentId);
   const balanceBefore = expectedAtPayment - paidBefore;
+  if (expectedAtPayment <= 0) return alert("Aucun frais n'est défini pour cet élève sur l'année scolaire sélectionnée.");
+  if (balanceBefore <= 0) return alert("Cet élève est déjà soldé pour cette année scolaire. Aucun nouveau reçu ne peut être créé.");
   if (balanceBefore > 0 && amount > balanceBefore) return alert(`Le montant saisi dépasse le reste à payer (${money(balanceBefore)}).`);
   const receipt = `${state.school.receiptPrefix}-${new Date().getFullYear()}-${String(state.payments.length + 1).padStart(4, "0")}`;
   const payment = { id: receipt, studentId, year: currentYear(), amount, expectedAtPayment, paidBefore, totalPaidAfter: paidBefore + amount, balanceAfter: expectedAtPayment - paidBefore - amount, paidBy: $("paidBy").value.trim() || student(studentId).parent || "", mode: $("payMode").value, date: $("payDate").value, cashier: $("cashier").value, note: $("payNote").value };
@@ -805,11 +836,11 @@ function savePayment() {
 
 function paymentsTable() {
   const rows = state.payments.filter((row) => row.year === currentYear());
-  return `<table><thead><tr><th>Reçu</th><th>Élève</th><th>Année</th><th>Payé par</th><th>Montant</th><th>Reste après paiement</th><th>Mode</th><th>Date</th><th>Caissier</th><th>Actions</th></tr></thead><tbody>${rows.map((row) => `<tr><td>${clean(row.id)}</td><td>${clean(student(row.studentId).name)}<br><small>${clean(student(row.studentId).matricule)}</small></td><td>${clean(row.year)}</td><td>${clean(paymentPayer(row))}</td><td>${money(row.amount)}</td><td class="${receiptAmounts(row).remaining > 0 ? "amount-danger" : "amount-ok"}">${money(receiptAmounts(row).remaining)}</td><td>${clean(row.mode)}</td><td>${clean(row.date)}<br><small>${clean(row.note)}</small></td><td>${clean(row.cashier)}</td><td><button class="btn quiet small" onclick="openReceipt('${row.id}')">Reçu</button>${canAction("payments") ? ` <button class="btn danger small" onclick="deletePayment('${row.id}')">Supprimer</button>` : ""}</td></tr>`).join("") || `<tr><td colspan="10">Aucun paiement pour cette année scolaire.</td></tr>`}</tbody></table>`;
+  return `<table><thead><tr><th>Reçu</th><th>Élève</th><th>Année</th><th>Payé par</th><th>Montant</th><th>Reste après paiement</th><th>Mode</th><th>Date</th><th>Caissier</th><th>Actions</th></tr></thead><tbody>${rows.map((row) => `<tr><td>${clean(row.id)}</td><td>${clean(student(row.studentId).name)}<br><small>${clean(student(row.studentId).matricule)}</small></td><td>${clean(row.year)}</td><td>${clean(paymentPayer(row))}</td><td>${money(row.amount)}</td><td class="${receiptAmounts(row).remaining > 0 ? "amount-danger" : "amount-ok"}">${money(receiptAmounts(row).remaining)}</td><td>${clean(row.mode)}</td><td>${clean(row.date)}<br><small>${clean(row.note)}</small></td><td>${clean(row.cashier)}</td><td><button class="btn quiet small" onclick="openReceipt('${row.id}')">Reçu</button>${canAction("deletePayments") ? ` <button class="btn danger small" onclick="deletePayment('${row.id}')">Supprimer</button>` : ""}</td></tr>`).join("") || `<tr><td colspan="10">Aucun paiement pour cette année scolaire.</td></tr>`}</tbody></table>`;
 }
 
 function deletePayment(id) {
-  if (!requireAction("payments")) return;
+  if (!requireAction("deletePayments")) return;
   if (!confirm("Supprimer ce paiement ?")) return;
   state.payments = state.payments.filter((row) => row.id !== id);
   log("Paiement supprimé", "Paiement");
