@@ -4,7 +4,7 @@ const DEVICE_KEY = `${DB_KEY}_device_id`;
 
 const $ = (id) => document.getElementById(id);
 const LOGO_SRC = "assets/mienra-logo.jpeg";
-const ASSET_VERSION = "20260706-edit-enrollments";
+const ASSET_VERSION = "20260706-payment-student-search";
 const CLOUD_CONFIG = globalThis.MIENRA_CLOUD || {};
 const SCHOOL_IDENTITY = {
   name: "EPP Mienrassou",
@@ -536,8 +536,9 @@ const pages = {
   },
   payments() {
     $("content").innerHTML = `
-      ${canAction("payments") ? `<article class="panel"><div class="panel-head"><h2>Nouveau paiement</h2><span>Encaissement et reçu - ${clean(currentYear())}</span></div><div class="form-grid"><div><label>Élève</label><select id="payStudent" onchange="paymentInfo()">${state.students.map((row) => `<option value="${row.id}">${clean(row.name)} - reste ${money(balance(row.id))}</option>`).join("")}</select></div>${field("Montant payé", "payAmount", 50000, "number")}${field("Payé par", "paidBy", "")}<div><label>Mode</label><select id="payMode"><option>Espèces</option><option>Orange Money</option><option>Moov Money</option><option>MTN Money</option><option>Wave</option></select></div>${field("Date", "payDate", today(), "date")}${field("Caissier", "cashier", session.name)}${field("Note", "payNote", "Versement frais scolaires")}</div><div class="notice" id="payInfo"></div><div class="actions"><button class="btn primary" onclick="savePayment()">Enregistrer et générer le reçu</button></div></article>` : readOnlyNotice("Paiements")}
+      ${canAction("payments") ? `<article class="panel"><div class="panel-head"><h2>Nouveau paiement</h2><span>Encaissement et reçu - ${clean(currentYear())}</span></div><div class="form-grid"><div class="student-picker"><label>Rechercher l’élève</label><input id="paySearch" placeholder="Nom, matricule, parent, contact..." oninput="drawPaymentStudentResults()"><select id="payStudent" onchange="paymentInfo()">${state.students.map((row) => `<option value="${row.id}">${clean(row.name)} - ${clean(row.matricule)} - reste ${money(balance(row.id))}</option>`).join("")}</select><div id="payStudentResults" class="picker-results"></div></div>${field("Montant payé", "payAmount", 50000, "number")}${field("Payé par", "paidBy", "")}<div><label>Mode</label><select id="payMode"><option>Espèces</option><option>Orange Money</option><option>Moov Money</option><option>MTN Money</option><option>Wave</option></select></div>${field("Date", "payDate", today(), "date")}${field("Caissier", "cashier", session.name)}${field("Note", "payNote", "Versement frais scolaires")}</div><div class="notice" id="payInfo"></div><div class="actions"><button class="btn primary" onclick="savePayment()">Enregistrer et générer le reçu</button></div></article>` : readOnlyNotice("Paiements")}
       <article class="panel"><div class="panel-head"><h2>Historique des paiements</h2><span>${state.payments.filter((row) => row.year === currentYear()).length} reçus - ${clean(currentYear())}</span></div>${paymentsTable()}</article>`;
+    drawPaymentStudentResults();
     paymentInfo();
   },
   receipts() { receiptView(); },
@@ -823,6 +824,28 @@ function deleteEnrollment(id) {
   pages.enrollments();
 }
 
+function paymentStudentMatches() {
+  const q = ($("paySearch")?.value || "").toLowerCase().trim();
+  const rows = q
+    ? state.students.filter((row) => [row.name, row.matricule, row.parent, row.phone, row.className].join(" ").toLowerCase().includes(q))
+    : state.students.slice(0, 8);
+  return rows.slice(0, 8);
+}
+
+function drawPaymentStudentResults() {
+  if (!$("payStudentResults")) return;
+  const rows = paymentStudentMatches();
+  $("payStudentResults").innerHTML = rows.map((row) => `<button type="button" class="${$("payStudent")?.value === row.id ? "active" : ""}" onclick="selectPaymentStudent('${row.id}')"><b>${clean(row.name)}</b><span>${clean(row.matricule)} · ${clean(row.className)} · reste ${money(balance(row.id))}</span><small>${clean(row.parent)} ${row.phone ? `· ${clean(row.phone)}` : ""}</small></button>`).join("") || `<div class="muted">Aucun élève trouvé.</div>`;
+}
+
+function selectPaymentStudent(id) {
+  if ($("payStudent")) $("payStudent").value = id;
+  const row = student(id);
+  if ($("paySearch")) $("paySearch").value = `${row.name} - ${row.matricule}`;
+  paymentInfo();
+  drawPaymentStudentResults();
+}
+
 function paymentInfo() {
   const id = $("payStudent")?.value;
   if (id && $("paidBy") && !$("paidBy").value) $("paidBy").value = student(id).parent || "";
@@ -875,7 +898,7 @@ function receiptView() {
   $("content").innerHTML = `<article class="panel"><div class="panel-head"><h2>Reçu de paiement</h2><span>${clean(payment.id)}</span></div><div class="receipt">${documentHeader("Reçu de paiement")}<div class="receipt-grid"><p><b>N° reçu</b><span>${clean(payment.id)}</span></p><p><b>Année scolaire</b><span>${clean(payment.year || currentYear())}</span></p><p><b>Date</b><span>${clean(payment.date)}</span></p><p><b>Élève</b><span>${clean(row.name)}</span></p><p><b>Matricule</b><span>${clean(row.matricule)}</span></p><p><b>Classe</b><span>${clean(row.className)}</span></p><p><b>Payé par</b><span>${clean(paymentPayer(payment))}</span></p><p><b>Mode</b><span>${clean(payment.mode)}</span></p><p><b>Frais classe</b><span>${money(amounts.expected)}</span></p><p><b>Déjà payé</b><span>${money(amounts.paidBefore)}</span></p><p><b>Montant payé</b><span>${money(amounts.currentPaid)}</span></p><p><b>Total payé</b><span>${money(amounts.totalPaid)}</span></p><p><b>Reste à payer</b><span class="${amounts.remaining > 0 ? "amount-danger" : "amount-ok"}">${money(amounts.remaining)}</span></p></div><p><b>Observation :</b> ${clean(payment.note || "-")}</p><div class="signatures"><p>Caissier<br><b>${clean(payment.cashier)}</b></p><p>Direction<br><b>${clean(state.school.director)}</b></p></div><small>${clean(state.school.receiptFooter)}</small></div><div class="actions"><button class="btn secondary" onclick="window.print()">Imprimer / PDF</button><button class="btn quiet" onclick="go('payments')">Retour paiements</button></div></article>`;
 }
 
-function goPay(id) { if (!requireAction("payments")) return; view = "payments"; renderNav(); pages.payments(); $("payStudent").value = id; paymentInfo(); }
+function goPay(id) { if (!requireAction("payments")) return; view = "payments"; renderNav(); pages.payments(); selectPaymentStudent(id); }
 
 function classSummary() {
   return `<table><thead><tr><th>Classe</th><th>Niveau</th><th>Élèves</th><th>Attendu</th><th>Payé</th><th>Reste</th></tr></thead><tbody>${state.classes.map((row) => {

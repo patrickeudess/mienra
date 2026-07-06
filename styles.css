@@ -328,6 +328,51 @@ textarea { min-height: 92px; }
   grid-template-columns: 1fr 210px 180px 170px;
 }
 
+.student-picker {
+  grid-column: span 2;
+}
+
+.student-picker select {
+  display: none;
+}
+
+.picker-results {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+  max-height: 260px;
+  overflow: auto;
+}
+
+.picker-results button {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.picker-results button.active,
+.picker-results button:hover {
+  border-color: var(--primary);
+  background: #eef6ff;
+}
+
+.picker-results b,
+.picker-results span,
+.picker-results small {
+  display: block;
+}
+
+.picker-results span,
+.picker-results small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .mini-stats {
   display: flex;
   flex-wrap: wrap;
