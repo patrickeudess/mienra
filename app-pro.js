@@ -26,6 +26,7 @@ let view = "dashboard";
 let session = null;
 let editing = null;
 let activeReceipt = null;
+let dashboardDetail = null;
 let state = loadState();
 
 const menu = [
@@ -165,10 +166,29 @@ function log(action) {
 
 function classFee(classes, name) { return Number(classes.find((item) => item.name === name)?.fee || 0); }
 function student(id) { return state.students.find((item) => item.id === id) || {}; }
-function due(id) { return state.enrollments.filter((item) => item.studentId === id).reduce((sum, item) => sum + Number(item.amount || 0) - Number(item.discount || 0), 0); }
+function enrollmentDue(item) { return classFee(state.classes, item.className) || Number(item.amount || 0); }
+function due(id) {
+  const rows = state.enrollments.filter((item) => item.studentId === id);
+  if (!rows.length) return classFee(state.classes, student(id).className);
+  return rows.reduce((sum, item) => sum + enrollmentDue(item) - Number(item.discount || 0), 0);
+}
 function paid(id) { return state.payments.filter((item) => item.studentId === id).reduce((sum, item) => sum + Number(item.amount || 0), 0); }
 function balance(id) { return due(id) - paid(id); }
 function percent(id) { const total = due(id); return total ? Math.min(100, Math.round((paid(id) / total) * 100)) : 0; }
+function paymentPaidBefore(payment) {
+  if (Number.isFinite(payment.paidBefore)) return Number(payment.paidBefore);
+  const index = state.payments.findIndex((row) => row.id === payment.id);
+  const olderRows = index >= 0 ? state.payments.slice(index + 1) : [];
+  return olderRows.filter((row) => row.studentId === payment.studentId).reduce((sum, row) => sum + Number(row.amount || 0), 0);
+}
+function receiptAmounts(payment) {
+  const expected = Number.isFinite(payment.expectedAtPayment) ? Number(payment.expectedAtPayment) : due(payment.studentId);
+  const paidBefore = paymentPaidBefore(payment);
+  const currentPaid = Number(payment.amount || 0);
+  const totalPaid = Number.isFinite(payment.totalPaidAfter) ? Number(payment.totalPaidAfter) : paidBefore + currentPaid;
+  const remaining = Number.isFinite(payment.balanceAfter) ? Number(payment.balanceAfter) : expected - totalPaid;
+  return { expected, paidBefore, currentPaid, totalPaid, remaining };
+}
 function totals() {
   const expected = state.students.reduce((sum, item) => sum + due(item.id), 0);
   const collected = state.students.reduce((sum, item) => sum + paid(item.id), 0);
@@ -265,6 +285,7 @@ function go(key) {
   if (!canPage(key)) return alert("Accès refusé pour ce rôle.");
   view = key;
   editing = null;
+  if (key !== "dashboard") dashboardDetail = null;
   renderNav();
   renderView();
 }
@@ -278,11 +299,14 @@ const pages = {
   dashboard() {
     const t = totals();
     $("content").innerHTML = `
+      ${dashboardDetail ? dashboardDetailPanel(dashboardDetail) : ""}
       <div class="stats">${stat("Élèves", state.students.length)}${stat("Montant attendu", money(t.expected))}${stat("Montant encaissé", money(t.collected))}${stat("Reste à payer", money(t.remaining), t.remaining > 0 ? "danger" : "ok")}</div>
       <div class="layout-two">
         <article class="panel"><div class="panel-head"><h2>Recouvrement par classe</h2><span>${t.rate}% encaissé</span></div>${classSummary()}</article>
         <article class="panel"><div class="panel-head"><h2>Activité récente</h2><span>${state.logs.length} opérations</span></div>${logsTable(9)}</article>
       </div>`;
+    attachDashboardStatActions();
+    if (dashboardDetail) drawDashboardDetail();
   },
   students() {
     const item = editing ? state.students.find((row) => row.id === editing) : {};
@@ -311,8 +335,9 @@ const pages = {
   },
   receipts() { receiptView(); },
   unpaid() {
-    const rows = state.students.filter((row) => balance(row.id) > 0).sort((a, b) => balance(b.id) - balance(a.id));
-    $("content").innerHTML = `<article class="panel"><div class="panel-head"><h2>Impayés</h2><span>${money(rows.reduce((sum, row) => sum + balance(row.id), 0))} à recouvrer</span></div><table><thead><tr><th>Élève</th><th>Classe</th><th>Attendu</th><th>Payé</th><th>Reste</th><th>Parent</th><th>Action</th></tr></thead><tbody>${rows.map((row) => `<tr><td>${clean(row.name)}<br><small>${clean(row.matricule)}</small></td><td>${clean(row.className)}</td><td>${money(due(row.id))}</td><td>${money(paid(row.id))}</td><td class="amount-danger">${money(balance(row.id))}</td><td>${clean(row.parent)}<br><small>${clean(row.phone)}</small></td><td>${canAction("payments") ? `<button class="btn secondary small" onclick="goPay('${row.id}')">Payer</button>` : `<span class="muted">Lecture seule</span>`}</td></tr>`).join("") || `<tr><td colspan="7">Aucun impayé.</td></tr>`}</tbody></table></article>`;
+    const t = totals();
+    $("content").innerHTML = `<article class="panel"><div class="panel-head"><h2>Suivi des paiements</h2><span>${money(t.remaining)} à recouvrer</span></div>${financialFilters("unpaid")}<div id="unpaidTable"></div></article>`;
+    drawUnpaid();
   },
   reports() {
     const t = totals();
@@ -333,6 +358,23 @@ const pages = {
 
 function stat(label, value, tone = "") { return `<div class="stat ${tone}"><span>${label}</span><strong>${value}</strong></div>`; }
 function field(label, id, value = "", type = "text") { return `<div><label>${label}</label><input id="${id}" type="${type}" value="${clean(value)}"></div>`; }
+function attachDashboardStatActions() {
+  const cards = [...document.querySelectorAll(".stats .stat")];
+  [
+    [2, "collected"],
+    [3, "remaining"]
+  ].forEach(([index, type]) => {
+    const card = cards[index];
+    if (!card) return;
+    card.classList.add("clickable");
+    card.setAttribute("role", "button");
+    card.setAttribute("tabindex", "0");
+    card.onclick = () => showDashboardDetail(type);
+    card.onkeydown = (event) => {
+      if (event.key === "Enter" || event.key === " ") showDashboardDetail(type);
+    };
+  });
+}
 function documentHeader(title = state.school.name) {
   const contact = [state.school.address, state.school.phone, state.school.email].filter(Boolean).map(clean).join(" · ");
   return `<div class="document-header"><img class="document-logo" src="${logoUrl()}" alt="Logo EPP Mienrassou" onerror="this.classList.add('logo-failed')"><div><div class="logo-text"><b>${clean(SCHOOL_IDENTITY.subtitle)}</b><span>${clean(SCHOOL_IDENTITY.legalName)}</span><strong>MIENRASSOU - DALOA</strong><em>Tél : ${clean(SCHOOL_IDENTITY.phone)}</em></div><h2>${clean(title)}</h2><p>${clean(state.school.name)}${contact ? ` · ${contact}` : ""}</p></div></div>`;
@@ -373,6 +415,77 @@ function paymentStatus(row) {
   const label = left <= 0 ? "Soldé" : collected > 0 ? "Partiel" : "Impayé";
   const tone = left <= 0 ? "amount-ok" : collected > 0 ? "amount-warn" : "amount-danger";
   return `<b class="${tone}">${label}</b><div class="progress"><span style="width:${percent(row.id)}%"></span></div><small>${percent(row.id)}% · reste ${money(left)}</small>`;
+}
+
+function financeStatus(row) {
+  const left = balance(row.id);
+  const collected = paid(row.id);
+  if (due(row.id) <= 0) return "Sans frais";
+  if (left <= 0) return "Soldé";
+  return collected > 0 ? "Partiel" : "Impayé";
+}
+
+function financialFilters(prefix, includeDate = false) {
+  const handler = prefix === "dash" ? "drawDashboardDetail()" : "drawUnpaid()";
+  return `<div class="filters financial-filters">
+    <input id="${prefix}Search" placeholder="Rechercher nom, matricule, parent, contact..." oninput="${handler}">
+    <select id="${prefix}Class" onchange="${handler}"><option value="">Toutes les classes</option>${state.classes.map((row) => `<option>${clean(row.name)}</option>`).join("")}</select>
+    <select id="${prefix}Status" onchange="${handler}"><option value="">Tous statuts</option><option value="paid">Soldés</option><option value="partial">Partiels</option><option value="unpaid">Impayés</option></select>
+    ${includeDate ? `<input id="${prefix}Date" type="date" onchange="drawDashboardDetail()">` : ""}
+  </div>`;
+}
+
+function filterFinancialStudents(prefix, rows = state.students) {
+  const q = ($(prefix + "Search")?.value || "").toLowerCase();
+  const className = $(prefix + "Class")?.value || "";
+  const status = $(prefix + "Status")?.value || "";
+  let filtered = rows.filter((row) => [row.name, row.matricule, row.parent, row.phone, row.className].join(" ").toLowerCase().includes(q));
+  if (className) filtered = filtered.filter((row) => row.className === className);
+  if (status === "paid") filtered = filtered.filter((row) => balance(row.id) <= 0 && due(row.id) > 0);
+  if (status === "partial") filtered = filtered.filter((row) => balance(row.id) > 0 && paid(row.id) > 0);
+  if (status === "unpaid") filtered = filtered.filter((row) => balance(row.id) > 0 && paid(row.id) === 0);
+  return filtered;
+}
+
+function financialRows(rows, emptyMessage = "Aucun élève trouvé.") {
+  return `<table><thead><tr><th>Élève</th><th>Classe</th><th>Frais classe</th><th>Déjà payé</th><th>Reste à payer</th><th>Statut</th><th>Parent</th><th>Action</th></tr></thead><tbody>${rows.map((row) => {
+    const left = balance(row.id);
+    return `<tr><td>${clean(row.name)}<br><small>${clean(row.matricule)}</small></td><td>${clean(row.className)}</td><td>${money(due(row.id))}</td><td class="amount-ok">${money(paid(row.id))}</td><td class="${left > 0 ? "amount-danger" : "amount-ok"}">${money(left)}</td><td>${financeStatus(row)}</td><td>${clean(row.parent)}<br><small>${clean(row.phone)}</small></td><td>${canAction("payments") ? `<button class="btn secondary small" onclick="goPay('${row.id}')">Payer</button>` : `<span class="muted">Lecture seule</span>`}</td></tr>`;
+  }).join("") || `<tr><td colspan="8">${emptyMessage}</td></tr>`}</tbody></table>`;
+}
+
+function drawUnpaid() {
+  if (!$("unpaidTable")) return;
+  const rows = filterFinancialStudents("unpaid").sort((a, b) => balance(b.id) - balance(a.id));
+  const paidTotal = rows.reduce((sum, row) => sum + paid(row.id), 0);
+  const remainingTotal = rows.reduce((sum, row) => sum + balance(row.id), 0);
+  $("unpaidTable").innerHTML = `<div class="mini-stats"><span>Déjà payé : <b>${money(paidTotal)}</b></span><span>Reste à payer : <b class="${remainingTotal > 0 ? "amount-danger" : "amount-ok"}">${money(remainingTotal)}</b></span><span>${rows.length} élèves</span></div>${financialRows(rows)}`;
+}
+
+function showDashboardDetail(type) {
+  dashboardDetail = type;
+  pages.dashboard();
+}
+
+function dashboardDetailPanel(type) {
+  const title = type === "collected" ? "Détail du montant encaissé" : "Détail du reste à payer";
+  const subtitle = type === "collected" ? "Liste des élèves qui ont payé" : "Liste filtrable des montants restants";
+  return `<article class="panel"><div class="panel-head"><h2>${title}</h2><span>${subtitle}</span></div>${financialFilters("dash", type === "collected")}<div id="dashboardDetailTable"></div></article>`;
+}
+
+function drawDashboardDetail() {
+  if (!$("dashboardDetailTable")) return;
+  if (dashboardDetail === "collected") {
+    const date = $("dashDate")?.value || "";
+    const paidIds = new Set(state.payments.filter((row) => !date || row.date === date).map((row) => row.studentId));
+    const rows = filterFinancialStudents("dash", state.students.filter((row) => paidIds.has(row.id))).sort((a, b) => paid(b.id) - paid(a.id));
+    const paidTotal = rows.reduce((sum, row) => sum + paid(row.id), 0);
+    $("dashboardDetailTable").innerHTML = `<div class="mini-stats"><span>Montant encaissé : <b class="amount-ok">${money(paidTotal)}</b></span><span>${rows.length} élèves avec paiement</span></div>${financialRows(rows, "Aucun paiement trouvé.")}`;
+    return;
+  }
+  const rows = filterFinancialStudents("dash", state.students.filter((row) => balance(row.id) > 0)).sort((a, b) => balance(b.id) - balance(a.id));
+  const remainingTotal = rows.reduce((sum, row) => sum + balance(row.id), 0);
+  $("dashboardDetailTable").innerHTML = `<div class="mini-stats"><span>Reste à payer : <b class="amount-danger">${money(remainingTotal)}</b></span><span>${rows.length} élèves concernés</span></div>${financialRows(rows, "Aucun reste à payer.")}`;
 }
 
 function saveStudent() {
@@ -469,8 +582,12 @@ function savePayment() {
   const studentId = $("payStudent").value;
   const amount = Number($("payAmount").value || 0);
   if (amount <= 0) return alert("Le montant doit être supérieur à zéro.");
+  const expectedAtPayment = due(studentId);
+  const paidBefore = paid(studentId);
+  const balanceBefore = expectedAtPayment - paidBefore;
+  if (balanceBefore > 0 && amount > balanceBefore) return alert(`Le montant saisi dépasse le reste à payer (${money(balanceBefore)}).`);
   const receipt = `${state.school.receiptPrefix}-${new Date().getFullYear()}-${String(state.payments.length + 1).padStart(4, "0")}`;
-  const payment = { id: receipt, studentId, amount, mode: $("payMode").value, date: $("payDate").value, cashier: $("cashier").value, note: $("payNote").value };
+  const payment = { id: receipt, studentId, amount, expectedAtPayment, paidBefore, totalPaidAfter: paidBefore + amount, balanceAfter: expectedAtPayment - paidBefore - amount, mode: $("payMode").value, date: $("payDate").value, cashier: $("cashier").value, note: $("payNote").value };
   state.payments.unshift(payment);
   activeReceipt = payment.id;
   log(`Paiement enregistré : ${student(studentId).name} - ${money(amount)}`);
@@ -481,7 +598,7 @@ function savePayment() {
 }
 
 function paymentsTable() {
-  return `<table><thead><tr><th>Reçu</th><th>Élève</th><th>Montant</th><th>Mode</th><th>Date</th><th>Caissier</th><th>Actions</th></tr></thead><tbody>${state.payments.map((row) => `<tr><td>${clean(row.id)}</td><td>${clean(student(row.studentId).name)}<br><small>${clean(student(row.studentId).matricule)}</small></td><td>${money(row.amount)}</td><td>${clean(row.mode)}</td><td>${clean(row.date)}<br><small>${clean(row.note)}</small></td><td>${clean(row.cashier)}</td><td><button class="btn quiet small" onclick="openReceipt('${row.id}')">Reçu</button>${canAction("payments") ? ` <button class="btn danger small" onclick="deletePayment('${row.id}')">Supprimer</button>` : ""}</td></tr>`).join("")}</tbody></table>`;
+  return `<table><thead><tr><th>Reçu</th><th>Élève</th><th>Montant</th><th>Reste après paiement</th><th>Mode</th><th>Date</th><th>Caissier</th><th>Actions</th></tr></thead><tbody>${state.payments.map((row) => `<tr><td>${clean(row.id)}</td><td>${clean(student(row.studentId).name)}<br><small>${clean(student(row.studentId).matricule)}</small></td><td>${money(row.amount)}</td><td class="${receiptAmounts(row).remaining > 0 ? "amount-danger" : "amount-ok"}">${money(receiptAmounts(row).remaining)}</td><td>${clean(row.mode)}</td><td>${clean(row.date)}<br><small>${clean(row.note)}</small></td><td>${clean(row.cashier)}</td><td><button class="btn quiet small" onclick="openReceipt('${row.id}')">Reçu</button>${canAction("payments") ? ` <button class="btn danger small" onclick="deletePayment('${row.id}')">Supprimer</button>` : ""}</td></tr>`).join("")}</tbody></table>`;
 }
 
 function deletePayment(id) {
@@ -499,7 +616,8 @@ function receiptView() {
   const payment = state.payments.find((row) => row.id === activeReceipt) || state.payments[0];
   if (!payment) { $("content").innerHTML = `<article class="panel empty">Aucun reçu disponible.</article>`; return; }
   const row = student(payment.studentId);
-  $("content").innerHTML = `<article class="panel"><div class="panel-head"><h2>Reçu de paiement</h2><span>${clean(payment.id)}</span></div><div class="receipt">${documentHeader("Reçu de paiement")}<div class="receipt-grid"><p><b>N° reçu</b><span>${clean(payment.id)}</span></p><p><b>Date</b><span>${clean(payment.date)}</span></p><p><b>Élève</b><span>${clean(row.name)}</span></p><p><b>Matricule</b><span>${clean(row.matricule)}</span></p><p><b>Classe</b><span>${clean(row.className)}</span></p><p><b>Mode</b><span>${clean(payment.mode)}</span></p><p><b>Montant payé</b><span>${money(payment.amount)}</span></p><p><b>Reste</b><span>${money(balance(row.id))}</span></p></div><p><b>Observation :</b> ${clean(payment.note || "-")}</p><div class="signatures"><p>Caissier<br><b>${clean(payment.cashier)}</b></p><p>Direction<br><b>${clean(state.school.director)}</b></p></div><small>${clean(state.school.receiptFooter)}</small></div><div class="actions"><button class="btn secondary" onclick="window.print()">Imprimer / PDF</button><button class="btn quiet" onclick="go('payments')">Retour paiements</button></div></article>`;
+  const amounts = receiptAmounts(payment);
+  $("content").innerHTML = `<article class="panel"><div class="panel-head"><h2>Reçu de paiement</h2><span>${clean(payment.id)}</span></div><div class="receipt">${documentHeader("Reçu de paiement")}<div class="receipt-grid"><p><b>N° reçu</b><span>${clean(payment.id)}</span></p><p><b>Date</b><span>${clean(payment.date)}</span></p><p><b>Élève</b><span>${clean(row.name)}</span></p><p><b>Matricule</b><span>${clean(row.matricule)}</span></p><p><b>Classe</b><span>${clean(row.className)}</span></p><p><b>Mode</b><span>${clean(payment.mode)}</span></p><p><b>Frais classe</b><span>${money(amounts.expected)}</span></p><p><b>Déjà payé</b><span>${money(amounts.paidBefore)}</span></p><p><b>Montant payé</b><span>${money(amounts.currentPaid)}</span></p><p><b>Total payé</b><span>${money(amounts.totalPaid)}</span></p><p><b>Reste à payer</b><span class="${amounts.remaining > 0 ? "amount-danger" : "amount-ok"}">${money(amounts.remaining)}</span></p></div><p><b>Observation :</b> ${clean(payment.note || "-")}</p><div class="signatures"><p>Caissier<br><b>${clean(payment.cashier)}</b></p><p>Direction<br><b>${clean(state.school.director)}</b></p></div><small>${clean(state.school.receiptFooter)}</small></div><div class="actions"><button class="btn secondary" onclick="window.print()">Imprimer / PDF</button><button class="btn quiet" onclick="go('payments')">Retour paiements</button></div></article>`;
 }
 
 function goPay(id) { if (!requireAction("payments")) return; view = "payments"; renderNav(); pages.payments(); $("payStudent").value = id; paymentInfo(); }
@@ -565,7 +683,7 @@ function exportCSV(type) {
   let rows = [];
   if (type === "students") rows = [["matricule", "nom", "classe", "parent", "contact", "attendu", "paye", "reste"], ...state.students.map((row) => [row.matricule, row.name, row.className, row.parent, row.phone, due(row.id), paid(row.id), balance(row.id)])];
   if (type === "payments") rows = [["recu", "eleve", "matricule", "montant", "mode", "date", "caissier"], ...state.payments.map((row) => [row.id, student(row.studentId).name, student(row.studentId).matricule, row.amount, row.mode, row.date, row.cashier])];
-  if (type === "unpaid") rows = [["matricule", "nom", "classe", "parent", "contact", "reste"], ...state.students.filter((row) => balance(row.id) > 0).map((row) => [row.matricule, row.name, row.className, row.parent, row.phone, balance(row.id)])];
+  if (type === "unpaid") rows = [["matricule", "nom", "classe", "parent", "contact", "attendu", "paye", "reste", "statut"], ...state.students.map((row) => [row.matricule, row.name, row.className, row.parent, row.phone, due(row.id), paid(row.id), balance(row.id), financeStatus(row)])];
   download(`${type}.csv`, rows.map((row) => row.map((cell) => `"${String(cell ?? "").replaceAll('"', '""')}"`).join(";")).join("\n"), "text/csv;charset=utf-8");
 }
 
