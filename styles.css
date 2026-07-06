@@ -370,12 +370,37 @@ th {
   color: var(--muted);
 }
 
+.logo-text {
+  display: grid;
+  gap: 2px;
+  margin-bottom: 8px;
+  color: var(--nav);
+  text-transform: uppercase;
+}
+
+.logo-text b,
+.logo-text span,
+.logo-text em {
+  font-style: normal;
+  font-size: 12px;
+  letter-spacing: .04em;
+}
+
+.logo-text strong {
+  font-size: 18px;
+  letter-spacing: .03em;
+}
+
 .document-logo {
   width: 126px;
   height: 126px;
   object-fit: contain;
   flex: 0 0 auto;
   background: #fff;
+}
+
+.document-logo.logo-failed {
+  display: none;
 }
 
 .receipt-logo {

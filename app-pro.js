@@ -2,7 +2,17 @@ const DB_KEY = "mienra_web_app_v2";
 
 const $ = (id) => document.getElementById(id);
 const LOGO_SRC = "assets/mienra-logo.jpeg";
-const ASSET_VERSION = "20260706-logo-docs";
+const ASSET_VERSION = "20260706-epp-mienrassou";
+const SCHOOL_IDENTITY = {
+  name: "EPP Mienrassou",
+  code: "EPPM",
+  subtitle: "École Maternelle et Primaire",
+  legalName: "École primaire et privé",
+  location: "Mienrassou - Daloa",
+  phone: "07 07 70 44 54",
+  email: "",
+  director: "Direction de l’école"
+};
 const fmt = new Intl.NumberFormat("fr-FR");
 const money = (value) => `${fmt.format(Number(value || 0))} FCFA`;
 const today = () => new Date().toISOString().slice(0, 10);
@@ -68,13 +78,13 @@ function seedState() {
 
   return {
     school: {
-      name: "Groupe Scolaire MIENRA",
-      code: "GSM",
+      name: SCHOOL_IDENTITY.name,
+      code: SCHOOL_IDENTITY.code,
       year: "2026-2027",
-      phone: "+225 07 00 00 00 00",
-      email: "contact@mienra.ci",
-      address: "Abidjan, Côte d’Ivoire",
-      director: "Directeur de l’école",
+      phone: SCHOOL_IDENTITY.phone,
+      email: SCHOOL_IDENTITY.email,
+      address: SCHOOL_IDENTITY.location,
+      director: SCHOOL_IDENTITY.director,
       logo: "M",
       logoImage: LOGO_SRC,
       receiptPrefix: "REC",
@@ -119,13 +129,30 @@ function loadState() {
 
 function normalizeState(data) {
   const base = seedState();
-  return {
+  const normalized = {
     ...base,
     ...data,
     school: { ...base.school, ...(data.school || {}) },
     years: data.years?.length ? data.years : base.years,
     users: data.users?.length ? data.users : base.users,
     logs: data.logs || []
+  };
+  normalized.school = migrateSchoolIdentity(normalized.school);
+  return normalized;
+}
+
+function migrateSchoolIdentity(school) {
+  const legacyNames = ["Groupe Scolaire MIENRA", "MIENRA Web", "MIENRA"];
+  const shouldUpdate = !school.name || legacyNames.includes(school.name);
+  return {
+    ...school,
+    name: shouldUpdate ? SCHOOL_IDENTITY.name : school.name,
+    code: !school.code || school.code === "GSM" ? SCHOOL_IDENTITY.code : school.code,
+    phone: !school.phone || school.phone === "+225 07 00 00 00 00" ? SCHOOL_IDENTITY.phone : school.phone,
+    email: school.email === "contact@mienra.ci" ? SCHOOL_IDENTITY.email : school.email,
+    address: !school.address || school.address === "Abidjan, Côte d’Ivoire" ? SCHOOL_IDENTITY.location : school.address,
+    director: !school.director || school.director === "Directeur de l’école" ? SCHOOL_IDENTITY.director : school.director,
+    logoImage: LOGO_SRC
   };
 }
 
@@ -182,10 +209,10 @@ function renderLogin() {
   $("root").innerHTML = `
     <section class="login">
       <div class="login-panel">
-        <div class="login-brand"><img class="brand-logo" src="${logoUrl()}" alt="Logo MIENRA"><div><h1>MIENRA Web</h1><p>Gestion scolaire testable par lien GitHub Pages.</p></div></div>
+        <div class="login-brand"><img class="brand-logo" src="${logoUrl()}" alt="Logo EPP Mienrassou"><div><h1>EPP Mienrassou</h1><p>Gestion scolaire : élèves, inscriptions, paiements, reçus et rapports.</p></div></div>
         <label>Identifiant</label><input id="login" value="admin" autocomplete="username">
         <label>Mot de passe</label><input id="password" type="password" value="admin123" autocomplete="current-password">
-        <div class="actions"><button class="btn primary" onclick="login()">Se connecter</button><button class="btn quiet" onclick="quickLogin()">Mode démo</button></div>
+        <div class="actions"><button class="btn primary" onclick="login()">Se connecter</button><button class="btn quiet" onclick="quickLogin()">Accès rapide admin</button></div>
         <div class="hint">Comptes test : admin/admin123, directeur/directeur123, secretaire/secretaire123, consultation/consultation123</div>
       </div>
     </section>`;
@@ -203,7 +230,7 @@ function login() {
 
 function quickLogin() {
   session = state.users.find((item) => item.login === "admin") || state.users[0];
-  log("Connexion démo");
+  log("Connexion accès rapide");
   renderShell();
 }
 
@@ -214,7 +241,7 @@ function renderShell() {
   $("root").innerHTML = `
     <div class="app">
       <aside class="sidebar">
-        <div class="brand-row"><img class="brand-logo small-logo" src="${logoUrl()}" alt="Logo MIENRA"><div><strong>MIENRA</strong><span>${clean(state.school.year)}</span></div></div>
+        <div class="brand-row"><img class="brand-logo small-logo" src="${logoUrl()}" alt="Logo EPP Mienrassou"><div><strong>EPP Mienrassou</strong><span>${clean(state.school.year)}</span></div></div>
         <div class="account"><b>${clean(session.name)}</b><span>${clean(session.role)}</span><button class="btn small quiet" onclick="logout()">Déconnexion</button></div>
         <nav id="nav"></nav>
       </aside>
@@ -297,17 +324,18 @@ const pages = {
   },
   settings() {
     const item = state.school;
-    $("content").innerHTML = `<article class="panel"><div class="panel-head"><h2>Paramètres de l’établissement</h2><span>Identité sur reçus et exports</span></div><div class="settings-logo"><img src="${logoUrl()}" alt="Logo MIENRA"><span>Logo officiel utilisé sur les reçus et documents imprimables.</span></div><div class="form-grid">${field("Nom école", "schoolName", item.name)}${field("Code", "schoolCode", item.code)}${field("Année active", "schoolYear", item.year)}${field("Téléphone", "schoolPhone", item.phone)}${field("Email", "schoolEmail", item.email)}${field("Adresse", "schoolAddress", item.address)}${field("Directeur", "director", item.director)}${field("Préfixe reçu", "receiptPrefix", item.receiptPrefix)}${field("Logo texte secours", "logo", item.logo)}</div><div><label>Message reçu</label><textarea id="receiptFooter">${clean(item.receiptFooter)}</textarea></div><div class="actions"><button class="btn primary" onclick="saveSettings()">Enregistrer les paramètres</button></div></article>`;
+    $("content").innerHTML = `<article class="panel"><div class="panel-head"><h2>Paramètres de l’établissement</h2><span>Identité sur reçus et exports</span></div><div class="settings-logo"><img src="${logoUrl()}" alt="Logo EPP Mienrassou"><span>Logo officiel et informations de EPP Mienrassou utilisés sur les reçus et documents imprimables.</span></div><div class="form-grid">${field("Nom école", "schoolName", item.name)}${field("Code", "schoolCode", item.code)}${field("Année active", "schoolYear", item.year)}${field("Téléphone", "schoolPhone", item.phone)}${field("Email", "schoolEmail", item.email)}${field("Adresse", "schoolAddress", item.address)}${field("Directeur", "director", item.director)}${field("Préfixe reçu", "receiptPrefix", item.receiptPrefix)}${field("Logo texte secours", "logo", item.logo)}</div><div><label>Message reçu</label><textarea id="receiptFooter">${clean(item.receiptFooter)}</textarea></div><div class="actions"><button class="btn primary" onclick="saveSettings()">Enregistrer les paramètres</button></div></article>`;
   },
   backup() {
-    $("content").innerHTML = `<article class="panel"><div class="panel-head"><h2>Sauvegardes</h2><span>Export/import JSON</span></div><p class="muted">Cette version GitHub Pages stocke les données dans le navigateur de chaque testeur. Exportez un fichier JSON pour transférer ou archiver une base de test.</p><div class="actions"><button class="btn secondary" onclick="downloadBackup()">Exporter JSON</button><button class="btn danger" onclick="resetApp()">Réinitialiser</button></div><label>Importer une sauvegarde JSON</label><input type="file" accept=".json" onchange="importBackup(this)"></article><article class="panel"><div class="panel-head"><h2>Journal</h2><span>${state.logs.length} opérations</span></div>${logsTable(80)}</article>`;
+    $("content").innerHTML = `<article class="panel"><div class="panel-head"><h2>Sauvegardes</h2><span>Export/import JSON</span></div><p class="muted">Les données sont stockées dans le navigateur de chaque utilisateur. Exportez un fichier JSON pour transférer ou archiver une base de test.</p><div class="actions"><button class="btn secondary" onclick="downloadBackup()">Exporter JSON</button><button class="btn danger" onclick="resetApp()">Réinitialiser</button></div><label>Importer une sauvegarde JSON</label><input type="file" accept=".json" onchange="importBackup(this)"></article><article class="panel"><div class="panel-head"><h2>Journal</h2><span>${state.logs.length} opérations</span></div>${logsTable(80)}</article>`;
   }
 };
 
 function stat(label, value, tone = "") { return `<div class="stat ${tone}"><span>${label}</span><strong>${value}</strong></div>`; }
 function field(label, id, value = "", type = "text") { return `<div><label>${label}</label><input id="${id}" type="${type}" value="${clean(value)}"></div>`; }
 function documentHeader(title = state.school.name) {
-  return `<div class="document-header"><img class="document-logo" src="${logoUrl()}" alt="Logo MIENRA"><div><h2>${clean(title)}</h2><p>${clean(state.school.name)} · ${clean(state.school.address)} · ${clean(state.school.phone)} · ${clean(state.school.email)}</p></div></div>`;
+  const contact = [state.school.address, state.school.phone, state.school.email].filter(Boolean).map(clean).join(" · ");
+  return `<div class="document-header"><img class="document-logo" src="${logoUrl()}" alt="Logo EPP Mienrassou" onerror="this.classList.add('logo-failed')"><div><div class="logo-text"><b>${clean(SCHOOL_IDENTITY.subtitle)}</b><span>${clean(SCHOOL_IDENTITY.legalName)}</span><strong>MIENRASSOU - DALOA</strong><em>Tél : ${clean(SCHOOL_IDENTITY.phone)}</em></div><h2>${clean(title)}</h2><p>${clean(state.school.name)}${contact ? ` · ${contact}` : ""}</p></div></div>`;
 }
 function readOnlyNotice(label) { return `<article class="panel notice">${label} : affichage en lecture seule pour le rôle ${clean(session?.role || "")}.</article>`; }
 function actionForScope(scope) { return ({ Class: "classes", User: "users" })[scope]; }
