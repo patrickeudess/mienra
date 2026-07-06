@@ -4,7 +4,7 @@ const DEVICE_KEY = `${DB_KEY}_device_id`;
 
 const $ = (id) => document.getElementById(id);
 const LOGO_SRC = "assets/mienra-logo.jpeg";
-const ASSET_VERSION = "20260706-admin-daily-point";
+const ASSET_VERSION = "20260706-restrict-delete-enrollments";
 const CLOUD_CONFIG = globalThis.MIENRA_CLOUD || {};
 const SCHOOL_IDENTITY = {
   name: "EPP Mienrassou",
@@ -51,7 +51,7 @@ const menu = [
 const roleAccess = {
   Administrateur: {
     pages: ["dashboard", "students", "classes", "enrollments", "payments", "receipts", "unpaid", "reports", "users", "settings", "backup"],
-    actions: ["students", "classes", "enrollments", "payments", "deletePayments", "dailyPoint", "users", "settings", "backup", "exports"]
+    actions: ["students", "classes", "enrollments", "deleteEnrollments", "payments", "deletePayments", "dailyPoint", "users", "settings", "backup", "exports"]
   },
   Directeur: {
     pages: ["dashboard", "students", "classes", "enrollments", "payments", "receipts", "unpaid", "reports", "settings"],
@@ -794,11 +794,11 @@ function saveEnrollment() {
 
 function enrollmentsTable() {
   const rows = state.enrollments.filter((row) => row.year === currentYear());
-  return `<table><thead><tr><th>Élève</th><th>Classe</th><th>Année</th><th>Montant</th><th>Remise</th><th>Net</th><th>Date</th><th>Action</th></tr></thead><tbody>${rows.map((row) => `<tr><td>${clean(student(row.studentId).name)}<br><small>${clean(student(row.studentId).matricule)}</small></td><td>${clean(row.className)}</td><td>${clean(row.year)}</td><td>${money(row.amount)}</td><td>${money(row.discount)}</td><td>${money(row.amount - row.discount)}</td><td>${clean(row.date)}</td><td>${canAction("enrollments") ? `<button class="btn danger small" onclick="deleteEnrollment('${row.id}')">Supprimer</button>` : `<span class="muted">Lecture seule</span>`}</td></tr>`).join("") || `<tr><td colspan="8">Aucune inscription pour cette année scolaire.</td></tr>`}</tbody></table>`;
+  return `<table><thead><tr><th>Élève</th><th>Classe</th><th>Année</th><th>Montant</th><th>Remise</th><th>Net</th><th>Date</th><th>Action</th></tr></thead><tbody>${rows.map((row) => `<tr><td>${clean(student(row.studentId).name)}<br><small>${clean(student(row.studentId).matricule)}</small></td><td>${clean(row.className)}</td><td>${clean(row.year)}</td><td>${money(row.amount)}</td><td>${money(row.discount)}</td><td>${money(row.amount - row.discount)}</td><td>${clean(row.date)}</td><td>${canAction("deleteEnrollments") ? `<button class="btn danger small" onclick="deleteEnrollment('${row.id}')">Supprimer</button>` : `<span class="muted">Lecture seule</span>`}</td></tr>`).join("") || `<tr><td colspan="8">Aucune inscription pour cette année scolaire.</td></tr>`}</tbody></table>`;
 }
 
 function deleteEnrollment(id) {
-  if (!requireAction("enrollments")) return;
+  if (!requireAction("deleteEnrollments")) return;
   if (!confirm("Supprimer cette inscription ?")) return;
   state.enrollments = state.enrollments.filter((row) => row.id !== id);
   log("Inscription supprimée", "Inscription");
