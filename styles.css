@@ -236,6 +236,29 @@ nav span {
   gap: 16px;
 }
 
+.subtabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.subtabs button {
+  padding: 10px 13px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--muted);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.subtabs button.active {
+  border-color: var(--blue);
+  background: #eef6ff;
+  color: var(--blue);
+}
+
 .panel {
   padding: 18px;
   margin-bottom: 16px;
