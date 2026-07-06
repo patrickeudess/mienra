@@ -1,9 +1,10 @@
 const DB_KEY = "mienra_web_app_v2";
 const DB_BACKUP_KEY = `${DB_KEY}_last_good`;
+const DEVICE_KEY = `${DB_KEY}_device_id`;
 
 const $ = (id) => document.getElementById(id);
 const LOGO_SRC = "assets/mienra-logo.jpeg";
-const ASSET_VERSION = "20260706-safe-merge";
+const ASSET_VERSION = "20260706-audit-log";
 const CLOUD_CONFIG = globalThis.MIENRA_CLOUD || {};
 const SCHOOL_IDENTITY = {
   name: "EPP Mienrassou",
@@ -140,11 +141,25 @@ function normalizeState(data) {
     school: { ...base.school, ...(data.school || {}) },
     years: data.years?.length ? data.years : base.years,
     users: data.users?.length ? data.users : base.users,
-    logs: data.logs || [],
+    logs: normalizeLogs(data.logs || []),
     updatedAt: data.updatedAt || new Date().toISOString()
   };
   normalized.school = migrateSchoolIdentity(normalized.school);
   return normalized;
+}
+
+function normalizeLogs(rows = []) {
+  return rows.map((row) => ({
+    id: row.id || uid("LOG"),
+    iso: row.iso || row.date || new Date().toISOString(),
+    date: row.date || new Date(row.iso || Date.now()).toLocaleString("fr-FR"),
+    user: row.user || "Système",
+    role: row.role || "",
+    type: row.type || "Action",
+    action: row.action || "",
+    device: row.device || "",
+    detail: row.detail || ""
+  })).slice(0, 500);
 }
 
 function mergeById(remoteRows = [], localRows = []) {
@@ -157,10 +172,11 @@ function mergeById(remoteRows = [], localRows = []) {
 function mergeLogs(remoteRows = [], localRows = []) {
   const rows = new Map();
   [...remoteRows, ...localRows].forEach((row) => {
-    const key = [row.date, row.user, row.action].join("|");
+    const normalized = normalizeLogs([row])[0];
+    const key = normalized.id || [normalized.iso, normalized.user, normalized.action, normalized.device].join("|");
     if (key.trim()) rows.set(key, row);
   });
-  return [...rows.values()].slice(0, 300);
+  return normalizeLogs([...rows.values()]).sort((a, b) => new Date(b.iso) - new Date(a.iso)).slice(0, 500);
 }
 
 function mergeStates(localData, remoteData) {
@@ -276,9 +292,28 @@ async function pushSharedState() {
     cloudSyncing = false;
   }
 }
-function log(action) {
-  state.logs.unshift({ date: new Date().toLocaleString("fr-FR"), user: session?.name || "Système", action });
-  state.logs = state.logs.slice(0, 300);
+function deviceId() {
+  let id = localStorage.getItem(DEVICE_KEY);
+  if (!id) {
+    id = `APP-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+    localStorage.setItem(DEVICE_KEY, id);
+  }
+  return id;
+}
+function log(action, type = "Action", detail = "") {
+  const now = new Date();
+  state.logs.unshift({
+    id: uid("LOG"),
+    iso: now.toISOString(),
+    date: now.toLocaleString("fr-FR"),
+    user: session?.name || "Système",
+    role: session?.role || "",
+    type,
+    action,
+    device: deviceId(),
+    detail
+  });
+  state.logs = normalizeLogs(state.logs).slice(0, 500);
   saveState();
 }
 
@@ -338,6 +373,7 @@ function canAction(action) {
 
 function requireAction(action) {
   if (canAction(action)) return true;
+  log(`Accès refusé : ${action}`, "Sécurité", `Rôle : ${session?.role || "-"}`);
   alert("Accès refusé pour ce rôle.");
   return false;
 }
@@ -367,27 +403,36 @@ async function login() {
   const username = $("login").value.trim();
   const password = $("password").value.trim();
   const user = state.users.find((item) => item.login === username && item.password === password && item.active);
-  if (!user) return alert("Identifiants incorrects ou compte inactif.");
+  if (!user) {
+    log(`Tentative de connexion échouée : ${username || "identifiant vide"}`, "Connexion", "Identifiant incorrect ou compte inactif");
+    return alert("Identifiants incorrects ou compte inactif.");
+  }
   session = user;
-  log("Connexion");
+  log("Connexion réussie", "Connexion");
   renderShell();
 }
 
 async function quickLogin() {
   await pullSharedState();
   session = state.users.find((item) => item.login === "admin") || state.users[0];
-  log("Connexion accès rapide");
+  log("Connexion accès rapide", "Connexion");
   renderShell();
 }
 
-function logout() { session = null; renderLogin(); }
+function logout() {
+  log("Déconnexion", "Connexion");
+  session = null;
+  renderLogin();
+}
 
 async function syncNow() {
   const ok = await pullSharedState();
   if (ok) {
+    log("Synchronisation manuelle", "Synchronisation");
     renderShell();
     alert("Données synchronisées.");
   } else {
+    log("Échec synchronisation manuelle", "Synchronisation", cloudLastError);
     alert(cloudEnabled() ? `Synchronisation impossible : ${cloudLastError}` : "La synchronisation partagée n'est pas encore configurée.");
   }
 }
@@ -477,7 +522,7 @@ const pages = {
   },
   reports() {
     const t = totals();
-    $("content").innerHTML = `<article class="panel printable-document">${documentHeader("Rapport financier")}<div class="stats">${stat("Attendu", money(t.expected))}${stat("Encaissé", money(t.collected))}${stat("Impayés", money(t.remaining), "danger")}${stat("Taux", `${t.rate}%`)}</div></article><article class="panel"><div class="panel-head"><h2>Exports et impression</h2><span>Données du navigateur</span></div><div class="actions">${canAction("exports") ? `<button class="btn secondary" onclick="exportCSV('students')">Exporter élèves CSV</button><button class="btn secondary" onclick="exportCSV('payments')">Exporter paiements CSV</button><button class="btn secondary" onclick="exportCSV('paidStudents')">Élèves qui ont payé CSV</button><button class="btn secondary" onclick="exportCSV('noPaymentStudents')">Élèves sans paiement CSV</button><button class="btn secondary" onclick="exportCSV('unpaid')">Exporter impayés CSV</button>` : ""}<button class="btn quiet" onclick="window.print()">Imprimer le rapport</button></div></article><article class="panel printable-document"><div class="panel-head"><h2>Rapport par classe</h2><span>Synthèse financière</span></div>${classSummary()}</article>`;
+    $("content").innerHTML = `<article class="panel printable-document">${documentHeader("Rapport financier")}<div class="stats">${stat("Attendu", money(t.expected))}${stat("Encaissé", money(t.collected))}${stat("Impayés", money(t.remaining), "danger")}${stat("Taux", `${t.rate}%`)}</div></article><article class="panel"><div class="panel-head"><h2>Exports et impression</h2><span>Données du navigateur</span></div><div class="actions">${canAction("exports") ? `<button class="btn secondary" onclick="exportCSV('students')">Exporter élèves CSV</button><button class="btn secondary" onclick="exportCSV('payments')">Exporter paiements CSV</button><button class="btn secondary" onclick="exportCSV('paidStudents')">Élèves qui ont payé CSV</button><button class="btn secondary" onclick="exportCSV('noPaymentStudents')">Élèves sans paiement CSV</button><button class="btn secondary" onclick="exportCSV('unpaid')">Exporter impayés CSV</button><button class="btn secondary" onclick="exportCSV('logs')">Exporter journal CSV</button>` : ""}<button class="btn quiet" onclick="window.print()">Imprimer le rapport</button></div></article><article class="panel printable-document"><div class="panel-head"><h2>Rapport par classe</h2><span>Synthèse financière</span></div>${classSummary()}</article>`;
   },
   users() {
     const item = editing ? state.users.find((row) => row.id === editing) : {};
@@ -632,11 +677,11 @@ function saveStudent() {
   const data = { name, gender: $("stGender").value, birth: $("stBirth").value, className: $("stClass").value, parent: $("stParent").value, phone: $("stPhone").value, address: $("stAddress").value, status: $("stStatus").value };
   if (editing) {
     Object.assign(state.students.find((row) => row.id === editing), data);
-    log(`Élève modifié : ${name}`);
+    log(`Élève modifié : ${name}`, "Élève");
   } else {
     const number = String(state.students.length + 1).padStart(4, "0");
     state.students.push({ id: uid("ELV"), matricule: `${state.school.code}-${state.school.year.slice(0, 4)}-${number}`, ...data });
-    log(`Élève ajouté : ${name}`);
+    log(`Élève ajouté : ${name}`, "Élève");
   }
   editing = null;
   saveState();
@@ -650,7 +695,7 @@ function deleteStudent(id) {
   state.students = state.students.filter((row) => row.id !== id);
   state.enrollments = state.enrollments.filter((row) => row.studentId !== id);
   state.payments = state.payments.filter((row) => row.studentId !== id);
-  log("Élève supprimé");
+  log("Élève supprimé", "Élève");
   saveState();
   pages.students();
 }
@@ -664,10 +709,10 @@ function saveClass() {
   const data = { name, level: $("level").value, fee: Number($("fee").value || 0) };
   if (editing) {
     Object.assign(state.classes.find((row) => row.id === editing), data);
-    log(`Classe modifiée : ${name}`);
+    log(`Classe modifiée : ${name}`, "Classe");
   } else {
     state.classes.push({ id: uid("CLS"), ...data });
-    log(`Classe ajoutée : ${name}`);
+    log(`Classe ajoutée : ${name}`, "Classe");
   }
   editing = null;
   saveState();
@@ -691,7 +736,7 @@ function saveEnrollment() {
   state.enrollments.push(enrollment);
   student(enrollment.studentId).className = enrollment.className;
   if (!state.years.includes(enrollment.year)) state.years.push(enrollment.year);
-  log(`Inscription validée : ${student(enrollment.studentId).name}`);
+  log(`Inscription validée : ${student(enrollment.studentId).name}`, "Inscription");
   saveState();
   pages.enrollments();
 }
@@ -704,7 +749,7 @@ function deleteEnrollment(id) {
   if (!requireAction("enrollments")) return;
   if (!confirm("Supprimer cette inscription ?")) return;
   state.enrollments = state.enrollments.filter((row) => row.id !== id);
-  log("Inscription supprimée");
+  log("Inscription supprimée", "Inscription");
   saveState();
   pages.enrollments();
 }
@@ -728,7 +773,7 @@ function savePayment() {
   const payment = { id: receipt, studentId, amount, expectedAtPayment, paidBefore, totalPaidAfter: paidBefore + amount, balanceAfter: expectedAtPayment - paidBefore - amount, paidBy: $("paidBy").value.trim() || student(studentId).parent || "", mode: $("payMode").value, date: $("payDate").value, cashier: $("cashier").value, note: $("payNote").value };
   state.payments.unshift(payment);
   activeReceipt = payment.id;
-  log(`Paiement enregistré : ${student(studentId).name} - ${money(amount)}`);
+  log(`Paiement enregistré : ${student(studentId).name} - ${money(amount)}`, "Paiement", `Payé par : ${payment.paidBy || "-"}`);
   saveState();
   view = "receipts";
   renderNav();
@@ -743,7 +788,7 @@ function deletePayment(id) {
   if (!requireAction("payments")) return;
   if (!confirm("Supprimer ce paiement ?")) return;
   state.payments = state.payments.filter((row) => row.id !== id);
-  log("Paiement supprimé");
+  log("Paiement supprimé", "Paiement");
   saveState();
   pages.payments();
 }
@@ -770,7 +815,8 @@ function classSummary() {
 }
 
 function logsTable(limit) {
-  return `<table><thead><tr><th>Date</th><th>Utilisateur</th><th>Action</th></tr></thead><tbody>${state.logs.slice(0, limit).map((row) => `<tr><td>${clean(row.date)}</td><td>${clean(row.user)}</td><td>${clean(row.action)}</td></tr>`).join("") || `<tr><td colspan="3">Aucune activité.</td></tr>`}</tbody></table>`;
+  const rows = normalizeLogs(state.logs).slice(0, limit);
+  return `<table><thead><tr><th>Date</th><th>Type</th><th>Utilisateur</th><th>Rôle</th><th>Appareil</th><th>Action</th></tr></thead><tbody>${rows.map((row) => `<tr><td>${clean(row.date)}</td><td>${clean(row.type)}</td><td>${clean(row.user)}</td><td>${clean(row.role || "-")}</td><td>${clean(row.device || "-")}</td><td>${clean(row.action)}${row.detail ? `<br><small>${clean(row.detail)}</small>` : ""}</td></tr>`).join("") || `<tr><td colspan="6">Aucune activité.</td></tr>`}</tbody></table>`;
 }
 
 function saveUser() {
@@ -779,7 +825,7 @@ function saveUser() {
   if (!data.name || !data.login || !data.password) return alert("Nom, identifiant et mot de passe sont obligatoires.");
   if (editing) Object.assign(state.users.find((row) => row.id === editing), data);
   else state.users.push({ id: uid("USR"), ...data });
-  log(`Utilisateur enregistré : ${data.login}`);
+  log(`Utilisateur enregistré : ${data.login}`, "Utilisateur", data.role);
   editing = null;
   saveState();
   pages.users();
@@ -811,7 +857,7 @@ function saveSettings() {
     receiptFooter: $("receiptFooter").value
   });
   if (!state.years.includes(state.school.year)) state.years.push(state.school.year);
-  log("Paramètres enregistrés");
+  log("Paramètres enregistrés", "Paramètres");
   saveState();
   renderShell();
 }
@@ -824,12 +870,15 @@ function exportCSV(type) {
   if (type === "paidStudents") rows = [["matricule", "nom", "classe", "parent", "contact", "attendu", "paye", "reste", "dernier_paye_par"], ...state.students.filter((row) => paid(row.id) > 0).map((row) => [row.matricule, row.name, row.className, row.parent, row.phone, due(row.id), paid(row.id), balance(row.id), paymentPayer(lastPaymentForStudent(row.id))])];
   if (type === "noPaymentStudents") rows = [["matricule", "nom", "classe", "parent", "contact", "attendu", "paye", "reste"], ...state.students.filter((row) => paid(row.id) <= 0).map((row) => [row.matricule, row.name, row.className, row.parent, row.phone, due(row.id), paid(row.id), balance(row.id)])];
   if (type === "unpaid") rows = [["matricule", "nom", "classe", "parent", "contact", "attendu", "paye", "reste", "statut", "dernier_paye_par"], ...state.students.map((row) => [row.matricule, row.name, row.className, row.parent, row.phone, due(row.id), paid(row.id), balance(row.id), financeStatus(row), lastPaymentForStudent(row.id) ? paymentPayer(lastPaymentForStudent(row.id)) : ""])];
+  if (type === "logs") rows = [["date", "iso", "type", "utilisateur", "role", "appareil", "action", "detail"], ...normalizeLogs(state.logs).map((row) => [row.date, row.iso, row.type, row.user, row.role, row.device, row.action, row.detail])];
+  log(`Export CSV : ${type}`, "Export");
   download(`${type}.csv`, rows.map((row) => row.map((cell) => `"${String(cell ?? "").replaceAll('"', '""')}"`).join(";")).join("\n"), "text/csv;charset=utf-8");
 }
 
 function downloadBackup() {
   if (!requireAction("backup")) return;
   const stamp = new Date().toISOString().slice(0, 10);
+  log("Export sauvegarde JSON", "Sauvegarde");
   download(`mienra-sauvegarde-${stamp}.json`, JSON.stringify(state, null, 2), "application/json");
 }
 
@@ -843,7 +892,7 @@ function restoreLocalBackup() {
     state.updatedAt = new Date().toISOString();
     saveLocalState();
     pushSharedState();
-    log("Copie locale restaurée");
+    log("Copie locale restaurée", "Sauvegarde");
     renderShell();
   } catch {
     alert("La copie locale de secours est invalide.");
@@ -867,7 +916,7 @@ function importBackup(input) {
     try {
       state = normalizeState(JSON.parse(reader.result));
       saveState();
-      log("Sauvegarde importée");
+      log("Sauvegarde importée", "Sauvegarde");
       renderShell();
     } catch {
       alert("Fichier JSON invalide.");
@@ -880,7 +929,7 @@ function resetApp() {
   if (!requireAction("backup")) return;
   if (!confirm("Réinitialiser toutes les données de test ?")) return;
   state = seedState();
-  saveState();
+  log("Réinitialisation des données", "Sauvegarde");
   renderShell();
 }
 
