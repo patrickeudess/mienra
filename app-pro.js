@@ -4,7 +4,7 @@ const DEVICE_KEY = `${DB_KEY}_device_id`;
 
 const $ = (id) => document.getElementById(id);
 const LOGO_SRC = "assets/mienra-logo.jpeg";
-const ASSET_VERSION = "20260706-payment-student-search";
+const ASSET_VERSION = "20260706-cap-fees-and-payments";
 const CLOUD_CONFIG = globalThis.MIENRA_CLOUD || {};
 const SCHOOL_IDENTITY = {
   name: "EPP Mienrassou",
@@ -326,14 +326,20 @@ function log(action, type = "Action", detail = "") {
 
 function classFee(classes, name) { return Number(classes.find((item) => item.name === name)?.fee || 0); }
 function student(id) { return state.students.find((item) => item.id === id) || {}; }
-function enrollmentDue(item) { return classFee(state.classes, item.className) || Number(item.amount || 0); }
+function enrollmentDue(item) {
+  const fee = classFee(state.classes, item.className);
+  const amount = Number(item.amount || 0);
+  if (!fee) return amount;
+  return amount > 0 ? Math.min(amount, fee) : fee;
+}
+function enrollmentNet(item) { return Math.max(0, enrollmentDue(item) - Number(item.discount || 0)); }
 function currentYear() { return state.activeYear || state.school.year; }
 function due(id, year = currentYear()) {
   const studentEnrollments = state.enrollments.filter((item) => item.studentId === id);
   const rows = studentEnrollments.filter((item) => item.year === year);
   if (!rows.length && studentEnrollments.length) return 0;
   if (!rows.length) return classFee(state.classes, student(id).className);
-  return rows.reduce((sum, item) => sum + enrollmentDue(item) - Number(item.discount || 0), 0);
+  return rows.reduce((sum, item) => sum + enrollmentNet(item), 0);
 }
 function paid(id, year = currentYear()) { return state.payments.filter((item) => item.studentId === id && item.year === year).reduce((sum, item) => sum + Number(item.amount || 0), 0); }
 function balance(id, year = currentYear()) { return due(id, year) - paid(id, year); }
@@ -790,6 +796,16 @@ function saveEnrollment() {
   if (!requireAction("enrollments")) return;
   if (editingEnrollment && !requireAction("deleteEnrollments")) return;
   const enrollment = { id: editingEnrollment || uid("INS"), studentId: $("enStudent").value, className: $("enClass").value, year: $("enYear").value, amount: Number($("enAmount").value || 0), discount: Number($("enDiscount").value || 0), date: $("enDate").value, note: $("enNote").value };
+  const fee = classFee(state.classes, enrollment.className);
+  if (fee <= 0) return alert("Aucun frais n'est défini pour cette classe dans Classes & frais.");
+  if (enrollment.amount <= 0) return alert("Le montant à payer doit être supérieur à zéro.");
+  if (enrollment.amount > fee) return alert(`Le montant à payer ne peut pas dépasser les frais prévus pour la classe (${money(fee)}).`);
+  if (enrollment.discount < 0) return alert("La remise ne peut pas être négative.");
+  if (enrollment.discount > enrollment.amount) return alert("La remise ne peut pas dépasser le montant à payer.");
+  const projected = state.enrollments.map((row) => row.id === enrollment.id ? enrollment : row);
+  if (!editingEnrollment) projected.push(enrollment);
+  const projectedDue = projected.filter((row) => row.studentId === enrollment.studentId && row.year === enrollment.year).reduce((sum, row) => sum + enrollmentNet(row), 0);
+  if (projectedDue < paid(enrollment.studentId, enrollment.year)) return alert("Cette modification rendrait le montant dû inférieur au total déjà payé.");
   if (editingEnrollment) {
     Object.assign(state.enrollments.find((row) => row.id === editingEnrollment), enrollment);
   } else {
@@ -806,7 +822,7 @@ function saveEnrollment() {
 
 function enrollmentsTable() {
   const rows = state.enrollments.filter((row) => row.year === currentYear());
-  return `<table><thead><tr><th>Élève</th><th>Classe</th><th>Année</th><th>Montant</th><th>Remise</th><th>Net</th><th>Date</th><th>Action</th></tr></thead><tbody>${rows.map((row) => `<tr><td>${clean(student(row.studentId).name)}<br><small>${clean(student(row.studentId).matricule)}</small></td><td>${clean(row.className)}</td><td>${clean(row.year)}</td><td>${money(row.amount)}</td><td>${money(row.discount)}</td><td>${money(row.amount - row.discount)}</td><td>${clean(row.date)}</td><td>${canAction("deleteEnrollments") ? `<button class="btn quiet small" onclick="editEnrollment('${row.id}')">Modifier</button> <button class="btn danger small" onclick="deleteEnrollment('${row.id}')">Supprimer</button>` : `<span class="muted">Lecture seule</span>`}</td></tr>`).join("") || `<tr><td colspan="8">Aucune inscription pour cette année scolaire.</td></tr>`}</tbody></table>`;
+  return `<table><thead><tr><th>Élève</th><th>Classe</th><th>Année</th><th>Montant</th><th>Remise</th><th>Net</th><th>Date</th><th>Action</th></tr></thead><tbody>${rows.map((row) => `<tr><td>${clean(student(row.studentId).name)}<br><small>${clean(student(row.studentId).matricule)}</small></td><td>${clean(row.className)}</td><td>${clean(row.year)}</td><td>${money(row.amount)}</td><td>${money(row.discount)}</td><td>${money(enrollmentNet(row))}</td><td>${clean(row.date)}</td><td>${canAction("deleteEnrollments") ? `<button class="btn quiet small" onclick="editEnrollment('${row.id}')">Modifier</button> <button class="btn danger small" onclick="deleteEnrollment('${row.id}')">Supprimer</button>` : `<span class="muted">Lecture seule</span>`}</td></tr>`).join("") || `<tr><td colspan="8">Aucune inscription pour cette année scolaire.</td></tr>`}</tbody></table>`;
 }
 
 function editEnrollment(id) {
@@ -849,6 +865,11 @@ function selectPaymentStudent(id) {
 function paymentInfo() {
   const id = $("payStudent")?.value;
   if (id && $("paidBy") && !$("paidBy").value) $("paidBy").value = student(id).parent || "";
+  if (id && $("payAmount")) {
+    const left = Math.max(0, balance(id));
+    $("payAmount").max = left;
+    if (Number($("payAmount").value || 0) > left) $("payAmount").value = left;
+  }
   if (id && $("payInfo")) $("payInfo").innerHTML = `Attendu : <b>${money(due(id))}</b> · Payé : <b>${money(paid(id))}</b> · Reste : <b>${money(balance(id))}</b>`;
 }
 
