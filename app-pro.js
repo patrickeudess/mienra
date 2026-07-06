@@ -4,7 +4,7 @@ const DEVICE_KEY = `${DB_KEY}_device_id`;
 
 const $ = (id) => document.getElementById(id);
 const LOGO_SRC = "assets/mienra-logo.jpeg";
-const ASSET_VERSION = "20260706-payment-methods";
+const ASSET_VERSION = "20260706-school-year-filter";
 const CLOUD_CONFIG = globalThis.MIENRA_CLOUD || {};
 const SCHOOL_IDENTITY = {
   name: "EPP Mienrassou",
@@ -97,6 +97,7 @@ function seedState() {
       receiptFooter: "Merci pour votre paiement."
     },
     years: ["2025-2026", "2026-2027"],
+    activeYear: "2026-2027",
     users: [
       { id: uid("USR"), name: "Administrateur", login: "admin", password: "admin123", role: "Administrateur", active: true },
       { id: uid("USR"), name: "Directeur", login: "directeur", password: "directeur123", role: "Directeur", active: true },
@@ -116,8 +117,8 @@ function seedState() {
       note: "Inscription annuelle"
     })),
     payments: [
-      { id: "REC-2026-0001", studentId: students[0].id, amount: 180000, mode: "Espèces", date: today(), cashier: "Secrétaire", note: "Paiement complet" },
-      { id: "REC-2026-0002", studentId: students[1].id, amount: 100000, mode: "Orange Money", date: today(), cashier: "Secrétaire", note: "Premier versement" }
+      { id: "REC-2026-0001", studentId: students[0].id, year: "2026-2027", amount: 180000, mode: "Espèces", date: today(), cashier: "Secrétaire", note: "Paiement complet" },
+      { id: "REC-2026-0002", studentId: students[1].id, year: "2026-2027", amount: 100000, mode: "Orange Money", date: today(), cashier: "Secrétaire", note: "Premier versement" }
     ],
     logs: [],
     backups: []
@@ -141,10 +142,14 @@ function normalizeState(data) {
     school: { ...base.school, ...(data.school || {}) },
     years: data.years?.length ? data.years : base.years,
     students: (data.students?.length ? data.students : base.students).map((row) => ({ ...row, addedDate: row.addedDate || row.createdAt || today() })),
+    enrollments: (data.enrollments?.length ? data.enrollments : base.enrollments).map((row) => ({ ...row, year: row.year || data.activeYear || data.school?.year || base.school.year })),
+    payments: (data.payments?.length ? data.payments : base.payments).map((row) => ({ ...row, year: row.year || data.activeYear || data.school?.year || base.school.year })),
     users: data.users?.length ? data.users : base.users,
     logs: normalizeLogs(data.logs || []),
+    activeYear: data.activeYear || data.school?.year || base.activeYear,
     updatedAt: data.updatedAt || new Date().toISOString()
   };
+  if (!normalized.years.includes(normalized.activeYear)) normalized.years.push(normalized.activeYear);
   normalized.school = migrateSchoolIdentity(normalized.school);
   return normalized;
 }
@@ -321,22 +326,25 @@ function log(action, type = "Action", detail = "") {
 function classFee(classes, name) { return Number(classes.find((item) => item.name === name)?.fee || 0); }
 function student(id) { return state.students.find((item) => item.id === id) || {}; }
 function enrollmentDue(item) { return classFee(state.classes, item.className) || Number(item.amount || 0); }
-function due(id) {
-  const rows = state.enrollments.filter((item) => item.studentId === id);
+function currentYear() { return state.activeYear || state.school.year; }
+function due(id, year = currentYear()) {
+  const studentEnrollments = state.enrollments.filter((item) => item.studentId === id);
+  const rows = studentEnrollments.filter((item) => item.year === year);
+  if (!rows.length && studentEnrollments.length) return 0;
   if (!rows.length) return classFee(state.classes, student(id).className);
   return rows.reduce((sum, item) => sum + enrollmentDue(item) - Number(item.discount || 0), 0);
 }
-function paid(id) { return state.payments.filter((item) => item.studentId === id).reduce((sum, item) => sum + Number(item.amount || 0), 0); }
-function balance(id) { return due(id) - paid(id); }
-function percent(id) { const total = due(id); return total ? Math.min(100, Math.round((paid(id) / total) * 100)) : 0; }
+function paid(id, year = currentYear()) { return state.payments.filter((item) => item.studentId === id && item.year === year).reduce((sum, item) => sum + Number(item.amount || 0), 0); }
+function balance(id, year = currentYear()) { return due(id, year) - paid(id, year); }
+function percent(id, year = currentYear()) { const total = due(id, year); return total ? Math.min(100, Math.round((paid(id, year) / total) * 100)) : 0; }
 function paymentPaidBefore(payment) {
   if (Number.isFinite(payment.paidBefore)) return Number(payment.paidBefore);
   const index = state.payments.findIndex((row) => row.id === payment.id);
   const olderRows = index >= 0 ? state.payments.slice(index + 1) : [];
-  return olderRows.filter((row) => row.studentId === payment.studentId).reduce((sum, row) => sum + Number(row.amount || 0), 0);
+  return olderRows.filter((row) => row.studentId === payment.studentId && row.year === payment.year).reduce((sum, row) => sum + Number(row.amount || 0), 0);
 }
 function receiptAmounts(payment) {
-  const expected = Number.isFinite(payment.expectedAtPayment) ? Number(payment.expectedAtPayment) : due(payment.studentId);
+  const expected = Number.isFinite(payment.expectedAtPayment) ? Number(payment.expectedAtPayment) : due(payment.studentId, payment.year || currentYear());
   const paidBefore = paymentPaidBefore(payment);
   const currentPaid = Number(payment.amount || 0);
   const totalPaid = Number.isFinite(payment.totalPaidAfter) ? Number(payment.totalPaidAfter) : paidBefore + currentPaid;
@@ -347,7 +355,7 @@ function paymentPayer(payment) {
   return payment.paidBy || student(payment.studentId).parent || "-";
 }
 function lastPaymentForStudent(studentId) {
-  return state.payments.find((row) => row.studentId === studentId);
+  return state.payments.find((row) => row.studentId === studentId && row.year === currentYear());
 }
 function totals() {
   const expected = state.students.reduce((sum, item) => sum + due(item.id), 0);
@@ -438,19 +446,31 @@ async function syncNow() {
   }
 }
 
+function yearSelector() {
+  return `<label class="year-select">Année scolaire<select id="activeYear" onchange="setActiveYear(this.value)">${state.years.map((year) => `<option value="${clean(year)}" ${year === currentYear() ? "selected" : ""}>${clean(year)}</option>`).join("")}</select></label>`;
+}
+
+function setActiveYear(year) {
+  state.activeYear = year || state.school.year;
+  if (!state.years.includes(state.activeYear)) state.years.push(state.activeYear);
+  log(`Année scolaire sélectionnée : ${state.activeYear}`, "Année scolaire");
+  saveState();
+  renderShell();
+}
+
 function renderShell() {
   ensureAllowedView();
   $("root").innerHTML = `
     <div class="app">
       <aside class="sidebar">
-        <div class="brand-row"><img class="brand-logo small-logo" src="${logoUrl()}" alt="Logo EPP Mienrassou"><div><strong>EPP Mienrassou</strong><span>${clean(state.school.year)}</span></div></div>
+        <div class="brand-row"><img class="brand-logo small-logo" src="${logoUrl()}" alt="Logo EPP Mienrassou"><div><strong>EPP Mienrassou</strong><span>${clean(currentYear())}</span></div></div>
         <div class="account"><b>${clean(session.name)}</b><span>${clean(session.role)} · ${syncLabel()}</span><button class="btn small quiet" onclick="logout()">Déconnexion</button></div>
         <nav id="nav"></nav>
       </aside>
       <main class="workspace">
         <header class="topbar">
           <div><p>${clean(state.school.name)}</p><h1 id="pageTitle"></h1></div>
-          <div class="top-actions">${cloudEnabled() ? `<button class="btn quiet" onclick="syncNow()">Synchroniser</button>` : ""}${canPage("backup") ? `<button class="btn quiet" onclick="go('backup')">Sauvegardes</button>` : ""}${canAction("payments") ? `<button class="btn secondary" onclick="go('payments')">Nouveau paiement</button>` : ""}</div>
+          <div class="top-actions">${yearSelector()}${cloudEnabled() ? `<button class="btn quiet" onclick="syncNow()">Synchroniser</button>` : ""}${canPage("backup") ? `<button class="btn quiet" onclick="go('backup')">Sauvegardes</button>` : ""}${canAction("payments") ? `<button class="btn secondary" onclick="go('payments')">Nouveau paiement</button>` : ""}</div>
         </header>
         <section id="content"></section>
       </main>
@@ -505,14 +525,14 @@ const pages = {
   },
   enrollments() {
     $("content").innerHTML = `
-      ${canAction("enrollments") ? `<article class="panel"><div class="panel-head"><h2>Nouvelle inscription</h2><span>Création d’un droit scolaire</span></div><div class="form-grid"><div><label>Élève</label><select id="enStudent">${state.students.map((row) => `<option value="${row.id}">${clean(row.name)} - ${clean(row.matricule)}</option>`).join("")}</select></div><div><label>Classe</label><select id="enClass" onchange="syncFee()">${state.classes.map((row) => `<option>${clean(row.name)}</option>`).join("")}</select></div><div><label>Année</label><select id="enYear">${state.years.map((year) => `<option ${year === state.school.year ? "selected" : ""}>${clean(year)}</option>`).join("")}</select></div>${field("Montant", "enAmount", "", "number")}${field("Remise", "enDiscount", 0, "number")}${field("Date", "enDate", today(), "date")}</div>${field("Note", "enNote", "Inscription annuelle")}<div class="actions"><button class="btn primary" onclick="saveEnrollment()">Valider l’inscription</button></div></article>` : readOnlyNotice("Inscriptions")}
-      <article class="panel"><div class="panel-head"><h2>Historique des inscriptions</h2><span>${state.enrollments.length} lignes</span></div>${enrollmentsTable()}</article>`;
+      ${canAction("enrollments") ? `<article class="panel"><div class="panel-head"><h2>Nouvelle inscription</h2><span>Création d’un droit scolaire</span></div><div class="form-grid"><div><label>Élève</label><select id="enStudent">${state.students.map((row) => `<option value="${row.id}">${clean(row.name)} - ${clean(row.matricule)}</option>`).join("")}</select></div><div><label>Classe</label><select id="enClass" onchange="syncFee()">${state.classes.map((row) => `<option>${clean(row.name)}</option>`).join("")}</select></div><div><label>Année</label><select id="enYear">${state.years.map((year) => `<option ${year === currentYear() ? "selected" : ""}>${clean(year)}</option>`).join("")}</select></div>${field("Montant", "enAmount", "", "number")}${field("Remise", "enDiscount", 0, "number")}${field("Date", "enDate", today(), "date")}</div>${field("Note", "enNote", "Inscription annuelle")}<div class="actions"><button class="btn primary" onclick="saveEnrollment()">Valider l’inscription</button></div></article>` : readOnlyNotice("Inscriptions")}
+      <article class="panel"><div class="panel-head"><h2>Historique des inscriptions</h2><span>${state.enrollments.filter((row) => row.year === currentYear()).length} lignes - ${clean(currentYear())}</span></div>${enrollmentsTable()}</article>`;
     syncFee();
   },
   payments() {
     $("content").innerHTML = `
-      ${canAction("payments") ? `<article class="panel"><div class="panel-head"><h2>Nouveau paiement</h2><span>Encaissement et reçu</span></div><div class="form-grid"><div><label>Élève</label><select id="payStudent" onchange="paymentInfo()">${state.students.map((row) => `<option value="${row.id}">${clean(row.name)} - reste ${money(balance(row.id))}</option>`).join("")}</select></div>${field("Montant payé", "payAmount", 50000, "number")}${field("Payé par", "paidBy", "")}<div><label>Mode</label><select id="payMode"><option>Espèces</option><option>Orange Money</option><option>Moov Money</option><option>MTN Money</option><option>Wave</option></select></div>${field("Date", "payDate", today(), "date")}${field("Caissier", "cashier", session.name)}${field("Note", "payNote", "Versement frais scolaires")}</div><div class="notice" id="payInfo"></div><div class="actions"><button class="btn primary" onclick="savePayment()">Enregistrer et générer le reçu</button></div></article>` : readOnlyNotice("Paiements")}
-      <article class="panel"><div class="panel-head"><h2>Historique des paiements</h2><span>${state.payments.length} reçus</span></div>${paymentsTable()}</article>`;
+      ${canAction("payments") ? `<article class="panel"><div class="panel-head"><h2>Nouveau paiement</h2><span>Encaissement et reçu - ${clean(currentYear())}</span></div><div class="form-grid"><div><label>Élève</label><select id="payStudent" onchange="paymentInfo()">${state.students.map((row) => `<option value="${row.id}">${clean(row.name)} - reste ${money(balance(row.id))}</option>`).join("")}</select></div>${field("Montant payé", "payAmount", 50000, "number")}${field("Payé par", "paidBy", "")}<div><label>Mode</label><select id="payMode"><option>Espèces</option><option>Orange Money</option><option>Moov Money</option><option>MTN Money</option><option>Wave</option></select></div>${field("Date", "payDate", today(), "date")}${field("Caissier", "cashier", session.name)}${field("Note", "payNote", "Versement frais scolaires")}</div><div class="notice" id="payInfo"></div><div class="actions"><button class="btn primary" onclick="savePayment()">Enregistrer et générer le reçu</button></div></article>` : readOnlyNotice("Paiements")}
+      <article class="panel"><div class="panel-head"><h2>Historique des paiements</h2><span>${state.payments.filter((row) => row.year === currentYear()).length} reçus - ${clean(currentYear())}</span></div>${paymentsTable()}</article>`;
     paymentInfo();
   },
   receipts() { receiptView(); },
@@ -523,7 +543,7 @@ const pages = {
   },
   reports() {
     const t = totals();
-    $("content").innerHTML = `<article class="panel printable-document">${documentHeader("Rapport financier")}<div class="stats">${stat("Attendu", money(t.expected))}${stat("Encaissé", money(t.collected))}${stat("Impayés", money(t.remaining), "danger")}${stat("Taux", `${t.rate}%`)}</div></article><article class="panel"><div class="panel-head"><h2>Exports et impression</h2><span>Données du navigateur</span></div><div class="actions">${canAction("exports") ? `<button class="btn secondary" onclick="exportCSV('students')">Exporter élèves CSV</button><button class="btn secondary" onclick="exportCSV('payments')">Exporter paiements CSV</button><button class="btn secondary" onclick="exportCSV('paidStudents')">Élèves qui ont payé CSV</button><button class="btn secondary" onclick="exportCSV('noPaymentStudents')">Élèves sans paiement CSV</button><button class="btn secondary" onclick="exportCSV('unpaid')">Exporter impayés CSV</button><button class="btn secondary" onclick="exportCSV('logs')">Exporter journal CSV</button>` : ""}<button class="btn quiet" onclick="window.print()">Imprimer le rapport</button></div></article><article class="panel printable-document"><div class="panel-head"><h2>Rapport par classe</h2><span>Synthèse financière</span></div>${classSummary()}</article>`;
+    $("content").innerHTML = `<article class="panel printable-document">${documentHeader(`Rapport financier - ${currentYear()}`)}<div class="stats">${stat("Attendu", money(t.expected))}${stat("Encaissé", money(t.collected))}${stat("Impayés", money(t.remaining), "danger")}${stat("Taux", `${t.rate}%`)}</div></article><article class="panel"><div class="panel-head"><h2>Exports et impression</h2><span>Données du navigateur</span></div><div class="actions">${canAction("exports") ? `<button class="btn secondary" onclick="exportCSV('students')">Exporter élèves CSV</button><button class="btn secondary" onclick="exportCSV('payments')">Exporter paiements CSV</button><button class="btn secondary" onclick="exportCSV('paidStudents')">Élèves qui ont payé CSV</button><button class="btn secondary" onclick="exportCSV('noPaymentStudents')">Élèves sans paiement CSV</button><button class="btn secondary" onclick="exportCSV('unpaid')">Exporter impayés CSV</button><button class="btn secondary" onclick="exportCSV('logs')">Exporter journal CSV</button>` : ""}<button class="btn quiet" onclick="window.print()">Imprimer le rapport</button></div></article><article class="panel printable-document"><div class="panel-head"><h2>Rapport par classe</h2><span>Synthèse financière - ${clean(currentYear())}</span></div>${classSummary()}</article>`;
   },
   users() {
     const item = editing ? state.users.find((row) => row.id === editing) : {};
@@ -660,7 +680,7 @@ function drawDashboardDetail() {
   if (!$("dashboardDetailTable")) return;
   if (dashboardDetail === "collected") {
     const date = $("dashDate")?.value || "";
-    const paidIds = new Set(state.payments.filter((row) => !date || row.date === date).map((row) => row.studentId));
+    const paidIds = new Set(state.payments.filter((row) => row.year === currentYear() && (!date || row.date === date)).map((row) => row.studentId));
     const rows = filterFinancialStudents("dash", state.students.filter((row) => paidIds.has(row.id))).sort((a, b) => paid(b.id) - paid(a.id));
     const paidTotal = rows.reduce((sum, row) => sum + paid(row.id), 0);
     $("dashboardDetailTable").innerHTML = `<div class="mini-stats"><span>Montant encaissé : <b class="amount-ok">${money(paidTotal)}</b></span><span>${rows.length} élèves avec paiement</span></div>${financialRows(rows, "Aucun paiement trouvé.")}`;
@@ -681,7 +701,7 @@ function saveStudent() {
     log(`Élève modifié : ${name}`, "Élève");
   } else {
     const number = String(state.students.length + 1).padStart(4, "0");
-    state.students.push({ id: uid("ELV"), matricule: `${state.school.code}-${state.school.year.slice(0, 4)}-${number}`, ...data });
+    state.students.push({ id: uid("ELV"), matricule: `${state.school.code}-${currentYear().slice(0, 4)}-${number}`, ...data });
     log(`Élève ajouté : ${name}`, "Élève");
   }
   editing = null;
@@ -737,13 +757,15 @@ function saveEnrollment() {
   state.enrollments.push(enrollment);
   student(enrollment.studentId).className = enrollment.className;
   if (!state.years.includes(enrollment.year)) state.years.push(enrollment.year);
+  state.activeYear = enrollment.year;
   log(`Inscription validée : ${student(enrollment.studentId).name}`, "Inscription");
   saveState();
   pages.enrollments();
 }
 
 function enrollmentsTable() {
-  return `<table><thead><tr><th>Élève</th><th>Classe</th><th>Année</th><th>Montant</th><th>Remise</th><th>Net</th><th>Date</th><th>Action</th></tr></thead><tbody>${state.enrollments.map((row) => `<tr><td>${clean(student(row.studentId).name)}<br><small>${clean(student(row.studentId).matricule)}</small></td><td>${clean(row.className)}</td><td>${clean(row.year)}</td><td>${money(row.amount)}</td><td>${money(row.discount)}</td><td>${money(row.amount - row.discount)}</td><td>${clean(row.date)}</td><td>${canAction("enrollments") ? `<button class="btn danger small" onclick="deleteEnrollment('${row.id}')">Supprimer</button>` : `<span class="muted">Lecture seule</span>`}</td></tr>`).join("")}</tbody></table>`;
+  const rows = state.enrollments.filter((row) => row.year === currentYear());
+  return `<table><thead><tr><th>Élève</th><th>Classe</th><th>Année</th><th>Montant</th><th>Remise</th><th>Net</th><th>Date</th><th>Action</th></tr></thead><tbody>${rows.map((row) => `<tr><td>${clean(student(row.studentId).name)}<br><small>${clean(student(row.studentId).matricule)}</small></td><td>${clean(row.className)}</td><td>${clean(row.year)}</td><td>${money(row.amount)}</td><td>${money(row.discount)}</td><td>${money(row.amount - row.discount)}</td><td>${clean(row.date)}</td><td>${canAction("enrollments") ? `<button class="btn danger small" onclick="deleteEnrollment('${row.id}')">Supprimer</button>` : `<span class="muted">Lecture seule</span>`}</td></tr>`).join("") || `<tr><td colspan="8">Aucune inscription pour cette année scolaire.</td></tr>`}</tbody></table>`;
 }
 
 function deleteEnrollment(id) {
@@ -771,7 +793,7 @@ function savePayment() {
   const balanceBefore = expectedAtPayment - paidBefore;
   if (balanceBefore > 0 && amount > balanceBefore) return alert(`Le montant saisi dépasse le reste à payer (${money(balanceBefore)}).`);
   const receipt = `${state.school.receiptPrefix}-${new Date().getFullYear()}-${String(state.payments.length + 1).padStart(4, "0")}`;
-  const payment = { id: receipt, studentId, amount, expectedAtPayment, paidBefore, totalPaidAfter: paidBefore + amount, balanceAfter: expectedAtPayment - paidBefore - amount, paidBy: $("paidBy").value.trim() || student(studentId).parent || "", mode: $("payMode").value, date: $("payDate").value, cashier: $("cashier").value, note: $("payNote").value };
+  const payment = { id: receipt, studentId, year: currentYear(), amount, expectedAtPayment, paidBefore, totalPaidAfter: paidBefore + amount, balanceAfter: expectedAtPayment - paidBefore - amount, paidBy: $("paidBy").value.trim() || student(studentId).parent || "", mode: $("payMode").value, date: $("payDate").value, cashier: $("cashier").value, note: $("payNote").value };
   state.payments.unshift(payment);
   activeReceipt = payment.id;
   log(`Paiement enregistré : ${student(studentId).name} - ${money(amount)}`, "Paiement", `Payé par : ${payment.paidBy || "-"}`);
@@ -782,7 +804,8 @@ function savePayment() {
 }
 
 function paymentsTable() {
-  return `<table><thead><tr><th>Reçu</th><th>Élève</th><th>Payé par</th><th>Montant</th><th>Reste après paiement</th><th>Mode</th><th>Date</th><th>Caissier</th><th>Actions</th></tr></thead><tbody>${state.payments.map((row) => `<tr><td>${clean(row.id)}</td><td>${clean(student(row.studentId).name)}<br><small>${clean(student(row.studentId).matricule)}</small></td><td>${clean(paymentPayer(row))}</td><td>${money(row.amount)}</td><td class="${receiptAmounts(row).remaining > 0 ? "amount-danger" : "amount-ok"}">${money(receiptAmounts(row).remaining)}</td><td>${clean(row.mode)}</td><td>${clean(row.date)}<br><small>${clean(row.note)}</small></td><td>${clean(row.cashier)}</td><td><button class="btn quiet small" onclick="openReceipt('${row.id}')">Reçu</button>${canAction("payments") ? ` <button class="btn danger small" onclick="deletePayment('${row.id}')">Supprimer</button>` : ""}</td></tr>`).join("")}</tbody></table>`;
+  const rows = state.payments.filter((row) => row.year === currentYear());
+  return `<table><thead><tr><th>Reçu</th><th>Élève</th><th>Année</th><th>Payé par</th><th>Montant</th><th>Reste après paiement</th><th>Mode</th><th>Date</th><th>Caissier</th><th>Actions</th></tr></thead><tbody>${rows.map((row) => `<tr><td>${clean(row.id)}</td><td>${clean(student(row.studentId).name)}<br><small>${clean(student(row.studentId).matricule)}</small></td><td>${clean(row.year)}</td><td>${clean(paymentPayer(row))}</td><td>${money(row.amount)}</td><td class="${receiptAmounts(row).remaining > 0 ? "amount-danger" : "amount-ok"}">${money(receiptAmounts(row).remaining)}</td><td>${clean(row.mode)}</td><td>${clean(row.date)}<br><small>${clean(row.note)}</small></td><td>${clean(row.cashier)}</td><td><button class="btn quiet small" onclick="openReceipt('${row.id}')">Reçu</button>${canAction("payments") ? ` <button class="btn danger small" onclick="deletePayment('${row.id}')">Supprimer</button>` : ""}</td></tr>`).join("") || `<tr><td colspan="10">Aucun paiement pour cette année scolaire.</td></tr>`}</tbody></table>`;
 }
 
 function deletePayment(id) {
@@ -801,7 +824,7 @@ function receiptView() {
   if (!payment) { $("content").innerHTML = `<article class="panel empty">Aucun reçu disponible.</article>`; return; }
   const row = student(payment.studentId);
   const amounts = receiptAmounts(payment);
-  $("content").innerHTML = `<article class="panel"><div class="panel-head"><h2>Reçu de paiement</h2><span>${clean(payment.id)}</span></div><div class="receipt">${documentHeader("Reçu de paiement")}<div class="receipt-grid"><p><b>N° reçu</b><span>${clean(payment.id)}</span></p><p><b>Date</b><span>${clean(payment.date)}</span></p><p><b>Élève</b><span>${clean(row.name)}</span></p><p><b>Matricule</b><span>${clean(row.matricule)}</span></p><p><b>Classe</b><span>${clean(row.className)}</span></p><p><b>Payé par</b><span>${clean(paymentPayer(payment))}</span></p><p><b>Mode</b><span>${clean(payment.mode)}</span></p><p><b>Frais classe</b><span>${money(amounts.expected)}</span></p><p><b>Déjà payé</b><span>${money(amounts.paidBefore)}</span></p><p><b>Montant payé</b><span>${money(amounts.currentPaid)}</span></p><p><b>Total payé</b><span>${money(amounts.totalPaid)}</span></p><p><b>Reste à payer</b><span class="${amounts.remaining > 0 ? "amount-danger" : "amount-ok"}">${money(amounts.remaining)}</span></p></div><p><b>Observation :</b> ${clean(payment.note || "-")}</p><div class="signatures"><p>Caissier<br><b>${clean(payment.cashier)}</b></p><p>Direction<br><b>${clean(state.school.director)}</b></p></div><small>${clean(state.school.receiptFooter)}</small></div><div class="actions"><button class="btn secondary" onclick="window.print()">Imprimer / PDF</button><button class="btn quiet" onclick="go('payments')">Retour paiements</button></div></article>`;
+  $("content").innerHTML = `<article class="panel"><div class="panel-head"><h2>Reçu de paiement</h2><span>${clean(payment.id)}</span></div><div class="receipt">${documentHeader("Reçu de paiement")}<div class="receipt-grid"><p><b>N° reçu</b><span>${clean(payment.id)}</span></p><p><b>Année scolaire</b><span>${clean(payment.year || currentYear())}</span></p><p><b>Date</b><span>${clean(payment.date)}</span></p><p><b>Élève</b><span>${clean(row.name)}</span></p><p><b>Matricule</b><span>${clean(row.matricule)}</span></p><p><b>Classe</b><span>${clean(row.className)}</span></p><p><b>Payé par</b><span>${clean(paymentPayer(payment))}</span></p><p><b>Mode</b><span>${clean(payment.mode)}</span></p><p><b>Frais classe</b><span>${money(amounts.expected)}</span></p><p><b>Déjà payé</b><span>${money(amounts.paidBefore)}</span></p><p><b>Montant payé</b><span>${money(amounts.currentPaid)}</span></p><p><b>Total payé</b><span>${money(amounts.totalPaid)}</span></p><p><b>Reste à payer</b><span class="${amounts.remaining > 0 ? "amount-danger" : "amount-ok"}">${money(amounts.remaining)}</span></p></div><p><b>Observation :</b> ${clean(payment.note || "-")}</p><div class="signatures"><p>Caissier<br><b>${clean(payment.cashier)}</b></p><p>Direction<br><b>${clean(state.school.director)}</b></p></div><small>${clean(state.school.receiptFooter)}</small></div><div class="actions"><button class="btn secondary" onclick="window.print()">Imprimer / PDF</button><button class="btn quiet" onclick="go('payments')">Retour paiements</button></div></article>`;
 }
 
 function goPay(id) { if (!requireAction("payments")) return; view = "payments"; renderNav(); pages.payments(); $("payStudent").value = id; paymentInfo(); }
@@ -858,6 +881,7 @@ function saveSettings() {
     receiptFooter: $("receiptFooter").value
   });
   if (!state.years.includes(state.school.year)) state.years.push(state.school.year);
+  state.activeYear = state.school.year;
   log("Paramètres enregistrés", "Paramètres");
   saveState();
   renderShell();
@@ -866,11 +890,13 @@ function saveSettings() {
 function exportCSV(type) {
   if (!requireAction("exports")) return;
   let rows = [];
-  if (type === "students") rows = [["matricule", "nom", "date_ajout", "classe", "parent", "contact", "attendu", "paye", "reste"], ...state.students.map((row) => [row.matricule, row.name, row.addedDate || "", row.className, row.parent, row.phone, due(row.id), paid(row.id), balance(row.id)])];
-  if (type === "payments") rows = [["recu", "eleve", "matricule", "paye_par", "montant", "mode", "date", "caissier"], ...state.payments.map((row) => [row.id, student(row.studentId).name, student(row.studentId).matricule, paymentPayer(row), row.amount, row.mode, row.date, row.cashier])];
-  if (type === "paidStudents") rows = [["matricule", "nom", "date_ajout", "classe", "parent", "contact", "attendu", "paye", "reste", "dernier_paye_par"], ...state.students.filter((row) => paid(row.id) > 0).map((row) => [row.matricule, row.name, row.addedDate || "", row.className, row.parent, row.phone, due(row.id), paid(row.id), balance(row.id), paymentPayer(lastPaymentForStudent(row.id))])];
-  if (type === "noPaymentStudents") rows = [["matricule", "nom", "date_ajout", "classe", "parent", "contact", "attendu", "paye", "reste"], ...state.students.filter((row) => paid(row.id) <= 0).map((row) => [row.matricule, row.name, row.addedDate || "", row.className, row.parent, row.phone, due(row.id), paid(row.id), balance(row.id)])];
-  if (type === "unpaid") rows = [["matricule", "nom", "date_ajout", "classe", "parent", "contact", "attendu", "paye", "reste", "statut", "dernier_paye_par"], ...state.students.map((row) => [row.matricule, row.name, row.addedDate || "", row.className, row.parent, row.phone, due(row.id), paid(row.id), balance(row.id), financeStatus(row), lastPaymentForStudent(row.id) ? paymentPayer(lastPaymentForStudent(row.id)) : ""])];
+  const year = currentYear();
+  const yearPayments = state.payments.filter((row) => row.year === year);
+  if (type === "students") rows = [["annee", "matricule", "nom", "date_ajout", "classe", "parent", "contact", "attendu", "paye", "reste"], ...state.students.map((row) => [year, row.matricule, row.name, row.addedDate || "", row.className, row.parent, row.phone, due(row.id), paid(row.id), balance(row.id)])];
+  if (type === "payments") rows = [["annee", "recu", "eleve", "matricule", "paye_par", "montant", "mode", "date", "caissier"], ...yearPayments.map((row) => [row.year, row.id, student(row.studentId).name, student(row.studentId).matricule, paymentPayer(row), row.amount, row.mode, row.date, row.cashier])];
+  if (type === "paidStudents") rows = [["annee", "matricule", "nom", "date_ajout", "classe", "parent", "contact", "attendu", "paye", "reste", "dernier_paye_par"], ...state.students.filter((row) => paid(row.id) > 0).map((row) => [year, row.matricule, row.name, row.addedDate || "", row.className, row.parent, row.phone, due(row.id), paid(row.id), balance(row.id), paymentPayer(lastPaymentForStudent(row.id))])];
+  if (type === "noPaymentStudents") rows = [["annee", "matricule", "nom", "date_ajout", "classe", "parent", "contact", "attendu", "paye", "reste"], ...state.students.filter((row) => paid(row.id) <= 0).map((row) => [year, row.matricule, row.name, row.addedDate || "", row.className, row.parent, row.phone, due(row.id), paid(row.id), balance(row.id)])];
+  if (type === "unpaid") rows = [["annee", "matricule", "nom", "date_ajout", "classe", "parent", "contact", "attendu", "paye", "reste", "statut", "dernier_paye_par"], ...state.students.map((row) => [year, row.matricule, row.name, row.addedDate || "", row.className, row.parent, row.phone, due(row.id), paid(row.id), balance(row.id), financeStatus(row), lastPaymentForStudent(row.id) ? paymentPayer(lastPaymentForStudent(row.id)) : ""])];
   if (type === "logs") rows = [["date", "iso", "type", "utilisateur", "role", "appareil", "action", "detail"], ...normalizeLogs(state.logs).map((row) => [row.date, row.iso, row.type, row.user, row.role, row.device, row.action, row.detail])];
   log(`Export CSV : ${type}`, "Export");
   download(`${type}.csv`, rows.map((row) => row.map((cell) => `"${String(cell ?? "").replaceAll('"', '""')}"`).join(";")).join("\n"), "text/csv;charset=utf-8");
