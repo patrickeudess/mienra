@@ -4,7 +4,7 @@ const DEVICE_KEY = `${DB_KEY}_device_id`;
 
 const $ = (id) => document.getElementById(id);
 const LOGO_SRC = "assets/mienra-logo.jpeg";
-const ASSET_VERSION = "20260706-user-locks-payment-tracking";
+const ASSET_VERSION = "20260706-dashboard-gender-breakdown";
 const CLOUD_CONFIG = globalThis.MIENRA_CLOUD || {};
 const SCHOOL_IDENTITY = {
   name: "EPP Mienrassou",
@@ -370,6 +370,15 @@ function totals() {
   return { expected, collected, remaining: expected - collected, rate: expected ? Math.round((collected / expected) * 100) : 0 };
 }
 
+function genderTotals() {
+  return ["F", "M"].map((gender) => {
+    const rows = state.students.filter((row) => row.gender === gender);
+    const expected = rows.reduce((sum, row) => sum + due(row.id), 0);
+    const collected = rows.reduce((sum, row) => sum + paid(row.id), 0);
+    return { gender, label: gender === "F" ? "Filles" : "Garçons", count: rows.length, expected, collected, remaining: expected - collected };
+  });
+}
+
 function accessProfile() {
   return roleAccess[session?.role] || roleAccess.Consultation;
 }
@@ -513,6 +522,7 @@ const pages = {
       <div class="stats">${stat("Élèves", state.students.length)}${stat("Montant attendu", money(t.expected))}${stat("Montant encaissé", money(t.collected))}${stat("Reste à payer", money(t.remaining), t.remaining > 0 ? "danger" : "ok")}</div>
       <div class="layout-two">
         <article class="panel"><div class="panel-head"><h2>Recouvrement par classe</h2><span>${t.rate}% encaissé</span></div>${classSummary()}</article>
+        <article class="panel"><div class="panel-head"><h2>Désagrégation par sexe</h2><span>Effectif et paiements</span></div>${genderSummary()}</article>
         <article class="panel"><div class="panel-head"><h2>Activité récente</h2><span>${state.logs.length} opérations</span></div>${logsTable(9)}</article>
       </div>`;
     attachDashboardStatActions();
@@ -926,6 +936,10 @@ function receiptView() {
 }
 
 function goPay(id) { if (!requireAction("payments")) return; view = "payments"; renderNav(); pages.payments(); selectPaymentStudent(id); }
+
+function genderSummary() {
+  return `<table><thead><tr><th>Sexe</th><th>Élèves</th><th>Attendu</th><th>Payé</th><th>Reste</th></tr></thead><tbody>${genderTotals().map((row) => `<tr><td>${clean(row.label)}</td><td>${row.count}</td><td>${money(row.expected)}</td><td class="amount-ok">${money(row.collected)}</td><td class="${row.remaining > 0 ? "amount-danger" : "amount-ok"}">${money(row.remaining)}</td></tr>`).join("")}</tbody></table>`;
+}
 
 function classSummary() {
   return `<table><thead><tr><th>Classe</th><th>Niveau</th><th>Élèves</th><th>Attendu</th><th>Payé</th><th>Reste</th></tr></thead><tbody>${state.classes.map((row) => {
