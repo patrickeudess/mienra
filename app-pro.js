@@ -4,7 +4,7 @@ const DEVICE_KEY = `${DB_KEY}_device_id`;
 
 const $ = (id) => document.getElementById(id);
 const LOGO_SRC = "assets/mienra-logo.jpeg";
-const ASSET_VERSION = "20260706-harmonized-payment-tracking";
+const ASSET_VERSION = "20260706-clean-payment-tracking";
 const CLOUD_CONFIG = globalThis.MIENRA_CLOUD || {};
 const SCHOOL_IDENTITY = {
   name: "EPP Mienrassou",
@@ -564,8 +564,8 @@ const pages = {
     if (!allowedTabs.includes(financeTab)) financeTab = allowedTabs[0] || "tracking";
     const t = totals();
     const paymentPanel = `${canAction("payments") ? `<article class="panel"><div class="panel-head"><h2>Nouveau paiement</h2><span>Encaissement et reçu - ${clean(currentYear())}</span></div><div class="form-grid"><div class="student-picker"><label>Rechercher l’élève</label><input id="paySearch" placeholder="Nom, matricule, parent, contact..." oninput="drawPaymentStudentResults()"><select id="payStudent" onchange="paymentInfo()">${state.students.map((row) => `<option value="${row.id}">${clean(row.name)} - ${clean(row.matricule)} - reste ${money(balance(row.id))}</option>`).join("")}</select><div id="payStudentResults" class="picker-results"></div></div>${field("Montant payé", "payAmount", 50000, "number")}${field("Payé par", "paidBy", "")}<div><label>Mode</label><select id="payMode"><option>Espèces</option><option>Orange Money</option><option>Moov Money</option><option>MTN Money</option><option>Wave</option></select></div>${field("Date", "payDate", today(), "date")}${field("Caissier", "cashier", session.name)}${field("Note", "payNote", "Versement frais scolaires")}</div><div class="notice" id="payInfo"></div><div class="actions"><button class="btn primary" onclick="savePayment()">Enregistrer et générer le reçu</button></div></article>` : readOnlyNotice("Paiements")}`;
-    const trackingPanel = `${canAction("dailyPoint") ? dailyPointPanel() : ""}<article class="panel"><div class="panel-head"><h2>Suivi des paiements</h2><span>${money(t.remaining)} à recouvrer</span></div>${financialFilters("unpaid")}<div id="unpaidTable"></div></article><article class="panel"><div class="panel-head"><h2>Historique des paiements</h2><span>${state.payments.filter((row) => row.year === currentYear()).length} reçus - ${clean(currentYear())}</span></div>${paymentsTable()}</article>`;
-    $("content").innerHTML = `<div class="subtabs">${allowedTabs.map((tab) => `<button class="${financeTab === tab ? "active" : ""}" onclick="showFinanceTab('${tab}')">${tab === "payments" ? "Paiements" : "Suivi des paiements"}</button>`).join("")}</div>${financeTab === "payments" ? paymentPanel : trackingPanel}`;
+    const trackingPanel = `${canAction("dailyPoint") ? dailyPointPanel() : ""}<article class="panel"><div class="panel-head"><h2>Situation par élève</h2><span>${money(t.remaining)} à recouvrer</span></div>${financialFilters("unpaid")}<div id="unpaidTable"></div></article><article class="panel"><div class="panel-head"><h2>Reçus enregistrés</h2><span>${state.payments.filter((row) => row.year === currentYear()).length} paiements - ${clean(currentYear())}</span></div>${paymentsTable()}</article>`;
+    $("content").innerHTML = `<div class="subtabs">${allowedTabs.map((tab) => `<button class="${financeTab === tab ? "active" : ""}" onclick="showFinanceTab('${tab}')">${tab === "payments" ? "Encaisser" : "Suivi & reçus"}</button>`).join("")}</div>${financeTab === "payments" ? paymentPanel : trackingPanel}`;
     if (financeTab === "payments") { drawPaymentStudentResults(); paymentInfo(); }
     if (financeTab === "tracking") { if (canAction("dailyPoint")) drawDailyPoint(); drawUnpaid(); }
   },
@@ -735,9 +735,7 @@ function drawDailyPoint() {
 function drawUnpaid() {
   if (!$("unpaidTable")) return;
   const rows = filterFinancialStudents("unpaid").sort((a, b) => balance(b.id) - balance(a.id));
-  const paidTotal = rows.reduce((sum, row) => sum + paid(row.id), 0);
-  const remainingTotal = rows.reduce((sum, row) => sum + balance(row.id), 0);
-  $("unpaidTable").innerHTML = `<div class="mini-stats"><span>Déjà payé : <b>${money(paidTotal)}</b></span><span>Reste à payer : <b class="${remainingTotal > 0 ? "amount-danger" : "amount-ok"}">${money(remainingTotal)}</b></span><span>${rows.length} élèves</span></div>${financialRows(rows)}`;
+  $("unpaidTable").innerHTML = `<p class="muted">${rows.length} élève(s) trouvé(s) selon les filtres.</p>${financialRows(rows)}`;
 }
 
 function showDashboardDetail(type) {
