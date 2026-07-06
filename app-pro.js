@@ -2,7 +2,8 @@ const DB_KEY = "mienra_web_app_v2";
 
 const $ = (id) => document.getElementById(id);
 const LOGO_SRC = "assets/mienra-logo.jpeg";
-const ASSET_VERSION = "20260706-epp-mienrassou";
+const ASSET_VERSION = "20260706-shared-sync";
+const CLOUD_CONFIG = globalThis.MIENRA_CLOUD || {};
 const SCHOOL_IDENTITY = {
   name: "EPP Mienrassou",
   code: "EPPM",
@@ -27,6 +28,8 @@ let session = null;
 let editing = null;
 let activeReceipt = null;
 let dashboardDetail = null;
+let cloudSyncing = false;
+let cloudLastError = "";
 let state = loadState();
 
 const menu = [
@@ -157,7 +160,72 @@ function migrateSchoolIdentity(school) {
   };
 }
 
-function saveState() { localStorage.setItem(DB_KEY, JSON.stringify(state)); }
+function saveLocalState() { localStorage.setItem(DB_KEY, JSON.stringify(state)); }
+function saveState() {
+  saveLocalState();
+  pushSharedState();
+}
+function cloudEnabled() {
+  return Boolean(CLOUD_CONFIG.enabled && CLOUD_CONFIG.provider === "supabase" && CLOUD_CONFIG.supabaseUrl && CLOUD_CONFIG.supabaseAnonKey);
+}
+function cloudStateId() {
+  return encodeURIComponent(CLOUD_CONFIG.stateId || "epp-mienrassou");
+}
+function syncLabel() {
+  if (!cloudEnabled()) return "Données locales";
+  if (cloudLastError) return "Sync à vérifier";
+  return "Données partagées";
+}
+function supabaseHeaders(extra = {}) {
+  return {
+    apikey: CLOUD_CONFIG.supabaseAnonKey,
+    Authorization: `Bearer ${CLOUD_CONFIG.supabaseAnonKey}`,
+    "Content-Type": "application/json",
+    ...extra
+  };
+}
+async function pullSharedState() {
+  if (!cloudEnabled()) return false;
+  try {
+    const url = `${CLOUD_CONFIG.supabaseUrl.replace(/\/$/, "")}/rest/v1/mienra_app_state?id=eq.${cloudStateId()}&select=data,updated_at&limit=1`;
+    const response = await fetch(url, { headers: supabaseHeaders() });
+    if (!response.ok) throw new Error(`Lecture Supabase impossible (${response.status})`);
+    const rows = await response.json();
+    if (rows[0]?.data) {
+      state = normalizeState(rows[0].data);
+      saveLocalState();
+    } else {
+      await pushSharedState();
+    }
+    cloudLastError = "";
+    return true;
+  } catch (error) {
+    cloudLastError = error.message || "Synchronisation impossible";
+    console.warn(cloudLastError);
+    return false;
+  }
+}
+async function pushSharedState() {
+  if (!cloudEnabled() || cloudSyncing) return false;
+  cloudSyncing = true;
+  try {
+    const url = `${CLOUD_CONFIG.supabaseUrl.replace(/\/$/, "")}/rest/v1/mienra_app_state?on_conflict=id`;
+    const response = await fetch(url, {
+      method: "POST",
+      headers: supabaseHeaders({ Prefer: "resolution=merge-duplicates" }),
+      body: JSON.stringify({ id: CLOUD_CONFIG.stateId || "epp-mienrassou", data: state, updated_at: new Date().toISOString() })
+    });
+    if (!response.ok) throw new Error(`Écriture Supabase impossible (${response.status})`);
+    cloudLastError = "";
+    return true;
+  } catch (error) {
+    cloudLastError = error.message || "Synchronisation impossible";
+    console.warn(cloudLastError);
+    return false;
+  } finally {
+    cloudSyncing = false;
+  }
+}
 function log(action) {
   state.logs.unshift({ date: new Date().toLocaleString("fr-FR"), user: session?.name || "Système", action });
   state.logs = state.logs.slice(0, 300);
@@ -233,12 +301,13 @@ function renderLogin() {
         <label>Identifiant</label><input id="login" value="admin" autocomplete="username">
         <label>Mot de passe</label><input id="password" type="password" value="admin123" autocomplete="current-password">
         <div class="actions"><button class="btn primary" onclick="login()">Se connecter</button><button class="btn quiet" onclick="quickLogin()">Accès rapide admin</button></div>
-        <div class="hint">Comptes test : admin/admin123, directeur/directeur123, secretaire/secretaire123, consultation/consultation123</div>
+        <div class="hint">Comptes test : admin/admin123, directeur/directeur123, secretaire/secretaire123, consultation/consultation123<br>Mode données : ${syncLabel()}</div>
       </div>
     </section>`;
 }
 
-function login() {
+async function login() {
+  await pullSharedState();
   const username = $("login").value.trim();
   const password = $("password").value.trim();
   const user = state.users.find((item) => item.login === username && item.password === password && item.active);
@@ -248,7 +317,8 @@ function login() {
   renderShell();
 }
 
-function quickLogin() {
+async function quickLogin() {
+  await pullSharedState();
   session = state.users.find((item) => item.login === "admin") || state.users[0];
   log("Connexion accès rapide");
   renderShell();
@@ -256,19 +326,29 @@ function quickLogin() {
 
 function logout() { session = null; renderLogin(); }
 
+async function syncNow() {
+  const ok = await pullSharedState();
+  if (ok) {
+    renderShell();
+    alert("Données synchronisées.");
+  } else {
+    alert(cloudEnabled() ? `Synchronisation impossible : ${cloudLastError}` : "La synchronisation partagée n'est pas encore configurée.");
+  }
+}
+
 function renderShell() {
   ensureAllowedView();
   $("root").innerHTML = `
     <div class="app">
       <aside class="sidebar">
         <div class="brand-row"><img class="brand-logo small-logo" src="${logoUrl()}" alt="Logo EPP Mienrassou"><div><strong>EPP Mienrassou</strong><span>${clean(state.school.year)}</span></div></div>
-        <div class="account"><b>${clean(session.name)}</b><span>${clean(session.role)}</span><button class="btn small quiet" onclick="logout()">Déconnexion</button></div>
+        <div class="account"><b>${clean(session.name)}</b><span>${clean(session.role)} · ${syncLabel()}</span><button class="btn small quiet" onclick="logout()">Déconnexion</button></div>
         <nav id="nav"></nav>
       </aside>
       <main class="workspace">
         <header class="topbar">
           <div><p>${clean(state.school.name)}</p><h1 id="pageTitle"></h1></div>
-          <div class="top-actions">${canPage("backup") ? `<button class="btn quiet" onclick="go('backup')">Sauvegardes</button>` : ""}${canAction("payments") ? `<button class="btn secondary" onclick="go('payments')">Nouveau paiement</button>` : ""}</div>
+          <div class="top-actions">${cloudEnabled() ? `<button class="btn quiet" onclick="syncNow()">Synchroniser</button>` : ""}${canPage("backup") ? `<button class="btn quiet" onclick="go('backup')">Sauvegardes</button>` : ""}${canAction("payments") ? `<button class="btn secondary" onclick="go('payments')">Nouveau paiement</button>` : ""}</div>
         </header>
         <section id="content"></section>
       </main>
