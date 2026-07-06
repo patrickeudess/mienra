@@ -74,8 +74,15 @@ Comptes créés par le seed (mots de passe à changer en production) :
 
 ```bash
 npm run build      # compile l'interface
-npm run test:app   # http://localhost:5199
+npm run test:app   # http://localhost:5199 (version compilée)
+
+npm run test:app:dev   # http://localhost:5200 (rechargement automatique)
 ```
+
+Le mode `test:app:dev` recharge tout automatiquement : les modifications de
+l'interface s'affichent instantanément dans la page ouverte (HMR de Vite,
+sans F5) et le serveur des handlers réels redémarre seul quand le code du
+processus principal change (`tsx watch`).
 
 Le serveur de test (`dev/serveur-test.ts`) exécute les **vrais handlers IPC**
 et la **vraie base** `prisma/dev.db` ; seul le module `electron` est remplacé
