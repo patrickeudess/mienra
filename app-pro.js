@@ -4,7 +4,7 @@ const DEVICE_KEY = `${DB_KEY}_device_id`;
 
 const $ = (id) => document.getElementById(id);
 const LOGO_SRC = "assets/mienra-logo.jpeg";
-const ASSET_VERSION = "20260707-clean-classes-sold-receipt";
+const ASSET_VERSION = "20260707-two-receipts-print";
 const CLOUD_CONFIG = globalThis.MIENRA_CLOUD || {};
 const SCHOOL_IDENTITY = {
   name: "EPV Mienrassou",
@@ -1004,9 +1004,13 @@ function openReceipt(id) { activeReceipt = id; view = "receipts"; renderNav(); r
 function receiptView() {
   const payment = state.payments.find((row) => row.id === activeReceipt) || state.payments[0];
   if (!payment) { $("content").innerHTML = `<article class="panel empty">Aucun reçu disponible.</article>`; return; }
+  $("content").innerHTML = `<article class="panel receipt-page"><div class="panel-head"><h2>Reçu de paiement</h2><span>${clean(payment.id)}</span></div><div class="receipt-actions actions"><button class="btn secondary" onclick="window.print()">Imprimer / PDF</button><button class="btn quiet" onclick="showFinanceTab('payments')">Retour paiements</button></div><div class="receipt-copies">${receiptCopy(payment, "Exemplaire parent")}${receiptCopy(payment, "Exemplaire archive")}</div></article>`;
+}
+
+function receiptCopy(payment, copyLabel) {
   const row = student(payment.studentId);
   const amounts = receiptAmounts(payment);
-  $("content").innerHTML = `<article class="panel"><div class="panel-head"><h2>Reçu de paiement</h2><span>${clean(payment.id)}</span></div><div class="receipt">${documentHeader("Reçu de paiement")}<div class="receipt-grid"><p><b>N° reçu</b><span>${clean(payment.id)}</span></p><p><b>Année scolaire</b><span>${clean(payment.year || currentYear())}</span></p><p><b>Date</b><span>${clean(payment.date)}</span></p><p><b>Élève</b><span>${clean(row.name)}</span></p><p><b>Matricule</b><span>${clean(row.matricule)}</span></p><p><b>Classe</b><span>${clean(row.className)}</span></p><p><b>Payé par</b><span>${clean(paymentPayer(payment))}</span></p><p><b>Mode</b><span>${clean(payment.mode)}</span></p><p><b>Frais de scolarité</b><span>${money(amounts.expected)}</span></p><p><b>Versement reçu</b><span>${money(amounts.currentPaid)}</span></p><p><b>Total payé à ce jour</b><span>${money(amounts.totalPaid)}</span></p><p><b>Reste à payer</b><span class="${amounts.remaining > 0 ? "amount-danger" : "amount-ok"}">${money(amounts.remaining)}</span></p></div>${amounts.remaining <= 0 ? `<p class="receipt-status amount-ok"><b>Mention :</b> Soldé</p>` : ""}<p><b>Observation :</b> ${clean(payment.note || "-")}</p><div class="signatures"><p>Caissier<br><b>${clean(payment.cashier)}</b></p><p>Direction<br><b>${clean(state.school.director)}</b></p></div><small>${clean(state.school.receiptFooter)}</small></div><div class="actions"><button class="btn secondary" onclick="window.print()">Imprimer / PDF</button><button class="btn quiet" onclick="showFinanceTab('payments')">Retour paiements</button></div></article>`;
+  return `<div class="receipt"><div class="receipt-copy-label">${clean(copyLabel)}</div>${documentHeader("Reçu de paiement")}<div class="receipt-grid"><p><b>N° reçu</b><span>${clean(payment.id)}</span></p><p><b>Année scolaire</b><span>${clean(payment.year || currentYear())}</span></p><p><b>Date</b><span>${clean(payment.date)}</span></p><p><b>Élève</b><span>${clean(row.name)}</span></p><p><b>Matricule</b><span>${clean(row.matricule)}</span></p><p><b>Classe</b><span>${clean(row.className)}</span></p><p><b>Payé par</b><span>${clean(paymentPayer(payment))}</span></p><p><b>Mode</b><span>${clean(payment.mode)}</span></p><p><b>Frais de scolarité</b><span>${money(amounts.expected)}</span></p><p><b>Versement reçu</b><span>${money(amounts.currentPaid)}</span></p><p><b>Total payé à ce jour</b><span>${money(amounts.totalPaid)}</span></p><p><b>Reste à payer</b><span class="${amounts.remaining > 0 ? "amount-danger" : "amount-ok"}">${money(amounts.remaining)}</span></p></div>${amounts.remaining <= 0 ? `<p class="receipt-status amount-ok"><b>Mention :</b> Soldé</p>` : ""}<p><b>Observation :</b> ${clean(payment.note || "-")}</p><div class="signatures"><p>Caissier<br><b>${clean(payment.cashier)}</b></p><p>Direction<br><b>${clean(state.school.director)}</b></p></div><small>${clean(state.school.receiptFooter)}</small></div>`;
 }
 
 function goPay(id) { if (!requireAction("payments")) return; showFinanceTab("payments"); selectPaymentStudent(id); }
