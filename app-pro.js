@@ -4,7 +4,7 @@ const DEVICE_KEY = `${DB_KEY}_device_id`;
 
 const $ = (id) => document.getElementById(id);
 const LOGO_SRC = "assets/mienra-logo.jpeg";
-const ASSET_VERSION = "20260706-clean-payment-tracking";
+const ASSET_VERSION = "20260707-student-installments";
 const CLOUD_CONFIG = globalThis.MIENRA_CLOUD || {};
 const SCHOOL_IDENTITY = {
   name: "EPP Mienrassou",
@@ -32,6 +32,7 @@ let editingEnrollment = null;
 let activeReceipt = null;
 let dashboardDetail = null;
 let financeTab = "tracking";
+let selectedPaymentStudent = null;
 let cloudSyncing = false;
 let cloudLastError = "";
 let state = loadState();
@@ -701,7 +702,7 @@ function financialRows(rows, emptyMessage = "Aucun élève trouvé.") {
   return `<table><thead><tr><th>Élève</th><th>Classe</th><th>Frais classe</th><th>Déjà payé</th><th>Reste à payer</th><th>Statut</th><th>Payé par</th><th>Parent</th><th>Action</th></tr></thead><tbody>${rows.map((row) => {
     const left = balance(row.id);
     const lastPayment = lastPaymentForStudent(row.id);
-    return `<tr><td>${clean(row.name)}<br><small>${clean(row.matricule)}</small></td><td>${clean(row.className)}</td><td>${money(due(row.id))}</td><td class="amount-ok">${money(paid(row.id))}</td><td class="${left > 0 ? "amount-danger" : "amount-ok"}">${money(left)}</td><td>${financeStatus(row)}</td><td>${lastPayment ? clean(paymentPayer(lastPayment)) : "-"}</td><td>${clean(row.parent)}<br><small>${clean(row.phone)}</small></td><td>${canAction("payments") ? `<button class="btn secondary small" onclick="goPay('${row.id}')">Payer</button>` : `<span class="muted">Lecture seule</span>`}</td></tr>`;
+    return `<tr><td>${clean(row.name)}<br><small>${clean(row.matricule)}</small></td><td>${clean(row.className)}</td><td>${money(due(row.id))}</td><td class="amount-ok">${money(paid(row.id))}</td><td class="${left > 0 ? "amount-danger" : "amount-ok"}">${money(left)}</td><td>${financeStatus(row)}</td><td>${lastPayment ? clean(paymentPayer(lastPayment)) : "-"}</td><td>${clean(row.parent)}<br><small>${clean(row.phone)}</small></td><td><button class="btn quiet small" onclick="showStudentPayments('${row.id}')">Versements</button>${canAction("payments") ? ` <button class="btn secondary small" onclick="goPay('${row.id}')">Payer</button>` : ""}</td></tr>`;
   }).join("") || `<tr><td colspan="9">${emptyMessage}</td></tr>`}</tbody></table>`;
 }
 
@@ -735,7 +736,23 @@ function drawDailyPoint() {
 function drawUnpaid() {
   if (!$("unpaidTable")) return;
   const rows = filterFinancialStudents("unpaid").sort((a, b) => balance(b.id) - balance(a.id));
-  $("unpaidTable").innerHTML = `<p class="muted">${rows.length} élève(s) trouvé(s) selon les filtres.</p>${financialRows(rows)}`;
+  $("unpaidTable").innerHTML = `<p class="muted">${rows.length} élève(s) trouvé(s) selon les filtres.</p>${selectedPaymentStudent ? studentPaymentsPanel(selectedPaymentStudent) : ""}${financialRows(rows)}`;
+}
+
+function showStudentPayments(id) {
+  selectedPaymentStudent = id;
+  drawUnpaid();
+}
+
+function closeStudentPayments() {
+  selectedPaymentStudent = null;
+  drawUnpaid();
+}
+
+function studentPaymentsPanel(id) {
+  const row = student(id);
+  const rows = state.payments.filter((payment) => payment.studentId === id && payment.year === currentYear()).slice().reverse();
+  return `<div class="installment-panel"><div class="panel-head"><h2>Versements de ${clean(row.name || "l'élève")}</h2><span>${clean(row.matricule || "")} · ${clean(currentYear())}</span></div><div class="mini-stats"><span>Frais prévus : <b>${money(due(id))}</b></span><span>Total payé : <b class="amount-ok">${money(paid(id))}</b></span><span>Reste : <b class="${balance(id) > 0 ? "amount-danger" : "amount-ok"}">${money(balance(id))}</b></span></div><table><thead><tr><th>Date</th><th>Reçu</th><th>Payé par</th><th>Montant</th><th>Total après</th><th>Reste après</th><th>Mode</th><th>Caissier</th><th>Action</th></tr></thead><tbody>${rows.map((payment) => { const amounts = receiptAmounts(payment); return `<tr><td>${clean(payment.date)}</td><td>${clean(payment.id)}</td><td>${clean(paymentPayer(payment))}</td><td class="amount-ok">${money(payment.amount)}</td><td>${money(amounts.totalPaid)}</td><td class="${amounts.remaining > 0 ? "amount-danger" : "amount-ok"}">${money(amounts.remaining)}</td><td>${clean(payment.mode)}</td><td>${clean(payment.cashier)}</td><td><button class="btn quiet small" onclick="openReceipt('${payment.id}')">Reçu</button></td></tr>`; }).join("") || `<tr><td colspan="9">Aucun versement enregistré pour cet élève.</td></tr>`}</tbody></table><div class="actions"><button class="btn quiet small" onclick="closeStudentPayments()">Fermer</button>${canAction("payments") ? ` <button class="btn secondary small" onclick="goPay('${id}')">Ajouter un versement</button>` : ""}</div></div>`;
 }
 
 function showDashboardDetail(type) {

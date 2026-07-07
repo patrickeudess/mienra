@@ -351,6 +351,14 @@ textarea { min-height: 92px; }
   grid-template-columns: 1fr 210px 180px 170px;
 }
 
+.installment-panel {
+  margin: 12px 0 16px;
+  padding: 14px;
+  border: 1px solid #c8ddff;
+  border-radius: 8px;
+  background: #f8fbff;
+}
+
 .student-picker {
   grid-column: span 2;
 }
