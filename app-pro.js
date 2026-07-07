@@ -4,7 +4,7 @@ const DEVICE_KEY = `${DB_KEY}_device_id`;
 
 const $ = (id) => document.getElementById(id);
 const LOGO_SRC = "assets/mienra-logo.jpeg";
-const ASSET_VERSION = "20260707-receipts-one-page";
+const ASSET_VERSION = "20260707-login-security";
 const CLOUD_CONFIG = globalThis.MIENRA_CLOUD || {};
 const SCHOOL_IDENTITY = {
   name: "EPV Mienrassou",
@@ -462,8 +462,8 @@ function renderLogin() {
     <section class="login">
       <div class="login-panel">
         <div class="login-brand"><img class="brand-logo" src="${logoUrl()}" alt="Logo EPV Mienrassou"><div><h1>EPV Mienrassou</h1><p>Gestion scolaire : élèves, inscriptions, paiements, reçus et rapports.</p></div></div>
-        <label>Identifiant</label><input id="login" value="admin" autocomplete="username">
-        <label>Mot de passe</label><input id="password" type="password" value="admin123" autocomplete="current-password">
+        <label>Identifiant</label><input id="login" placeholder="Votre identifiant" autocomplete="username" onkeydown="if(event.key==='Enter')login()">
+        <label>Mot de passe</label><input id="password" type="password" placeholder="Votre mot de passe" autocomplete="current-password" onkeydown="if(event.key==='Enter')login()">
         <div class="actions"><button class="btn primary" onclick="login()">Se connecter</button><button class="btn quiet" onclick="quickLogin()">Accès rapide admin</button></div>
         <div class="hint">Comptes test : admin/admin123, directeur/directeur123, secretaire/secretaire123, consultation/consultation123<br>Mode données : ${syncLabel()}</div>
       </div>
