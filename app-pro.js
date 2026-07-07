@@ -4,7 +4,7 @@ const DEVICE_KEY = `${DB_KEY}_device_id`;
 
 const $ = (id) => document.getElementById(id);
 const LOGO_SRC = "assets/mienra-logo.jpeg";
-const ASSET_VERSION = "20260707-backup-real-data";
+const ASSET_VERSION = "20260707-epp-tuition-fees";
 const CLOUD_CONFIG = globalThis.MIENRA_CLOUD || {};
 const SCHOOL_IDENTITY = {
   name: "EPP Mienrassou",
@@ -16,6 +16,15 @@ const SCHOOL_IDENTITY = {
   email: "",
   director: "Direction de l’école"
 };
+const DEFAULT_CLASSES = [
+  ["Maternelle", "Maternelle", 70000],
+  ["CP1", "Primaire", 70000],
+  ["CP2", "Primaire", 70000],
+  ["CE1", "Primaire", 70000],
+  ["CE2", "Primaire", 70000],
+  ["CM1", "Primaire", 70000],
+  ["CM2", "Primaire", 75000]
+];
 const fmt = new Intl.NumberFormat("fr-FR");
 const money = (value) => `${fmt.format(Number(value || 0))} FCFA`;
 const today = () => new Date().toISOString().slice(0, 10);
@@ -70,12 +79,13 @@ const roleAccess = {
 
 function seedState() {
   const classes = [
-    ["CP1", "Primaire", 90000], ["CP2", "Primaire", 95000],
-    ["CE1", "Primaire", 100000], ["CE2", "Primaire", 105000],
-    ["CM1", "Primaire", 120000], ["CM2", "Primaire", 130000],
+    ["Maternelle", "Maternelle", 70000],
+    ["CP1", "Primaire", 70000], ["CP2", "Primaire", 70000],
+    ["CE1", "Primaire", 70000], ["CE2", "Primaire", 70000],
+    ["CM1", "Primaire", 70000], ["CM2", "Primaire", 75000],
     ["6e", "Collège", 180000], ["5e", "Collège", 180000],
     ["4e", "Collège", 200000], ["3e", "Collège", 220000]
-  ].map(([name, level, fee]) => ({ id: uid("CLS"), name, level, fee }));
+  ].filter(([name]) => DEFAULT_CLASSES.some(([className]) => className === name)).map(([name, level, fee]) => ({ id: uid("CLS"), name, level, fee }));
 
   return {
     school: {
@@ -136,7 +146,7 @@ function normalizeState(data) {
     ...data,
     school: { ...base.school, ...(data.school || {}) },
     years: data.years?.length ? data.years : base.years,
-    classes: Array.isArray(data.classes) ? data.classes : base.classes,
+    classes: normalizeClassFees(Array.isArray(data.classes) ? data.classes : base.classes),
     students: (Array.isArray(data.students) ? data.students : base.students).map((row) => ({ ...row, addedDate: row.addedDate || row.createdAt || today() })),
     enrollments: (Array.isArray(data.enrollments) ? data.enrollments : base.enrollments).map((row) => ({ ...row, year: row.year || data.activeYear || data.school?.year || base.school.year })),
     payments: (Array.isArray(data.payments) ? data.payments : base.payments).map((row) => ({ ...row, year: row.year || data.activeYear || data.school?.year || base.school.year })),
@@ -148,6 +158,15 @@ function normalizeState(data) {
   if (!normalized.years.includes(normalized.activeYear)) normalized.years.push(normalized.activeYear);
   normalized.school = migrateSchoolIdentity(normalized.school);
   return normalized;
+}
+
+function normalizeClassFees(rows = []) {
+  const fees = new Map(DEFAULT_CLASSES.map(([name, , fee]) => [name.toLowerCase(), fee]));
+  ["petite section", "moyenne section", "grande section", "ps", "ms", "gs"].forEach((name) => fees.set(name, 70000));
+  return rows.map((row) => {
+    const officialFee = fees.get(String(row.name || "").trim().toLowerCase());
+    return officialFee ? { ...row, fee: officialFee } : row;
+  });
 }
 
 function normalizeLogs(rows = []) {
@@ -562,7 +581,7 @@ const pages = {
   classes() {
     const item = editing ? state.classes.find((row) => row.id === editing) : {};
     $("content").innerHTML = `
-      ${canAction("classes") ? `<article class="panel"><div class="panel-head"><h2>${editing ? "Modifier une classe" : "Ajouter une classe"}</h2><span>Frais scolaires annuels</span></div><div class="form-grid">${field("Classe", "className", item?.name || "")}<div><label>Niveau</label><select id="level">${["Maternelle", "Primaire", "Collège", "Lycée", "Supérieur"].map((level) => `<option ${item?.level === level ? "selected" : ""}>${level}</option>`).join("")}</select></div>${field("Frais annuels", "fee", item?.fee || 100000, "number")}</div><div class="actions"><button class="btn primary" onclick="saveClass()">Enregistrer</button></div></article>` : readOnlyNotice("Classes")}
+      ${canAction("classes") ? `<article class="panel"><div class="panel-head"><h2>${editing ? "Modifier une classe" : "Ajouter une classe"}</h2><span>Frais scolaires annuels</span></div><div class="form-grid">${field("Classe", "className", item?.name || "")}<div><label>Niveau</label><select id="level">${["Maternelle", "Primaire", "Collège", "Lycée", "Supérieur"].map((level) => `<option ${item?.level === level ? "selected" : ""}>${level}</option>`).join("")}</select></div>${field("Frais annuels", "fee", item?.fee || 70000, "number")}</div><div class="actions"><button class="btn primary" onclick="saveClass()">Enregistrer</button></div></article>` : readOnlyNotice("Classes")}
       <article class="panel"><div class="panel-head"><h2>Classes & frais</h2><span>${state.classes.length} classes</span></div><table><thead><tr><th>Classe</th><th>Niveau</th><th>Frais</th><th>Élèves</th><th>Actions</th></tr></thead><tbody>${state.classes.map((row) => `<tr><td>${clean(row.name)}</td><td>${clean(row.level)}</td><td>${money(row.fee)}</td><td>${state.students.filter((s) => s.className === row.name).length}</td><td>${rowActions("Class", row.id)}</td></tr>`).join("")}</tbody></table></article>`;
   },
   receipts() { receiptView(); },
