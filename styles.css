@@ -236,6 +236,10 @@ nav span {
   gap: 16px;
 }
 
+.layout-two .activity-panel {
+  grid-column: 1 / -1;
+}
+
 .subtabs {
   display: flex;
   flex-wrap: wrap;
@@ -262,7 +266,7 @@ nav span {
 .panel {
   padding: 18px;
   margin-bottom: 16px;
-  overflow: hidden;
+  overflow-x: auto;
 }
 
 .panel-head {
@@ -422,8 +426,13 @@ textarea { min-height: 92px; }
 
 table {
   width: 100%;
+  min-width: 680px;
   border-collapse: collapse;
   background: #fff;
+}
+
+.activity-panel table {
+  min-width: 900px;
 }
 
 th, td {

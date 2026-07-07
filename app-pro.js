@@ -4,7 +4,7 @@ const DEVICE_KEY = `${DB_KEY}_device_id`;
 
 const $ = (id) => document.getElementById(id);
 const LOGO_SRC = "assets/mienra-logo.jpeg";
-const ASSET_VERSION = "20260707-reports-backup-text";
+const ASSET_VERSION = "20260707-dashboard-activity-layout";
 const CLOUD_CONFIG = globalThis.MIENRA_CLOUD || {};
 const SCHOOL_IDENTITY = {
   name: "EPP Mienrassou",
@@ -553,7 +553,7 @@ const pages = {
       <div class="layout-two">
         <article class="panel"><div class="panel-head"><h2>Recouvrement par classe</h2><span>${t.rate}% encaissé</span></div>${classSummary()}</article>
         <article class="panel"><div class="panel-head"><h2>Désagrégation par sexe</h2><span>Effectif et paiements</span></div>${genderSummary()}</article>
-        <article class="panel"><div class="panel-head"><h2>Activité récente</h2><span>${state.logs.length} opérations</span></div>${logsTable(9)}</article>
+        <article class="panel activity-panel"><div class="panel-head"><h2>Activité récente</h2><span>${state.logs.length} opérations</span></div>${logsTable(9)}</article>
       </div>`;
     attachDashboardStatActions();
     if (dashboardDetail) drawDashboardDetail();
