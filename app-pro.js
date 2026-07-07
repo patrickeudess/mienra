@@ -4,8 +4,11 @@ const DEVICE_KEY = `${DB_KEY}_device_id`;
 
 const $ = (id) => document.getElementById(id);
 const LOGO_SRC = "assets/mienra-logo.jpeg";
-const ASSET_VERSION = "20260707-login-security";
+const ASSET_VERSION = "20260707-supabase-auth";
 const CLOUD_CONFIG = globalThis.MIENRA_CLOUD || {};
+// Domaine e-mail utilisé pour mapper un identifiant (ex. "admin") vers un
+// compte Supabase Auth (ex. "admin@mienra.app"). Voir docs/securite-supabase.md.
+const AUTH_EMAIL_DOMAIN = "mienra.app";
 const SCHOOL_IDENTITY = {
   name: "EPV Mienrassou",
   code: "EPVM",
@@ -44,6 +47,8 @@ let financeTab = "tracking";
 let selectedPaymentStudent = null;
 let cloudSyncing = false;
 let cloudLastError = "";
+let authSession = null; // session Supabase Auth (JWT) si connecté en mode robuste
+let supabaseClient = null;
 let state = loadState();
 
 const menu = [
@@ -295,10 +300,46 @@ function syncLabel() {
   if (cloudLastError) return "Sync à vérifier";
   return "Données partagées";
 }
+// Supabase Auth n'est utilisable que si le SDK (CDN) est chargé et le cloud
+// configuré. Sinon on retombe proprement sur le mode local historique.
+function supabaseAuthAvailable() {
+  return cloudEnabled() && typeof globalThis.supabase?.createClient === "function";
+}
+function getSupabase() {
+  if (!supabaseAuthAvailable()) return null;
+  if (!supabaseClient) {
+    supabaseClient = globalThis.supabase.createClient(CLOUD_CONFIG.supabaseUrl, CLOUD_CONFIG.supabaseAnonKey, {
+      auth: { persistSession: true, storageKey: "mienra_auth", autoRefreshToken: true }
+    });
+  }
+  return supabaseClient;
+}
+// Un identifiant simple ("admin") est mappé sur un e-mail Supabase Auth ;
+// un identifiant contenant déjà "@" est utilisé tel quel.
+function authEmail(identifier) {
+  return identifier.includes("@") ? identifier : `${identifier}@${AUTH_EMAIL_DOMAIN}`;
+}
+async function loadProfile(userId) {
+  try {
+    const { data } = await getSupabase().from("profiles").select("role,name").eq("id", userId).single();
+    return data || null;
+  } catch {
+    return null;
+  }
+}
+// En mode authentifié, on ne transmet JAMAIS les mots de passe en clair au
+// cloud : ils restent locaux, l'authentification passe par Supabase Auth.
+function cloudPayloadState() {
+  if (!authSession) return state;
+  return { ...state, users: state.users.map(({ password, ...rest }) => rest) };
+}
 function supabaseHeaders(extra = {}) {
+  // Avec une session Auth, on présente le JWT de l'utilisateur (la RLS peut
+  // alors exiger un compte authentifié) ; sinon on utilise la clé anon.
+  const token = authSession?.access_token || CLOUD_CONFIG.supabaseAnonKey;
   return {
     apikey: CLOUD_CONFIG.supabaseAnonKey,
-    Authorization: `Bearer ${CLOUD_CONFIG.supabaseAnonKey}`,
+    Authorization: `Bearer ${token}`,
     "Content-Type": "application/json",
     ...extra
   };
@@ -333,7 +374,7 @@ async function pushSharedState() {
     const response = await fetch(url, {
       method: "POST",
       headers: supabaseHeaders({ Prefer: "resolution=merge-duplicates" }),
-      body: JSON.stringify({ id: CLOUD_CONFIG.stateId || "epp-mienrassou", data: state, updated_at: new Date().toISOString() })
+      body: JSON.stringify({ id: CLOUD_CONFIG.stateId || "epp-mienrassou", data: cloudPayloadState(), updated_at: new Date().toISOString() })
     });
     if (!response.ok) throw new Error(`Écriture Supabase impossible (${response.status})`);
     cloudLastError = "";
@@ -471,9 +512,40 @@ function renderLogin() {
 }
 
 async function login() {
-  await pullSharedState();
   const username = $("login").value.trim();
   const password = $("password").value.trim();
+  if (!username || !password) return alert("Renseignez votre identifiant et votre mot de passe.");
+
+  // 1) Authentification robuste via Supabase Auth (si configurée).
+  if (supabaseAuthAvailable()) {
+    try {
+      const { data, error } = await getSupabase().auth.signInWithPassword({
+        email: authEmail(username),
+        password
+      });
+      if (!error && data?.session) {
+        authSession = data.session;
+        const profile = await loadProfile(data.user.id);
+        session = {
+          id: data.user.id,
+          login: username,
+          name: profile?.name || username,
+          role: profile?.role || "Consultation",
+          active: true
+        };
+        await pullSharedState();
+        log("Connexion réussie (Supabase Auth)", "Connexion");
+        return renderShell();
+      }
+      // Identifiants Auth invalides : on tente le repli local ci-dessous
+      // (utile tant que les comptes Supabase ne sont pas encore créés).
+    } catch (e) {
+      console.warn("Supabase Auth indisponible, repli local :", e?.message || e);
+    }
+  }
+
+  // 2) Repli local (comportement historique, sans JWT).
+  await pullSharedState();
   const user = state.users.find((item) => item.login === username && item.password === password && item.active);
   if (!user) {
     log(`Tentative de connexion échouée : ${username || "identifiant vide"}`, "Connexion", "Identifiant incorrect ou compte inactif");
@@ -493,6 +565,8 @@ async function quickLogin() {
 
 function logout() {
   log("Déconnexion", "Connexion");
+  if (authSession && getSupabase()) getSupabase().auth.signOut().catch(() => {});
+  authSession = null;
   session = null;
   renderLogin();
 }
