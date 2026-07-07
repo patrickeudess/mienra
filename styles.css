@@ -640,55 +640,72 @@ th {
 }
 
 @media print {
-  @page { size: A4 portrait; margin: 8mm; }
+  @page { size: A4 portrait; margin: 5mm; }
   .sidebar, .topbar, .actions, .receipt-actions, .panel-head .btn, .filters { display: none !important; }
   body { background: #fff; }
   .app { display: block; }
   .workspace { padding: 0; }
   .panel { border: 0; box-shadow: none; padding: 0; }
-  .receipt-page { margin: 0; }
-  .receipt-copies { gap: 6mm; }
+  .receipt-page { margin: 0; overflow: hidden; }
+  .receipt-page > .panel-head { display: none !important; }
+  .receipt-copies {
+    height: 287mm;
+    display: grid;
+    grid-template-rows: 1fr 1fr;
+    gap: 3mm;
+  }
   .receipt {
-    min-height: calc((297mm - 22mm) / 2);
-    padding: 6mm;
+    height: 142mm;
+    min-height: 0;
+    padding: 4mm;
     border: 1px dashed #9aa7b7;
     border-radius: 0;
     box-shadow: none;
+    overflow: hidden;
     page-break-inside: avoid;
+    break-inside: avoid;
   }
   .receipt-copy-label {
-    margin-bottom: 4mm;
-    padding: 3px 8px;
-    font-size: 10px;
+    margin-bottom: 2mm;
+    padding: 2px 7px;
+    font-size: 9px;
   }
   .document-header {
-    gap: 8px;
-    margin-bottom: 8px;
-    padding-bottom: 8px;
+    gap: 6px;
+    margin-bottom: 5px;
+    padding-bottom: 5px;
   }
-  .document-header h2 { font-size: 16px; }
-  .document-header p { font-size: 11px; }
-  .document-logo { width: 76px; height: 76px; }
+  .document-header h2 { font-size: 13px; }
+  .document-header p { font-size: 9px; }
+  .document-logo { width: 52px; height: 52px; }
+  .logo-text { gap: 0; margin-bottom: 3px; }
   .logo-text b,
   .logo-text span,
-  .logo-text em { font-size: 9px; }
-  .logo-text strong { font-size: 13px; }
+  .logo-text em { font-size: 7px; letter-spacing: 0; }
+  .logo-text strong { font-size: 10px; letter-spacing: 0; }
   .receipt-grid {
-    gap: 5px 12px;
-    padding: 8px 0;
-    margin-bottom: 8px;
+    gap: 3px 10px;
+    padding: 5px 0;
+    margin-bottom: 5px;
   }
   .receipt-grid p,
   .receipt p,
-  .receipt small { font-size: 11px; }
+  .receipt small {
+    margin: 0;
+    font-size: 9px;
+    line-height: 1.2;
+  }
   .receipt-status {
-    margin: 6px 0;
-    padding: 5px 8px;
-    font-size: 13px;
+    margin: 4px 0;
+    padding: 3px 8px;
+    font-size: 11px;
   }
   .signatures {
-    gap: 18px;
-    margin-top: 18px;
+    gap: 16px;
+    margin-top: 12px;
   }
-  .signatures p { font-size: 11px; }
+  .signatures p {
+    padding-top: 5px;
+    font-size: 9px;
+  }
 }
