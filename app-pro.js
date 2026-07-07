@@ -4,7 +4,7 @@ const DEVICE_KEY = `${DB_KEY}_device_id`;
 
 const $ = (id) => document.getElementById(id);
 const LOGO_SRC = "assets/mienra-logo.jpeg";
-const ASSET_VERSION = "20260707-student-installments";
+const ASSET_VERSION = "20260707-backup-real-data";
 const CLOUD_CONFIG = globalThis.MIENRA_CLOUD || {};
 const SCHOOL_IDENTITY = {
   name: "EPP Mienrassou",
@@ -77,12 +77,6 @@ function seedState() {
     ["4e", "Collège", 200000], ["3e", "Collège", 220000]
   ].map(([name, level, fee]) => ({ id: uid("CLS"), name, level, fee }));
 
-  const students = [
-    { id: uid("ELV"), matricule: "GSM-2026-0001", name: "Aka Mireille", gender: "F", birth: "2014-04-12", className: "6e", parent: "Aka Paul", phone: "0700000001", address: "Yopougon", status: "Actif", addedDate: today() },
-    { id: uid("ELV"), matricule: "GSM-2026-0002", name: "Kouadio Jean", gender: "M", birth: "2015-09-20", className: "CM2", parent: "Kouadio Anne", phone: "0700000002", address: "Cocody", status: "Actif", addedDate: today() },
-    { id: uid("ELV"), matricule: "GSM-2026-0003", name: "Traoré Aminata", gender: "F", birth: "2012-01-11", className: "4e", parent: "Traoré Moussa", phone: "0700000003", address: "Abobo", status: "Actif", addedDate: today() }
-  ];
-
   return {
     school: {
       name: SCHOOL_IDENTITY.name,
@@ -106,21 +100,9 @@ function seedState() {
       { id: "USR-CONSULTATION", name: "Consultation", login: "consultation", password: "consultation123", role: "Consultation", active: true }
     ],
     classes,
-    students,
-    enrollments: students.map((student) => ({
-      id: uid("INS"),
-      studentId: student.id,
-      year: "2026-2027",
-      className: student.className,
-      amount: classFee(classes, student.className),
-      discount: 0,
-      date: today(),
-      note: "Inscription annuelle"
-    })),
-    payments: [
-      { id: "REC-2026-0001", studentId: students[0].id, year: "2026-2027", amount: 180000, mode: "Espèces", date: today(), cashier: "Secrétaire", note: "Paiement complet" },
-      { id: "REC-2026-0002", studentId: students[1].id, year: "2026-2027", amount: 100000, mode: "Orange Money", date: today(), cashier: "Secrétaire", note: "Premier versement" }
-    ],
+    students: [],
+    enrollments: [],
+    payments: [],
     logs: [],
     backups: []
   };
@@ -601,6 +583,10 @@ const pages = {
   }
 };
 
+pages.backup = function() {
+  $("content").innerHTML = `<article class="panel"><div class="panel-head"><h2>Sauvegardes</h2><span>Base complÃ¨te</span></div><p class="muted">Mode actuel : ${syncLabel()}. La sauvegarde JSON contient toutes les informations enregistrÃ©es dans l'application : Ã©cole, annÃ©es scolaires, utilisateurs, classes, Ã©lÃ¨ves, inscriptions, paiements, reÃ§us et journal.</p><div class="actions"><button class="btn secondary" onclick="downloadBackup()">Exporter toute la base JSON</button><button class="btn quiet" onclick="restoreLocalBackup()">Restaurer copie locale</button><button class="btn danger" onclick="removeDemoData()">Supprimer donnÃ©es dÃ©mo</button><button class="btn danger" onclick="resetApp()">RÃ©initialiser</button></div><label>Importer une sauvegarde JSON</label><input type="file" accept=".json" onchange="importBackup(this)"></article><article class="panel"><div class="panel-head"><h2>DonnÃ©es enregistrÃ©es</h2><span>Vue complÃ¨te</span></div>${databaseOverview()}</article><article class="panel"><div class="panel-head"><h2>Journal</h2><span>${state.logs.length} opÃ©rations</span></div>${logsTable(80)}</article>`;
+};
+
 function stat(label, value, tone = "") { return `<div class="stat ${tone}"><span>${label}</span><strong>${value}</strong></div>`; }
 function field(label, id, value = "", type = "text") { return `<div><label>${label}</label><input id="${id}" type="${type}" value="${clean(value)}"></div>`; }
 function attachDashboardStatActions() {
@@ -990,6 +976,27 @@ function logsTable(limit) {
   return `<table><thead><tr><th>Date</th><th>Type</th><th>Utilisateur</th><th>Rôle</th><th>Appareil</th><th>Action</th></tr></thead><tbody>${rows.map((row) => `<tr><td>${clean(row.date)}</td><td>${clean(row.type)}</td><td>${clean(row.user)}</td><td>${clean(row.role || "-")}</td><td>${clean(row.device || "-")}</td><td>${clean(row.action)}${row.detail ? `<br><small>${clean(row.detail)}</small>` : ""}</td></tr>`).join("") || `<tr><td colspan="6">Aucune activité.</td></tr>`}</tbody></table>`;
 }
 
+function databaseOverview() {
+  const t = totals();
+  const rows = [
+    ["Mode donnÃ©es", syncLabel()],
+    ["AnnÃ©e active", currentYear()],
+    ["Nom Ã©cole", state.school?.name || ""],
+    ["Classes & frais", state.classes.length],
+    ["Ã‰lÃ¨ves", state.students.length],
+    ["Inscriptions", state.enrollments.length],
+    ["Paiements / reÃ§us", state.payments.length],
+    ["Utilisateurs", state.users.length],
+    ["AnnÃ©es scolaires", state.years.length],
+    ["Journaux de connexion et actions", state.logs.length],
+    ["Montant attendu", money(t.expected)],
+    ["Montant encaissÃ©", money(t.collected)],
+    ["Reste Ã  payer", money(t.remaining)],
+    ["DerniÃ¨re mise Ã  jour", state.updatedAt ? new Date(state.updatedAt).toLocaleString("fr-FR") : "-"]
+  ];
+  return `<table><thead><tr><th>Information</th><th>Valeur</th></tr></thead><tbody>${rows.map(([label, value]) => `<tr><td>${clean(label)}</td><td>${clean(value)}</td></tr>`).join("")}</tbody></table>`;
+}
+
 function saveUser() {
   if (!requireAction("users")) return;
   const data = { name: $("userName").value.trim(), login: $("userLogin").value.trim(), password: $("userPass").value, role: $("userRole").value, active: $("userActive").value === "true" };
@@ -1072,8 +1079,34 @@ function exportCSV(type) {
 function downloadBackup() {
   if (!requireAction("backup")) return;
   const stamp = new Date().toISOString().slice(0, 10);
-  log("Export sauvegarde JSON", "Sauvegarde");
-  download(`mienra-sauvegarde-${stamp}.json`, JSON.stringify(state, null, 2), "application/json");
+  const payload = {
+    app: "MIENRA Web",
+    school: state.school?.name || SCHOOL_IDENTITY.name,
+    version: ASSET_VERSION,
+    exportedAt: new Date().toISOString(),
+    data: normalizeState(state)
+  };
+  log("Export sauvegarde JSON complet", "Sauvegarde");
+  download(`mienra-base-complete-${stamp}.json`, JSON.stringify(payload, null, 2), "application/json");
+}
+
+function removeDemoData() {
+  if (!requireAction("backup")) return;
+  const demoMatricules = new Set(["GSM-2026-0001", "GSM-2026-0002", "GSM-2026-0003"]);
+  const demoNames = new Set(["Aka Mireille", "Kouadio Jean", "TraorÃ© Aminata"]);
+  const demoReceipts = new Set(["REC-2026-0001", "REC-2026-0002"]);
+  const demoStudentIds = new Set(state.students.filter((row) => demoMatricules.has(row.matricule) || demoNames.has(row.name)).map((row) => row.id));
+  const demoPaymentIds = new Set(state.payments.filter((row) => demoStudentIds.has(row.studentId) || demoReceipts.has(row.id)).map((row) => row.id));
+  const count = demoStudentIds.size + demoPaymentIds.size + state.enrollments.filter((row) => demoStudentIds.has(row.studentId)).length;
+  if (!count) return alert("Aucune donnÃ©e de dÃ©monstration connue trouvÃ©e.");
+  if (!confirm(`Supprimer ${count} Ã©lÃ©ment(s) de dÃ©monstration connu(s) ?`)) return;
+  state.students = state.students.filter((row) => !demoStudentIds.has(row.id));
+  state.enrollments = state.enrollments.filter((row) => !demoStudentIds.has(row.studentId));
+  state.payments = state.payments.filter((row) => !demoPaymentIds.has(row.id));
+  log("DonnÃ©es de dÃ©monstration supprimÃ©es", "Sauvegarde", `${demoStudentIds.size} Ã©lÃ¨ve(s), ${demoPaymentIds.size} paiement(s)`);
+  saveState();
+  renderShell();
+  go("backup");
 }
 
 function restoreLocalBackup() {
@@ -1108,7 +1141,8 @@ function importBackup(input) {
   const reader = new FileReader();
   reader.onload = () => {
     try {
-      state = normalizeState(JSON.parse(reader.result));
+      const parsed = JSON.parse(reader.result);
+      state = normalizeState(parsed.data || parsed);
       saveState();
       log("Sauvegarde importée", "Sauvegarde");
       renderShell();
