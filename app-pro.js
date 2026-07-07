@@ -4,7 +4,7 @@ const DEVICE_KEY = `${DB_KEY}_device_id`;
 
 const $ = (id) => document.getElementById(id);
 const LOGO_SRC = "assets/mienra-logo.jpeg";
-const ASSET_VERSION = "20260707-dashboard-activity-layout";
+const ASSET_VERSION = "20260707-student-status-entry-date";
 const CLOUD_CONFIG = globalThis.MIENRA_CLOUD || {};
 const SCHOOL_IDENTITY = {
   name: "EPP Mienrassou",
@@ -147,7 +147,7 @@ function normalizeState(data) {
     school: { ...base.school, ...(data.school || {}) },
     years: data.years?.length ? data.years : base.years,
     classes: normalizeClassFees(Array.isArray(data.classes) ? data.classes : base.classes),
-    students: (Array.isArray(data.students) ? data.students : base.students).map((row) => ({ ...row, addedDate: row.addedDate || row.createdAt || today() })),
+    students: (Array.isArray(data.students) ? data.students : base.students).map((row) => normalizeStudent(row)),
     enrollments: (Array.isArray(data.enrollments) ? data.enrollments : base.enrollments).map((row) => ({ ...row, year: row.year || data.activeYear || data.school?.year || base.school.year })),
     payments: (Array.isArray(data.payments) ? data.payments : base.payments).map((row) => ({ ...row, year: row.year || data.activeYear || data.school?.year || base.school.year })),
     users: data.users?.length ? data.users : base.users,
@@ -167,6 +167,17 @@ function normalizeClassFees(rows = []) {
     const officialFee = fees.get(String(row.name || "").trim().toLowerCase());
     return officialFee ? { ...row, fee: officialFee } : row;
   });
+}
+
+function normalizeStudent(row = {}) {
+  const status = row.status || "Actif";
+  const addedDate = row.addedDate || row.createdAt || today();
+  return {
+    ...row,
+    status,
+    entryDate: row.entryDate || row.firstEnrollmentDate || row.enrollmentDate || addedDate,
+    addedDate
+  };
 }
 
 function normalizeLogs(rows = []) {
@@ -553,6 +564,7 @@ const pages = {
       <div class="layout-two">
         <article class="panel"><div class="panel-head"><h2>Recouvrement par classe</h2><span>${t.rate}% encaissé</span></div>${classSummary()}</article>
         <article class="panel"><div class="panel-head"><h2>Désagrégation par sexe</h2><span>Effectif et paiements</span></div>${genderSummary()}</article>
+        <article class="panel activity-panel"><div class="panel-head"><h2>Effectifs par classe</h2><span>Sexe et statut scolaire</span></div>${classEnrollmentSummary()}</article>
         <article class="panel activity-panel"><div class="panel-head"><h2>Activité récente</h2><span>${state.logs.length} opérations</span></div>${logsTable(9)}</article>
       </div>`;
     attachDashboardStatActions();
@@ -587,7 +599,7 @@ const pages = {
   receipts() { receiptView(); },
   reports() {
     const t = totals();
-    $("content").innerHTML = `<article class="panel printable-document">${documentHeader(`Rapport complet - ${currentYear()}`)}<div class="stats">${stat("Attendu", money(t.expected))}${stat("Encaissé", money(t.collected))}${stat("Reste à payer", money(t.remaining), "danger")}${stat("Taux", `${t.rate}%`)}</div></article><article class="panel"><div class="panel-head"><h2>Exports et impression</h2><span>Données complètes</span></div><div class="actions">${canAction("exports") ? `<button class="btn secondary" onclick="exportCSV('students')">Exporter élèves CSV</button><button class="btn secondary" onclick="exportCSV('payments')">Exporter paiements CSV</button><button class="btn secondary" onclick="exportCSV('paidStudents')">Élèves qui ont payé CSV</button><button class="btn secondary" onclick="exportCSV('noPaymentStudents')">Élèves sans paiement CSV</button><button class="btn secondary" onclick="exportCSV('unpaid')">Exporter suivi paiements CSV</button><button class="btn secondary" onclick="exportCSV('logs')">Exporter journal CSV</button>` : ""}<button class="btn quiet" onclick="window.print()">Imprimer le rapport complet</button></div></article><article class="panel printable-document"><div class="panel-head"><h2>Rapport par classe</h2><span>Synthèse financière - ${clean(currentYear())}</span></div>${classSummary()}</article><article class="panel printable-document"><div class="panel-head"><h2>Suivi des paiements par élève</h2><span>Payé, reste et statut</span></div>${reportBalancesTable()}</article><article class="panel printable-document"><div class="panel-head"><h2>Liste complète des élèves</h2><span>${state.students.length} dossier(s)</span></div>${reportStudentsTable()}</article><article class="panel printable-document"><div class="panel-head"><h2>Historique des inscriptions</h2><span>${state.enrollments.filter((row) => row.year === currentYear()).length} inscription(s)</span></div>${reportEnrollmentsTable()}</article><article class="panel printable-document"><div class="panel-head"><h2>Historique complet des paiements</h2><span>${state.payments.filter((row) => row.year === currentYear()).length} reçu(s)</span></div>${reportPaymentsTable()}</article><article class="panel printable-document"><div class="panel-head"><h2>Journal des connexions et actions</h2><span>${state.logs.length} opération(s)</span></div>${logsTable(120)}</article>`;
+    $("content").innerHTML = `<article class="panel printable-document">${documentHeader(`Rapport complet - ${currentYear()}`)}<div class="stats">${stat("Attendu", money(t.expected))}${stat("Encaissé", money(t.collected))}${stat("Reste à payer", money(t.remaining), "danger")}${stat("Taux", `${t.rate}%`)}</div></article><article class="panel"><div class="panel-head"><h2>Exports et impression</h2><span>Données complètes</span></div><div class="actions">${canAction("exports") ? `<button class="btn secondary" onclick="exportCSV('students')">Exporter élèves CSV</button><button class="btn secondary" onclick="exportCSV('payments')">Exporter paiements CSV</button><button class="btn secondary" onclick="exportCSV('paidStudents')">Élèves qui ont payé CSV</button><button class="btn secondary" onclick="exportCSV('noPaymentStudents')">Élèves sans paiement CSV</button><button class="btn secondary" onclick="exportCSV('unpaid')">Exporter suivi paiements CSV</button><button class="btn secondary" onclick="exportCSV('logs')">Exporter journal CSV</button>` : ""}<button class="btn quiet" onclick="window.print()">Imprimer le rapport complet</button></div></article><article class="panel printable-document"><div class="panel-head"><h2>Rapport par classe</h2><span>Synthèse financière - ${clean(currentYear())}</span></div>${classSummary()}</article><article class="panel printable-document"><div class="panel-head"><h2>Effectifs par classe</h2><span>Sexe, redoublement et statut</span></div>${classEnrollmentSummary()}</article><article class="panel printable-document"><div class="panel-head"><h2>Suivi des paiements par élève</h2><span>Payé, reste et statut</span></div>${reportBalancesTable()}</article><article class="panel printable-document"><div class="panel-head"><h2>Liste complète des élèves</h2><span>${state.students.length} dossier(s)</span></div>${reportStudentsTable()}</article><article class="panel printable-document"><div class="panel-head"><h2>Historique des inscriptions</h2><span>${state.enrollments.filter((row) => row.year === currentYear()).length} inscription(s)</span></div>${reportEnrollmentsTable()}</article><article class="panel printable-document"><div class="panel-head"><h2>Historique complet des paiements</h2><span>${state.payments.filter((row) => row.year === currentYear()).length} reçu(s)</span></div>${reportPaymentsTable()}</article><article class="panel printable-document"><div class="panel-head"><h2>Journal des connexions et actions</h2><span>${state.logs.length} opération(s)</span></div>${logsTable(120)}</article>`;
   },
   users() {
     const item = editing ? state.users.find((row) => row.id === editing) : {};
@@ -644,7 +656,8 @@ function userActions(row) {
 }
 
 function studentForm(item) {
-  return `<div class="form-grid">${field("Nom complet", "stName", item?.name || "")}<div><label>Genre</label><select id="stGender"><option ${item?.gender === "M" ? "selected" : ""}>M</option><option ${item?.gender === "F" ? "selected" : ""}>F</option></select></div>${field("Date naissance", "stBirth", item?.birth || "", "date")}${field("Date d'ajout", "stAddedDate", item?.addedDate || today(), "date")}<div><label>Classe</label><select id="stClass">${state.classes.map((row) => `<option ${item?.className === row.name ? "selected" : ""}>${clean(row.name)}</option>`).join("")}</select></div>${field("Parent/Tuteur", "stParent", item?.parent || "")}${field("Contact", "stPhone", item?.phone || "")}${field("Adresse", "stAddress", item?.address || "")}<div><label>Statut</label><select id="stStatus">${["Actif", "Inactif", "Transféré"].map((status) => `<option ${item?.status === status ? "selected" : ""}>${status}</option>`).join("")}</select></div></div>`;
+  const statuses = ["Actif", "Redoublant", "Abandon", "Inactif", "Transféré"];
+  return `<div class="form-grid">${field("Nom complet", "stName", item?.name || "")}<div><label>Genre</label><select id="stGender"><option ${item?.gender === "M" ? "selected" : ""}>M</option><option ${item?.gender === "F" ? "selected" : ""}>F</option></select></div>${field("Date naissance", "stBirth", item?.birth || "", "date")}${field("Date d'entrée dans l'établissement", "stEntryDate", item?.entryDate || item?.addedDate || today(), "date")}${field("Date d'ajout / saisie", "stAddedDate", item?.addedDate || today(), "date")}<div><label>Classe</label><select id="stClass">${state.classes.map((row) => `<option ${item?.className === row.name ? "selected" : ""}>${clean(row.name)}</option>`).join("")}</select></div>${field("Parent/Tuteur", "stParent", item?.parent || "")}${field("Contact", "stPhone", item?.phone || "")}${field("Adresse", "stAddress", item?.address || "")}<div><label>Statut</label><select id="stStatus">${statuses.map((status) => `<option ${item?.status === status ? "selected" : ""}>${status}</option>`).join("")}</select></div></div>`;
 }
 
 function drawStudents() {
@@ -656,7 +669,7 @@ function drawStudents() {
   if (payStatus === "paid") rows = rows.filter((row) => balance(row.id) <= 0 && due(row.id) > 0);
   if (payStatus === "partial") rows = rows.filter((row) => balance(row.id) > 0 && paid(row.id) > 0);
   if (payStatus === "unpaid") rows = rows.filter((row) => balance(row.id) > 0 && paid(row.id) === 0);
-  $("studentsTable").innerHTML = `<table><thead><tr><th>Matricule</th><th>Élève</th><th>Date d'ajout</th><th>Classe</th><th>Parent</th><th>Paiement</th><th>Actions</th></tr></thead><tbody>${rows.map((row) => `<tr><td>${clean(row.matricule)}</td><td>${clean(row.name)}<br><small>${clean(row.gender)} · ${clean(row.status)}</small></td><td>${clean(row.addedDate || "-")}</td><td>${clean(row.className)}</td><td>${clean(row.parent)}<br><small>${clean(row.phone)}</small></td><td>${paymentStatus(row)}</td><td>${studentActions(row.id)}</td></tr>`).join("") || `<tr><td colspan="7">Aucun élève trouvé.</td></tr>`}</tbody></table>`;
+  $("studentsTable").innerHTML = `<table><thead><tr><th>Matricule</th><th>Élève</th><th>Entrée école</th><th>Date saisie</th><th>Classe</th><th>Parent</th><th>Paiement</th><th>Actions</th></tr></thead><tbody>${rows.map((row) => `<tr><td>${clean(row.matricule)}</td><td>${clean(row.name)}<br><small>${clean(row.gender)} · ${clean(row.status)}</small></td><td>${clean(row.entryDate || "-")}</td><td>${clean(row.addedDate || "-")}</td><td>${clean(row.className)}</td><td>${clean(row.parent)}<br><small>${clean(row.phone)}</small></td><td>${paymentStatus(row)}</td><td>${studentActions(row.id)}</td></tr>`).join("") || `<tr><td colspan="8">Aucun élève trouvé.</td></tr>`}</tbody></table>`;
 }
 
 function studentActions(id) {
@@ -790,7 +803,7 @@ function saveStudent() {
   if (!requireAction("students")) return;
   const name = $("stName").value.trim();
   if (!name) return alert("Le nom complet est obligatoire.");
-  const data = { name, gender: $("stGender").value, birth: $("stBirth").value, addedDate: $("stAddedDate").value || today(), className: $("stClass").value, parent: $("stParent").value, phone: $("stPhone").value, address: $("stAddress").value, status: $("stStatus").value };
+  const data = { name, gender: $("stGender").value, birth: $("stBirth").value, entryDate: $("stEntryDate").value || $("stAddedDate").value || today(), addedDate: $("stAddedDate").value || today(), className: $("stClass").value, parent: $("stParent").value, phone: $("stPhone").value, address: $("stAddress").value, status: $("stStatus").value };
   if (editing) {
     Object.assign(state.students.find((row) => row.id === editing), data);
     log(`Élève modifié : ${name}`, "Élève");
@@ -990,6 +1003,15 @@ function classSummary() {
   }).join("")}</tbody></table>`;
 }
 
+function classEnrollmentSummary() {
+  const countBy = (rows, predicate) => rows.filter(predicate).length;
+  return `<table><thead><tr><th>Classe</th><th>Total</th><th>Garçons</th><th>Filles</th><th>Actifs</th><th>Redoublants</th><th>Abandons</th><th>Inactifs</th></tr></thead><tbody>${state.classes.map((row) => {
+    const rows = state.students.filter((item) => item.className === row.name);
+    const inactive = countBy(rows, (item) => ["Inactif", "Transféré"].includes(item.status));
+    return `<tr><td>${clean(row.name)}</td><td>${rows.length}</td><td>${countBy(rows, (item) => item.gender === "M")}</td><td>${countBy(rows, (item) => item.gender === "F")}</td><td>${countBy(rows, (item) => item.status === "Actif")}</td><td>${countBy(rows, (item) => item.status === "Redoublant")}</td><td>${countBy(rows, (item) => item.status === "Abandon")}</td><td>${inactive}</td></tr>`;
+  }).join("")}</tbody></table>`;
+}
+
 function reportBalancesTable() {
   const rows = state.students
     .slice()
@@ -1001,7 +1023,7 @@ function reportStudentsTable() {
   const rows = state.students
     .slice()
     .sort((a, b) => String(a.className).localeCompare(String(b.className)) || String(a.name).localeCompare(String(b.name)));
-  return `<table><thead><tr><th>Matricule</th><th>Nom</th><th>Sexe</th><th>Date d'ajout</th><th>Classe</th><th>Parent</th><th>Contact</th><th>Adresse</th></tr></thead><tbody>${rows.map((row) => `<tr><td>${clean(row.matricule)}</td><td>${clean(row.name)}</td><td>${clean(row.gender || "-")}</td><td>${clean(row.addedDate || "-")}</td><td>${clean(row.className)}</td><td>${clean(row.parent)}</td><td>${clean(row.phone)}</td><td>${clean(row.address || "-")}</td></tr>`).join("") || `<tr><td colspan="8">Aucun élève enregistré.</td></tr>`}</tbody></table>`;
+  return `<table><thead><tr><th>Matricule</th><th>Nom</th><th>Sexe</th><th>Statut</th><th>Entrée école</th><th>Date saisie</th><th>Classe</th><th>Parent</th><th>Contact</th><th>Adresse</th></tr></thead><tbody>${rows.map((row) => `<tr><td>${clean(row.matricule)}</td><td>${clean(row.name)}</td><td>${clean(row.gender || "-")}</td><td>${clean(row.status || "-")}</td><td>${clean(row.entryDate || "-")}</td><td>${clean(row.addedDate || "-")}</td><td>${clean(row.className)}</td><td>${clean(row.parent)}</td><td>${clean(row.phone)}</td><td>${clean(row.address || "-")}</td></tr>`).join("") || `<tr><td colspan="10">Aucun élève enregistré.</td></tr>`}</tbody></table>`;
 }
 
 function reportPaymentsTable() {
@@ -1115,11 +1137,11 @@ function exportCSV(type) {
   let rows = [];
   const year = currentYear();
   const yearPayments = state.payments.filter((row) => row.year === year);
-  if (type === "students") rows = [["annee", "matricule", "nom", "date_ajout", "classe", "parent", "contact", "attendu", "paye", "reste"], ...state.students.map((row) => [year, row.matricule, row.name, row.addedDate || "", row.className, row.parent, row.phone, due(row.id), paid(row.id), balance(row.id)])];
+  if (type === "students") rows = [["annee", "matricule", "nom", "sexe", "statut", "date_entree_etablissement", "date_saisie", "classe", "parent", "contact", "attendu", "paye", "reste"], ...state.students.map((row) => [year, row.matricule, row.name, row.gender || "", row.status || "", row.entryDate || "", row.addedDate || "", row.className, row.parent, row.phone, due(row.id), paid(row.id), balance(row.id)])];
   if (type === "payments") rows = [["annee", "recu", "eleve", "matricule", "paye_par", "montant", "mode", "date", "caissier"], ...yearPayments.map((row) => [row.year, row.id, student(row.studentId).name, student(row.studentId).matricule, paymentPayer(row), row.amount, row.mode, row.date, row.cashier])];
-  if (type === "paidStudents") rows = [["annee", "matricule", "nom", "date_ajout", "classe", "parent", "contact", "attendu", "paye", "reste", "dernier_paye_par"], ...state.students.filter((row) => paid(row.id) > 0).map((row) => [year, row.matricule, row.name, row.addedDate || "", row.className, row.parent, row.phone, due(row.id), paid(row.id), balance(row.id), paymentPayer(lastPaymentForStudent(row.id))])];
-  if (type === "noPaymentStudents") rows = [["annee", "matricule", "nom", "date_ajout", "classe", "parent", "contact", "attendu", "paye", "reste"], ...state.students.filter((row) => paid(row.id) <= 0).map((row) => [year, row.matricule, row.name, row.addedDate || "", row.className, row.parent, row.phone, due(row.id), paid(row.id), balance(row.id)])];
-  if (type === "unpaid") rows = [["annee", "matricule", "nom", "date_ajout", "classe", "parent", "contact", "attendu", "paye", "reste", "statut", "dernier_paye_par"], ...state.students.map((row) => [year, row.matricule, row.name, row.addedDate || "", row.className, row.parent, row.phone, due(row.id), paid(row.id), balance(row.id), financeStatus(row), lastPaymentForStudent(row.id) ? paymentPayer(lastPaymentForStudent(row.id)) : ""])];
+  if (type === "paidStudents") rows = [["annee", "matricule", "nom", "sexe", "statut", "date_entree_etablissement", "date_saisie", "classe", "parent", "contact", "attendu", "paye", "reste", "dernier_paye_par"], ...state.students.filter((row) => paid(row.id) > 0).map((row) => [year, row.matricule, row.name, row.gender || "", row.status || "", row.entryDate || "", row.addedDate || "", row.className, row.parent, row.phone, due(row.id), paid(row.id), balance(row.id), paymentPayer(lastPaymentForStudent(row.id))])];
+  if (type === "noPaymentStudents") rows = [["annee", "matricule", "nom", "sexe", "statut", "date_entree_etablissement", "date_saisie", "classe", "parent", "contact", "attendu", "paye", "reste"], ...state.students.filter((row) => paid(row.id) <= 0).map((row) => [year, row.matricule, row.name, row.gender || "", row.status || "", row.entryDate || "", row.addedDate || "", row.className, row.parent, row.phone, due(row.id), paid(row.id), balance(row.id)])];
+  if (type === "unpaid") rows = [["annee", "matricule", "nom", "sexe", "statut_scolaire", "date_entree_etablissement", "date_saisie", "classe", "parent", "contact", "attendu", "paye", "reste", "statut_paiement", "dernier_paye_par"], ...state.students.map((row) => [year, row.matricule, row.name, row.gender || "", row.status || "", row.entryDate || "", row.addedDate || "", row.className, row.parent, row.phone, due(row.id), paid(row.id), balance(row.id), financeStatus(row), lastPaymentForStudent(row.id) ? paymentPayer(lastPaymentForStudent(row.id)) : ""])];
   if (type === "logs") rows = [["date", "iso", "type", "utilisateur", "role", "appareil", "action", "detail"], ...normalizeLogs(state.logs).map((row) => [row.date, row.iso, row.type, row.user, row.role, row.device, row.action, row.detail])];
   log(`Export CSV : ${type}`, "Export");
   download(`${type}.csv`, rows.map((row) => row.map((cell) => `"${String(cell ?? "").replaceAll('"', '""')}"`).join(";")).join("\n"), "text/csv;charset=utf-8");
