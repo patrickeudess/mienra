@@ -4,7 +4,7 @@ const DEVICE_KEY = `${DB_KEY}_device_id`;
 
 const $ = (id) => document.getElementById(id);
 const LOGO_SRC = "assets/mienra-logo.jpeg";
-const ASSET_VERSION = "20260707-epv-school-identity";
+const ASSET_VERSION = "20260707-clean-classes-sold-receipt";
 const CLOUD_CONFIG = globalThis.MIENRA_CLOUD || {};
 const SCHOOL_IDENTITY = {
   name: "EPV Mienrassou",
@@ -78,14 +78,7 @@ const roleAccess = {
 };
 
 function seedState() {
-  const classes = [
-    ["Maternelle", "Maternelle", 70000],
-    ["CP1", "Primaire", 70000], ["CP2", "Primaire", 70000],
-    ["CE1", "Primaire", 70000], ["CE2", "Primaire", 70000],
-    ["CM1", "Primaire", 70000], ["CM2", "Primaire", 75000],
-    ["6e", "Collège", 180000], ["5e", "Collège", 180000],
-    ["4e", "Collège", 200000], ["3e", "Collège", 220000]
-  ].filter(([name]) => DEFAULT_CLASSES.some(([className]) => className === name)).map(([name, level, fee]) => ({ id: uid("CLS"), name, level, fee }));
+  const classes = DEFAULT_CLASSES.map(([name, level, fee]) => ({ id: uid("CLS"), name, level, fee }));
 
   return {
     school: {
@@ -157,16 +150,19 @@ function normalizeState(data) {
   };
   if (!normalized.years.includes(normalized.activeYear)) normalized.years.push(normalized.activeYear);
   normalized.school = migrateSchoolIdentity(normalized.school);
+  normalized.students = ensureUniqueMatricules(normalized.students, normalized.school.code, normalized.activeYear);
   return normalized;
 }
 
 function normalizeClassFees(rows = []) {
-  const fees = new Map(DEFAULT_CLASSES.map(([name, , fee]) => [name.toLowerCase(), fee]));
-  ["petite section", "moyenne section", "grande section", "ps", "ms", "gs"].forEach((name) => fees.set(name, 70000));
-  return rows.map((row) => {
-    const officialFee = fees.get(String(row.name || "").trim().toLowerCase());
-    return officialFee ? { ...row, fee: officialFee } : row;
+  const demoClasses = new Set(["6e", "5e", "4e", "3e"]);
+  const byName = new Map(rows.filter((row) => row?.name && !demoClasses.has(String(row.name).trim())).map((row) => [String(row.name).trim(), row]));
+  const official = DEFAULT_CLASSES.map(([name, level, fee]) => {
+    const existing = byName.get(name);
+    byName.delete(name);
+    return { ...(existing || { id: uid("CLS") }), name, level, fee };
   });
+  return [...official, ...byName.values()];
 }
 
 function normalizeStudent(row = {}) {
@@ -178,6 +174,32 @@ function normalizeStudent(row = {}) {
     entryDate: row.entryDate || row.firstEnrollmentDate || row.enrollmentDate || addedDate,
     addedDate
   };
+}
+
+function makeUniqueMatricule(used, code = SCHOOL_IDENTITY.code, year = currentYear(), start = 1) {
+  const prefix = `${code || SCHOOL_IDENTITY.code}-${String(year || new Date().getFullYear()).slice(0, 4)}`;
+  let number = Math.max(1, Number(start) || 1);
+  let matricule = "";
+  do {
+    matricule = `${prefix}-${String(number).padStart(4, "0")}`;
+    number += 1;
+  } while (used.has(matricule));
+  return matricule;
+}
+
+function ensureUniqueMatricules(rows = [], code = SCHOOL_IDENTITY.code, year = currentYear()) {
+  const used = new Set();
+  return rows.map((row, index) => {
+    let matricule = String(row.matricule || "").trim();
+    if (!matricule || used.has(matricule)) matricule = makeUniqueMatricule(used, code, year, index + 1);
+    used.add(matricule);
+    return { ...row, matricule };
+  });
+}
+
+function nextStudentMatricule() {
+  const used = new Set(state.students.map((row) => row.matricule).filter(Boolean));
+  return makeUniqueMatricule(used, state.school.code, currentYear(), state.students.length + 1);
 }
 
 function normalizeLogs(rows = []) {
@@ -808,8 +830,7 @@ function saveStudent() {
     Object.assign(state.students.find((row) => row.id === editing), data);
     log(`Élève modifié : ${name}`, "Élève");
   } else {
-    const number = String(state.students.length + 1).padStart(4, "0");
-    state.students.push({ id: uid("ELV"), matricule: `${state.school.code}-${currentYear().slice(0, 4)}-${number}`, ...data });
+    state.students.push({ id: uid("ELV"), matricule: nextStudentMatricule(), ...data });
     log(`Élève ajouté : ${name}`, "Élève");
   }
   editing = null;
@@ -985,7 +1006,7 @@ function receiptView() {
   if (!payment) { $("content").innerHTML = `<article class="panel empty">Aucun reçu disponible.</article>`; return; }
   const row = student(payment.studentId);
   const amounts = receiptAmounts(payment);
-  $("content").innerHTML = `<article class="panel"><div class="panel-head"><h2>Reçu de paiement</h2><span>${clean(payment.id)}</span></div><div class="receipt">${documentHeader("Reçu de paiement")}<div class="receipt-grid"><p><b>N° reçu</b><span>${clean(payment.id)}</span></p><p><b>Année scolaire</b><span>${clean(payment.year || currentYear())}</span></p><p><b>Date</b><span>${clean(payment.date)}</span></p><p><b>Élève</b><span>${clean(row.name)}</span></p><p><b>Matricule</b><span>${clean(row.matricule)}</span></p><p><b>Classe</b><span>${clean(row.className)}</span></p><p><b>Payé par</b><span>${clean(paymentPayer(payment))}</span></p><p><b>Mode</b><span>${clean(payment.mode)}</span></p><p><b>Frais de scolarité</b><span>${money(amounts.expected)}</span></p><p><b>Versement reçu</b><span>${money(amounts.currentPaid)}</span></p><p><b>Total payé à ce jour</b><span>${money(amounts.totalPaid)}</span></p><p><b>Reste à payer</b><span class="${amounts.remaining > 0 ? "amount-danger" : "amount-ok"}">${money(amounts.remaining)}</span></p></div><p><b>Observation :</b> ${clean(payment.note || "-")}</p><div class="signatures"><p>Caissier<br><b>${clean(payment.cashier)}</b></p><p>Direction<br><b>${clean(state.school.director)}</b></p></div><small>${clean(state.school.receiptFooter)}</small></div><div class="actions"><button class="btn secondary" onclick="window.print()">Imprimer / PDF</button><button class="btn quiet" onclick="showFinanceTab('payments')">Retour paiements</button></div></article>`;
+  $("content").innerHTML = `<article class="panel"><div class="panel-head"><h2>Reçu de paiement</h2><span>${clean(payment.id)}</span></div><div class="receipt">${documentHeader("Reçu de paiement")}<div class="receipt-grid"><p><b>N° reçu</b><span>${clean(payment.id)}</span></p><p><b>Année scolaire</b><span>${clean(payment.year || currentYear())}</span></p><p><b>Date</b><span>${clean(payment.date)}</span></p><p><b>Élève</b><span>${clean(row.name)}</span></p><p><b>Matricule</b><span>${clean(row.matricule)}</span></p><p><b>Classe</b><span>${clean(row.className)}</span></p><p><b>Payé par</b><span>${clean(paymentPayer(payment))}</span></p><p><b>Mode</b><span>${clean(payment.mode)}</span></p><p><b>Frais de scolarité</b><span>${money(amounts.expected)}</span></p><p><b>Versement reçu</b><span>${money(amounts.currentPaid)}</span></p><p><b>Total payé à ce jour</b><span>${money(amounts.totalPaid)}</span></p><p><b>Reste à payer</b><span class="${amounts.remaining > 0 ? "amount-danger" : "amount-ok"}">${money(amounts.remaining)}</span></p></div>${amounts.remaining <= 0 ? `<p class="receipt-status amount-ok"><b>Mention :</b> Soldé</p>` : ""}<p><b>Observation :</b> ${clean(payment.note || "-")}</p><div class="signatures"><p>Caissier<br><b>${clean(payment.cashier)}</b></p><p>Direction<br><b>${clean(state.school.director)}</b></p></div><small>${clean(state.school.receiptFooter)}</small></div><div class="actions"><button class="btn secondary" onclick="window.print()">Imprimer / PDF</button><button class="btn quiet" onclick="showFinanceTab('payments')">Retour paiements</button></div></article>`;
 }
 
 function goPay(id) { if (!requireAction("payments")) return; showFinanceTab("payments"); selectPaymentStudent(id); }

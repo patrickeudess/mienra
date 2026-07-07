@@ -578,6 +578,16 @@ th {
   gap: 14px;
 }
 
+.receipt-status {
+  margin: 14px 0;
+  padding: 10px 12px;
+  border: 1px solid #a7e2bd;
+  border-radius: 8px;
+  background: #eefcf3;
+  font-size: 18px;
+  text-align: center;
+}
+
 .signatures {
   display: grid;
   grid-template-columns: 1fr 1fr;
