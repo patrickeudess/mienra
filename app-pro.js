@@ -4,7 +4,7 @@ const DEVICE_KEY = `${DB_KEY}_device_id`;
 
 const $ = (id) => document.getElementById(id);
 const LOGO_SRC = "assets/mienra-logo.jpeg";
-const ASSET_VERSION = "20260707-receipt-payment-summary";
+const ASSET_VERSION = "20260707-reports-backup-text";
 const CLOUD_CONFIG = globalThis.MIENRA_CLOUD || {};
 const SCHOOL_IDENTITY = {
   name: "EPP Mienrassou",
@@ -587,7 +587,7 @@ const pages = {
   receipts() { receiptView(); },
   reports() {
     const t = totals();
-    $("content").innerHTML = `<article class="panel printable-document">${documentHeader(`Rapport financier - ${currentYear()}`)}<div class="stats">${stat("Attendu", money(t.expected))}${stat("Encaissé", money(t.collected))}${stat("Impayés", money(t.remaining), "danger")}${stat("Taux", `${t.rate}%`)}</div></article><article class="panel"><div class="panel-head"><h2>Exports et impression</h2><span>Données du navigateur</span></div><div class="actions">${canAction("exports") ? `<button class="btn secondary" onclick="exportCSV('students')">Exporter élèves CSV</button><button class="btn secondary" onclick="exportCSV('payments')">Exporter paiements CSV</button><button class="btn secondary" onclick="exportCSV('paidStudents')">Élèves qui ont payé CSV</button><button class="btn secondary" onclick="exportCSV('noPaymentStudents')">Élèves sans paiement CSV</button><button class="btn secondary" onclick="exportCSV('unpaid')">Exporter impayés CSV</button><button class="btn secondary" onclick="exportCSV('logs')">Exporter journal CSV</button>` : ""}<button class="btn quiet" onclick="window.print()">Imprimer le rapport</button></div></article><article class="panel printable-document"><div class="panel-head"><h2>Rapport par classe</h2><span>Synthèse financière - ${clean(currentYear())}</span></div>${classSummary()}</article>`;
+    $("content").innerHTML = `<article class="panel printable-document">${documentHeader(`Rapport complet - ${currentYear()}`)}<div class="stats">${stat("Attendu", money(t.expected))}${stat("Encaissé", money(t.collected))}${stat("Reste à payer", money(t.remaining), "danger")}${stat("Taux", `${t.rate}%`)}</div></article><article class="panel"><div class="panel-head"><h2>Exports et impression</h2><span>Données complètes</span></div><div class="actions">${canAction("exports") ? `<button class="btn secondary" onclick="exportCSV('students')">Exporter élèves CSV</button><button class="btn secondary" onclick="exportCSV('payments')">Exporter paiements CSV</button><button class="btn secondary" onclick="exportCSV('paidStudents')">Élèves qui ont payé CSV</button><button class="btn secondary" onclick="exportCSV('noPaymentStudents')">Élèves sans paiement CSV</button><button class="btn secondary" onclick="exportCSV('unpaid')">Exporter suivi paiements CSV</button><button class="btn secondary" onclick="exportCSV('logs')">Exporter journal CSV</button>` : ""}<button class="btn quiet" onclick="window.print()">Imprimer le rapport complet</button></div></article><article class="panel printable-document"><div class="panel-head"><h2>Rapport par classe</h2><span>Synthèse financière - ${clean(currentYear())}</span></div>${classSummary()}</article><article class="panel printable-document"><div class="panel-head"><h2>Suivi des paiements par élève</h2><span>Payé, reste et statut</span></div>${reportBalancesTable()}</article><article class="panel printable-document"><div class="panel-head"><h2>Liste complète des élèves</h2><span>${state.students.length} dossier(s)</span></div>${reportStudentsTable()}</article><article class="panel printable-document"><div class="panel-head"><h2>Historique des inscriptions</h2><span>${state.enrollments.filter((row) => row.year === currentYear()).length} inscription(s)</span></div>${reportEnrollmentsTable()}</article><article class="panel printable-document"><div class="panel-head"><h2>Historique complet des paiements</h2><span>${state.payments.filter((row) => row.year === currentYear()).length} reçu(s)</span></div>${reportPaymentsTable()}</article><article class="panel printable-document"><div class="panel-head"><h2>Journal des connexions et actions</h2><span>${state.logs.length} opération(s)</span></div>${logsTable(120)}</article>`;
   },
   users() {
     const item = editing ? state.users.find((row) => row.id === editing) : {};
@@ -603,7 +603,7 @@ const pages = {
 };
 
 pages.backup = function() {
-  $("content").innerHTML = `<article class="panel"><div class="panel-head"><h2>Sauvegardes</h2><span>Base complÃ¨te</span></div><p class="muted">Mode actuel : ${syncLabel()}. La sauvegarde JSON contient toutes les informations enregistrÃ©es dans l'application : Ã©cole, annÃ©es scolaires, utilisateurs, classes, Ã©lÃ¨ves, inscriptions, paiements, reÃ§us et journal.</p><div class="actions"><button class="btn secondary" onclick="downloadBackup()">Exporter toute la base JSON</button><button class="btn quiet" onclick="restoreLocalBackup()">Restaurer copie locale</button><button class="btn danger" onclick="removeDemoData()">Supprimer donnÃ©es dÃ©mo</button><button class="btn danger" onclick="resetApp()">RÃ©initialiser</button></div><label>Importer une sauvegarde JSON</label><input type="file" accept=".json" onchange="importBackup(this)"></article><article class="panel"><div class="panel-head"><h2>DonnÃ©es enregistrÃ©es</h2><span>Vue complÃ¨te</span></div>${databaseOverview()}</article><article class="panel"><div class="panel-head"><h2>Journal</h2><span>${state.logs.length} opÃ©rations</span></div>${logsTable(80)}</article>`;
+  $("content").innerHTML = `<article class="panel"><div class="panel-head"><h2>Sauvegardes</h2><span>Base complète</span></div><p class="muted">Mode actuel : ${syncLabel()}. La sauvegarde JSON contient toutes les informations enregistrées dans l'application : école, années scolaires, utilisateurs, classes, élèves, inscriptions, paiements, reçus et journal.</p><div class="actions"><button class="btn secondary" onclick="downloadBackup()">Exporter toute la base JSON</button><button class="btn quiet" onclick="restoreLocalBackup()">Restaurer copie locale</button><button class="btn danger" onclick="removeDemoData()">Supprimer données démo</button><button class="btn danger" onclick="resetApp()">Réinitialiser</button></div><label>Importer une sauvegarde JSON</label><input type="file" accept=".json" onchange="importBackup(this)"></article><article class="panel"><div class="panel-head"><h2>Données enregistrées</h2><span>Vue complète</span></div>${databaseOverview()}</article><article class="panel"><div class="panel-head"><h2>Journal</h2><span>${state.logs.length} opérations</span></div>${logsTable(80)}</article>`;
 };
 
 function stat(label, value, tone = "") { return `<div class="stat ${tone}"><span>${label}</span><strong>${value}</strong></div>`; }
@@ -990,6 +990,36 @@ function classSummary() {
   }).join("")}</tbody></table>`;
 }
 
+function reportBalancesTable() {
+  const rows = state.students
+    .slice()
+    .sort((a, b) => String(a.className).localeCompare(String(b.className)) || String(a.name).localeCompare(String(b.name)));
+  return `<table><thead><tr><th>Matricule</th><th>Élève</th><th>Classe</th><th>Frais</th><th>Total payé</th><th>Reste</th><th>Statut</th><th>Dernier payé par</th></tr></thead><tbody>${rows.map((row) => `<tr><td>${clean(row.matricule)}</td><td>${clean(row.name)}</td><td>${clean(row.className)}</td><td>${money(due(row.id))}</td><td class="amount-ok">${money(paid(row.id))}</td><td class="${balance(row.id) > 0 ? "amount-danger" : "amount-ok"}">${money(balance(row.id))}</td><td>${clean(financeStatus(row))}</td><td>${clean(lastPaymentForStudent(row.id) ? paymentPayer(lastPaymentForStudent(row.id)) : "-")}</td></tr>`).join("") || `<tr><td colspan="8">Aucun élève enregistré.</td></tr>`}</tbody></table>`;
+}
+
+function reportStudentsTable() {
+  const rows = state.students
+    .slice()
+    .sort((a, b) => String(a.className).localeCompare(String(b.className)) || String(a.name).localeCompare(String(b.name)));
+  return `<table><thead><tr><th>Matricule</th><th>Nom</th><th>Sexe</th><th>Date d'ajout</th><th>Classe</th><th>Parent</th><th>Contact</th><th>Adresse</th></tr></thead><tbody>${rows.map((row) => `<tr><td>${clean(row.matricule)}</td><td>${clean(row.name)}</td><td>${clean(row.gender || "-")}</td><td>${clean(row.addedDate || "-")}</td><td>${clean(row.className)}</td><td>${clean(row.parent)}</td><td>${clean(row.phone)}</td><td>${clean(row.address || "-")}</td></tr>`).join("") || `<tr><td colspan="8">Aucun élève enregistré.</td></tr>`}</tbody></table>`;
+}
+
+function reportPaymentsTable() {
+  const rows = state.payments
+    .filter((row) => row.year === currentYear())
+    .slice()
+    .sort((a, b) => String(b.date).localeCompare(String(a.date)) || String(b.id).localeCompare(String(a.id)));
+  return `<table><thead><tr><th>Reçu</th><th>Date</th><th>Élève</th><th>Matricule</th><th>Classe</th><th>Payé par</th><th>Montant</th><th>Mode</th><th>Caissier</th><th>Reste après</th></tr></thead><tbody>${rows.map((row) => { const s = student(row.studentId); const amounts = receiptAmounts(row); return `<tr><td>${clean(row.id)}</td><td>${clean(row.date)}</td><td>${clean(s.name)}</td><td>${clean(s.matricule)}</td><td>${clean(s.className)}</td><td>${clean(paymentPayer(row))}</td><td class="amount-ok">${money(row.amount)}</td><td>${clean(row.mode)}</td><td>${clean(row.cashier)}</td><td class="${amounts.remaining > 0 ? "amount-danger" : "amount-ok"}">${money(amounts.remaining)}</td></tr>`; }).join("") || `<tr><td colspan="10">Aucun paiement enregistré pour cette année scolaire.</td></tr>`}</tbody></table>`;
+}
+
+function reportEnrollmentsTable() {
+  const rows = state.enrollments
+    .filter((row) => row.year === currentYear())
+    .slice()
+    .sort((a, b) => String(b.date).localeCompare(String(a.date)) || String(student(a.studentId).name).localeCompare(String(student(b.studentId).name)));
+  return `<table><thead><tr><th>Date</th><th>Élève</th><th>Matricule</th><th>Année</th><th>Classe</th><th>Frais prévus</th><th>Remise</th><th>Note</th></tr></thead><tbody>${rows.map((row) => { const s = student(row.studentId); return `<tr><td>${clean(row.date)}</td><td>${clean(s.name)}</td><td>${clean(s.matricule)}</td><td>${clean(row.year)}</td><td>${clean(row.className)}</td><td>${money(row.amount)}</td><td>${money(row.discount || 0)}</td><td>${clean(row.note || "-")}</td></tr>`; }).join("") || `<tr><td colspan="8">Aucune inscription enregistrée pour cette année scolaire.</td></tr>`}</tbody></table>`;
+}
+
 function logsTable(limit) {
   const rows = normalizeLogs(state.logs).slice(0, limit);
   return `<table><thead><tr><th>Date</th><th>Type</th><th>Utilisateur</th><th>Rôle</th><th>Appareil</th><th>Action</th></tr></thead><tbody>${rows.map((row) => `<tr><td>${clean(row.date)}</td><td>${clean(row.type)}</td><td>${clean(row.user)}</td><td>${clean(row.role || "-")}</td><td>${clean(row.device || "-")}</td><td>${clean(row.action)}${row.detail ? `<br><small>${clean(row.detail)}</small>` : ""}</td></tr>`).join("") || `<tr><td colspan="6">Aucune activité.</td></tr>`}</tbody></table>`;
@@ -998,20 +1028,20 @@ function logsTable(limit) {
 function databaseOverview() {
   const t = totals();
   const rows = [
-    ["Mode donnÃ©es", syncLabel()],
-    ["AnnÃ©e active", currentYear()],
-    ["Nom Ã©cole", state.school?.name || ""],
+    ["Mode données", syncLabel()],
+    ["Année active", currentYear()],
+    ["Nom école", state.school?.name || ""],
     ["Classes & frais", state.classes.length],
-    ["Ã‰lÃ¨ves", state.students.length],
+    ["Élèves", state.students.length],
     ["Inscriptions", state.enrollments.length],
-    ["Paiements / reÃ§us", state.payments.length],
+    ["Paiements / reçus", state.payments.length],
     ["Utilisateurs", state.users.length],
-    ["AnnÃ©es scolaires", state.years.length],
+    ["Années scolaires", state.years.length],
     ["Journaux de connexion et actions", state.logs.length],
     ["Montant attendu", money(t.expected)],
-    ["Montant encaissÃ©", money(t.collected)],
-    ["Reste Ã  payer", money(t.remaining)],
-    ["DerniÃ¨re mise Ã  jour", state.updatedAt ? new Date(state.updatedAt).toLocaleString("fr-FR") : "-"]
+    ["Montant encaissé", money(t.collected)],
+    ["Reste à payer", money(t.remaining)],
+    ["Dernière mise à jour", state.updatedAt ? new Date(state.updatedAt).toLocaleString("fr-FR") : "-"]
   ];
   return `<table><thead><tr><th>Information</th><th>Valeur</th></tr></thead><tbody>${rows.map(([label, value]) => `<tr><td>${clean(label)}</td><td>${clean(value)}</td></tr>`).join("")}</tbody></table>`;
 }
@@ -1112,17 +1142,17 @@ function downloadBackup() {
 function removeDemoData() {
   if (!requireAction("backup")) return;
   const demoMatricules = new Set(["GSM-2026-0001", "GSM-2026-0002", "GSM-2026-0003"]);
-  const demoNames = new Set(["Aka Mireille", "Kouadio Jean", "TraorÃ© Aminata"]);
+  const demoNames = new Set(["Aka Mireille", "Kouadio Jean", "Traoré Aminata"]);
   const demoReceipts = new Set(["REC-2026-0001", "REC-2026-0002"]);
   const demoStudentIds = new Set(state.students.filter((row) => demoMatricules.has(row.matricule) || demoNames.has(row.name)).map((row) => row.id));
   const demoPaymentIds = new Set(state.payments.filter((row) => demoStudentIds.has(row.studentId) || demoReceipts.has(row.id)).map((row) => row.id));
   const count = demoStudentIds.size + demoPaymentIds.size + state.enrollments.filter((row) => demoStudentIds.has(row.studentId)).length;
-  if (!count) return alert("Aucune donnÃ©e de dÃ©monstration connue trouvÃ©e.");
-  if (!confirm(`Supprimer ${count} Ã©lÃ©ment(s) de dÃ©monstration connu(s) ?`)) return;
+  if (!count) return alert("Aucune donnée de démonstration connue trouvée.");
+  if (!confirm(`Supprimer ${count} élément(s) de démonstration connu(s) ?`)) return;
   state.students = state.students.filter((row) => !demoStudentIds.has(row.id));
   state.enrollments = state.enrollments.filter((row) => !demoStudentIds.has(row.studentId));
   state.payments = state.payments.filter((row) => !demoPaymentIds.has(row.id));
-  log("DonnÃ©es de dÃ©monstration supprimÃ©es", "Sauvegarde", `${demoStudentIds.size} Ã©lÃ¨ve(s), ${demoPaymentIds.size} paiement(s)`);
+  log("Données de démonstration supprimées", "Sauvegarde", `${demoStudentIds.size} élève(s), ${demoPaymentIds.size} paiement(s)`);
   saveState();
   renderShell();
   go("backup");
