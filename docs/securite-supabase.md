@@ -60,22 +60,33 @@ l'accès anonyme est désormais fermé.
 > Tant que l'étape 2 n'est pas faite, l'application reste en mode local
 > historique : c'est normal et sans risque de coupure.
 
-### Étape 4 — Ajouter les autres comptes (plus tard)
+### Étape 4 — Ajouter un collaborateur (secrétaire, directeur… sans SQL)
 
-Une fois l'admin opérationnel, créez chaque autre compte dans
-**Authentication → Users**, puis attribuez-lui son rôle dans le **SQL Editor** :
+L'application lit désormais le **rôle** dans sa propre liste
+**« Utilisateurs »**. Supabase ne sert plus qu'à la **connexion** (prouver
+l'identité pour ouvrir le carnet partagé). Pour chaque personne, **deux gestes,
+aucun SQL** :
 
-```sql
-insert into public.profiles (id, name, role)
-select id, 'Directeur', 'Directeur'
-from auth.users where lower(email) = lower('directeur@mienra.app')
-on conflict (id) do update set name = excluded.name, role = excluded.role;
-```
+1. **Dans l'application → Utilisateurs → Nouvel utilisateur** : saisissez son
+   identifiant (ex. `secretaire`) et choisissez son **rôle** (`Directeur`,
+   `Secrétaire` ou `Consultation`). Enregistrez.
+2. **Dans Supabase → Authentication → Users → Add user** : créez le compte avec
+   le **même identifiant transformé en e-mail** (`secretaire` →
+   `secretaire@mienra.app`), un mot de passe, et cochez **Auto Confirm User**.
+   Communiquez ce mot de passe à la personne.
+
+La personne se connecte sur son ordinateur avec son identifiant (`secretaire`)
+et son mot de passe : elle voit le carnet partagé **selon son rôle**.
+
+> Vous pouvez aussi utiliser une **vraie adresse e-mail** comme identifiant :
+> mettez l'adresse complète dans le champ « Identifiant » de l'app **et** créez
+> le même e-mail dans Authentication → Users. La connexion se fait alors avec
+> l'adresse complète.
 
 Rôles valides (identiques à l'application) : `Administrateur`, `Directeur`,
 `Secrétaire`, `Consultation`. Le fichier
-[`supabase/schema.sql`](../supabase/schema.sql) reste disponible si vous
-préférez tout configurer d'un coup pour plusieurs comptes.
+[`supabase/schema.sql`](../supabase/schema.sql) reste disponible comme
+référence, mais **n'est plus nécessaire** pour ajouter des collaborateurs.
 
 ## Ce que ça change concrètement
 

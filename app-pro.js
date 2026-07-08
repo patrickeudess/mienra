@@ -4,7 +4,7 @@ const DEVICE_KEY = `${DB_KEY}_device_id`;
 
 const $ = (id) => document.getElementById(id);
 const LOGO_SRC = "assets/mienra-logo.jpeg";
-const ASSET_VERSION = "20260707-supabase-auth";
+const ASSET_VERSION = "20260708-role-from-users";
 const CLOUD_CONFIG = globalThis.MIENRA_CLOUD || {};
 // Domaine e-mail utilisé pour mapper un identifiant (ex. "admin") vers un
 // compte Supabase Auth (ex. "admin@mienra.app"). Voir docs/securite-supabase.md.
@@ -525,15 +525,32 @@ async function login() {
       });
       if (!error && data?.session) {
         authSession = data.session;
-        const profile = await loadProfile(data.user.id);
+        // On charge d'abord le carnet partagé pour disposer de la liste des
+        // utilisateurs (et donc des rôles gérés dans l'application).
+        await pullSharedState();
+        const authedEmail = (data.user.email || authEmail(username)).toLowerCase();
+        // Le RÔLE vient de « Utilisateurs » : l'administrateur crée les comptes
+        // et fixe leur rôle dans l'app ; Supabase ne sert qu'à la connexion.
+        const appUser = state.users.find((item) => item.active && (
+          authEmail(item.login).toLowerCase() === authedEmail ||
+          (item.email && item.email.toLowerCase() === authedEmail)
+        ));
+        let role = appUser?.role;
+        let name = appUser?.name;
+        if (!role) {
+          // Repli : compte sans ligne « Utilisateurs » (ex. admin connecté par
+          // e-mail réel) : on lit le rôle dans la table profiles.
+          const profile = await loadProfile(data.user.id);
+          role = profile?.role || "Consultation";
+          name = name || profile?.name;
+        }
         session = {
           id: data.user.id,
-          login: username,
-          name: profile?.name || username,
-          role: profile?.role || "Consultation",
+          login: appUser?.login || username,
+          name: name || username,
+          role: role || "Consultation",
           active: true
         };
-        await pullSharedState();
         log("Connexion réussie (Supabase Auth)", "Connexion");
         return renderShell();
       }
