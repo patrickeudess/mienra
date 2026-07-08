@@ -4,7 +4,7 @@ const DEVICE_KEY = `${DB_KEY}_device_id`;
 
 const $ = (id) => document.getElementById(id);
 const LOGO_SRC = "assets/mienra-logo.jpeg";
-const ASSET_VERSION = "20260708-role-from-users";
+const ASSET_VERSION = "20260708-revoke-access";
 const CLOUD_CONFIG = globalThis.MIENRA_CLOUD || {};
 // Domaine e-mail utilisé pour mapper un identifiant (ex. "admin") vers un
 // compte Supabase Auth (ex. "admin@mienra.app"). Voir docs/securite-supabase.md.
@@ -538,17 +538,26 @@ async function login() {
         let role = appUser?.role;
         let name = appUser?.name;
         if (!role) {
-          // Repli : compte sans ligne « Utilisateurs » (ex. admin connecté par
-          // e-mail réel) : on lit le rôle dans la table profiles.
+          // Pas (ou plus) d'entrée ACTIVE dans « Utilisateurs ». On n'autorise
+          // que l'administrateur (rôle lu dans profiles) ; tout autre compte
+          // est considéré comme RÉVOQUÉ et l'accès est refusé — même si le mot
+          // de passe Supabase existe encore.
           const profile = await loadProfile(data.user.id);
-          role = profile?.role || "Consultation";
-          name = name || profile?.name;
+          if (!profile?.role) {
+            await getSupabase().auth.signOut().catch(() => {});
+            authSession = null;
+            session = null;
+            log(`Accès refusé : ${username}`, "Sécurité", "Compte absent ou désactivé dans Utilisateurs");
+            return alert("Ce compte n'a pas (ou plus) accès à l'application. Contactez l'administrateur.");
+          }
+          role = profile.role;
+          name = name || profile.name;
         }
         session = {
           id: data.user.id,
           login: appUser?.login || username,
           name: name || username,
-          role: role || "Consultation",
+          role,
           active: true
         };
         log("Connexion réussie (Supabase Auth)", "Connexion");
