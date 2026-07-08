@@ -16,58 +16,66 @@ Le code de l'application est **déjà prêt** :
 - dès que les comptes existent, la connexion passe par Supabase Auth (jeton
   JWT), et les mots de passe ne sont plus jamais envoyés au cloud.
 
-## Ordre des opérations (à respecter pour éviter toute coupure)
+## Priorité : le compte ADMIN d'abord
 
-### Étape 1 — Créer les comptes dans Supabase Auth
+Le compte **administrateur** est le plus important : c'est lui qui donne (ou
+retire) les accès aux autres. On commence donc par le sécuriser, puis on
+ajoute les autres comptes ensuite (au même endroit, de la même façon).
 
-Dans **Supabase → Authentication → Users → Add user**, créez un compte par
-utilisateur. L'application transforme l'identifiant en e-mail avec le domaine
-`mienra.app` (modifiable via `AUTH_EMAIL_DOMAIN` dans `app-pro.js`) :
+### Étape 1 — Créer le compte admin dans Supabase Auth
 
-| Identifiant saisi | E-mail à créer dans Supabase | Cochez |
+Dans **Supabase → Authentication → Users → Add user** :
+
+| Identifiant saisi dans l'app | E-mail à créer | Cochez |
 |---|---|---|
 | `admin` | `admin@mienra.app` | ✅ Auto Confirm User |
-| `directeur` | `directeur@mienra.app` | ✅ Auto Confirm User |
-| `secretaire` | `secretaire@mienra.app` | ✅ Auto Confirm User |
-| `consultation` | `consultation@mienra.app` | ✅ Auto Confirm User |
 
-Choisissez un mot de passe fort pour chacun (différent des `...123` de test).
+- Choisissez un **mot de passe fort** (différent des `...123` de test).
+- L'application transforme l'identifiant `admin` en e-mail `admin@mienra.app`
+  (domaine modifiable via `AUTH_EMAIL_DOMAIN` dans `app-pro.js`). Vous pouvez
+  aussi utiliser une **vraie adresse e-mail** : dans ce cas, connectez-vous
+  ensuite avec l'e-mail complet plutôt qu'avec `admin`.
 
-### Étape 2 — Exécuter le schéma SQL sécurisé
+### Étape 2 — Exécuter le script admin
 
-Dans **Supabase → SQL Editor**, exécutez le contenu de
-[`supabase/schema.sql`](../supabase/schema.sql). Il :
+Dans **Supabase → SQL Editor**, collez et exécutez le contenu de
+[`supabase/admin-setup.sql`](../supabase/admin-setup.sql). Si vous avez utilisé
+une autre adresse que `admin@mienra.app`, **modifiez la seule ligne**
+`admin_email := '...'` avant de lancer. Le script :
 
 - réserve la lecture/écriture de l'état aux utilisateurs **authentifiés**
   (fin de l'accès `anon`) ;
-- crée la table `profiles` (rôle applicatif de chaque compte).
+- crée la table `profiles` ;
+- retrouve automatiquement l'UUID de l'admin par son e-mail et lui attribue le
+  rôle `Administrateur` (aucun UUID à copier-coller) ;
+- affiche une ligne de vérification `Administrateur` à la fin.
 
-### Étape 3 — Renseigner le rôle de chaque compte
+### Étape 3 — Se connecter en admin
 
-Récupérez l'`id` (UUID) de chaque compte dans **Authentication → Users**, puis
-dans le **SQL Editor** :
-
-```sql
-insert into public.profiles (id, name, role) values
-  ('<uuid-admin>',        'Administrateur', 'Administrateur'),
-  ('<uuid-directeur>',    'Directeur',      'Directeur'),
-  ('<uuid-secretaire>',   'Secrétaire',     'Secrétaire'),
-  ('<uuid-consultation>', 'Consultation',   'Consultation')
-on conflict (id) do update set name = excluded.name, role = excluded.role;
-```
-
-Les rôles valides (identiques à l'application) : `Administrateur`,
-`Directeur`, `Secrétaire`, `Consultation`.
-
-### Étape 4 — Se connecter
-
-Rechargez https://patrickeudess.github.io/mienra/ et connectez-vous avec un
-identifiant (ex. `admin`) et son nouveau mot de passe Supabase. La mention
-« Mode données » passe à **Données partagées** et la synchronisation utilise
-désormais le jeton de l'utilisateur.
+Rechargez https://patrickeudess.github.io/mienra/ et connectez-vous avec
+l'identifiant `admin` (ou l'e-mail complet) et le mot de passe défini à
+l'étape 1. La mention « Mode données » passe à **Données partagées** :
+l'accès anonyme est désormais fermé.
 
 > Tant que l'étape 2 n'est pas faite, l'application reste en mode local
 > historique : c'est normal et sans risque de coupure.
+
+### Étape 4 — Ajouter les autres comptes (plus tard)
+
+Une fois l'admin opérationnel, créez chaque autre compte dans
+**Authentication → Users**, puis attribuez-lui son rôle dans le **SQL Editor** :
+
+```sql
+insert into public.profiles (id, name, role)
+select id, 'Directeur', 'Directeur'
+from auth.users where lower(email) = lower('directeur@mienra.app')
+on conflict (id) do update set name = excluded.name, role = excluded.role;
+```
+
+Rôles valides (identiques à l'application) : `Administrateur`, `Directeur`,
+`Secrétaire`, `Consultation`. Le fichier
+[`supabase/schema.sql`](../supabase/schema.sql) reste disponible si vous
+préférez tout configurer d'un coup pour plusieurs comptes.
 
 ## Ce que ça change concrètement
 
