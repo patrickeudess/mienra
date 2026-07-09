@@ -4,7 +4,7 @@ const DEVICE_KEY = `${DB_KEY}_device_id`;
 
 const $ = (id) => document.getElementById(id);
 const LOGO_SRC = "assets/mienra-logo.jpeg";
-const ASSET_VERSION = "20260708-revoke-access";
+const ASSET_VERSION = "20260709-definitive-deletes";
 const CLOUD_CONFIG = globalThis.MIENRA_CLOUD || {};
 // Domaine e-mail utilisé pour mapper un identifiant (ex. "admin") vers un
 // compte Supabase Auth (ex. "admin@mienra.app"). Voir docs/securite-supabase.md.
@@ -112,6 +112,7 @@ function seedState() {
     enrollments: [],
     payments: [],
     logs: [],
+    tombstones: [],
     backups: []
   };
 }
@@ -139,17 +140,23 @@ function loadState() {
 
 function normalizeState(data) {
   const base = blankState();
+  const tombstones = normalizeTombstones(data.tombstones);
+  const dead = new Set(tombstones.map((t) => t.id));
+  const alive = (rows) => (Array.isArray(rows) ? rows : []).filter((row) => row && !dead.has(row.id));
+  const users = alive(data.users?.length ? data.users : base.users);
   const normalized = {
     ...base,
     ...data,
     school: { ...base.school, ...(data.school || {}) },
     years: data.years?.length ? data.years : base.years,
-    classes: normalizeClassFees(Array.isArray(data.classes) ? data.classes : base.classes),
-    students: (Array.isArray(data.students) ? data.students : base.students).map((row) => normalizeStudent(row)),
-    enrollments: (Array.isArray(data.enrollments) ? data.enrollments : base.enrollments).map((row) => ({ ...row, year: row.year || data.activeYear || data.school?.year || base.school.year })),
-    payments: (Array.isArray(data.payments) ? data.payments : base.payments).map((row) => ({ ...row, year: row.year || data.activeYear || data.school?.year || base.school.year })),
-    users: data.users?.length ? data.users : base.users,
+    classes: normalizeClassFees(alive(Array.isArray(data.classes) ? data.classes : base.classes)),
+    students: alive(Array.isArray(data.students) ? data.students : base.students).map((row) => normalizeStudent(row)),
+    enrollments: alive(Array.isArray(data.enrollments) ? data.enrollments : base.enrollments).map((row) => ({ ...row, year: row.year || data.activeYear || data.school?.year || base.school.year })),
+    payments: alive(Array.isArray(data.payments) ? data.payments : base.payments).map((row) => ({ ...row, year: row.year || data.activeYear || data.school?.year || base.school.year })),
+    // Garde-fou anti-verrouillage : on ne se retrouve jamais sans aucun compte.
+    users: users.length ? users : base.users,
     logs: normalizeLogs(data.logs || []),
+    tombstones,
     activeYear: data.activeYear || data.school?.year || base.activeYear,
     updatedAt: data.updatedAt || new Date().toISOString()
   };
@@ -238,12 +245,37 @@ function mergeLogs(remoteRows = [], localRows = []) {
   return normalizeLogs([...rows.values()]).sort((a, b) => new Date(b.iso) - new Date(a.iso)).slice(0, 500);
 }
 
+// « Pierres tombales » : chaque suppression laisse une marque datée { id, at }.
+// Elle se propage lors des synchronisations et empêche l'enregistrement de
+// « revenir » (la fusion des tableaux ne peut plus le ressusciter). C'est ce
+// qui rend les suppressions DÉFINITIVES, tout en gardant la fusion des ajouts.
+function normalizeTombstones(list) {
+  const map = new Map();
+  (Array.isArray(list) ? list : []).forEach((t) => {
+    const id = typeof t === "string" ? t : t?.id;
+    if (id) map.set(id, { id, at: (t && t.at) || new Date().toISOString() });
+  });
+  // On borne la taille (les plus récentes d'abord) sans jamais purger trop tôt.
+  return [...map.values()].sort((a, b) => new Date(b.at) - new Date(a.at)).slice(0, 10000);
+}
+
+// Marque un ou plusieurs identifiants comme supprimés dans l'état courant.
+function markDeleted(...ids) {
+  state.tombstones = normalizeTombstones([
+    ...(state.tombstones || []),
+    ...ids.filter(Boolean).map((id) => ({ id, at: new Date().toISOString() }))
+  ]);
+}
+
 function mergeStates(localData, remoteData) {
   const local = normalizeState(localData || {});
   const remote = normalizeState(remoteData || {});
   const localTime = new Date(local.updatedAt || 0).getTime();
   const remoteTime = new Date(remote.updatedAt || 0).getTime();
   const newestBase = localTime >= remoteTime ? local : remote;
+  // Union des pierres tombales des deux côtés ; le normalizeState final s'en
+  // sert pour retirer partout les enregistrements supprimés.
+  const tombstones = normalizeTombstones([...(remote.tombstones || []), ...(local.tombstones || [])]);
   return normalizeState({
     ...newestBase,
     school: { ...remote.school, ...local.school },
@@ -254,6 +286,7 @@ function mergeStates(localData, remoteData) {
     payments: mergeById(remote.payments, local.payments),
     users: mergeById(remote.users, local.users),
     logs: mergeLogs(remote.logs, local.logs),
+    tombstones,
     updatedAt: new Date(Math.max(localTime || 0, remoteTime || 0, Date.now())).toISOString()
   });
 }
@@ -942,9 +975,12 @@ function editStudent(id) { if (!requireAction("students")) return; editing = id;
 function deleteStudent(id) {
   if (!requireAction("students")) return;
   if (!confirm("Supprimer cet élève, ses inscriptions et ses paiements ?")) return;
+  const enrollIds = state.enrollments.filter((row) => row.studentId === id).map((row) => row.id);
+  const payIds = state.payments.filter((row) => row.studentId === id).map((row) => row.id);
   state.students = state.students.filter((row) => row.id !== id);
   state.enrollments = state.enrollments.filter((row) => row.studentId !== id);
   state.payments = state.payments.filter((row) => row.studentId !== id);
+  markDeleted(id, ...enrollIds, ...payIds);
   log("Élève supprimé", "Élève");
   saveState();
   pages.students();
@@ -974,6 +1010,7 @@ function deleteClass(id) {
   if (!requireAction("classes")) return;
   if (!confirm("Supprimer cette classe ?")) return;
   state.classes = state.classes.filter((row) => row.id !== id);
+  markDeleted(id);
   saveState();
   pages.classes();
 }
@@ -1025,6 +1062,7 @@ function deleteEnrollment(id) {
   if (!requireAction("deleteEnrollments")) return;
   if (!confirm("Supprimer cette inscription ?")) return;
   state.enrollments = state.enrollments.filter((row) => row.id !== id);
+  markDeleted(id);
   log("Inscription supprimée", "Inscription");
   saveState();
   showFinanceTab("enrollments");
@@ -1094,6 +1132,7 @@ function deletePayment(id) {
   if (!requireAction("deletePayments")) return;
   if (!confirm("Supprimer ce paiement ?")) return;
   state.payments = state.payments.filter((row) => row.id !== id);
+  markDeleted(id);
   log("Paiement supprimé", "Paiement");
   saveState();
   showFinanceTab("payments");
@@ -1231,6 +1270,7 @@ function deleteUser(id) {
   if (user?.role === "Administrateur" && state.users.filter((row) => row.role === "Administrateur" && row.active && row.id !== id).length === 0) return alert("Il faut conserver au moins un administrateur actif.");
   if (!confirm("Supprimer cet utilisateur ?")) return;
   state.users = state.users.filter((row) => row.id !== id);
+  markDeleted(id);
   saveState();
   pages.users();
 }
