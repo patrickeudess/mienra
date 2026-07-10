@@ -4,7 +4,7 @@ const DEVICE_KEY = `${DB_KEY}_device_id`;
 
 const $ = (id) => document.getElementById(id);
 const LOGO_SRC = "assets/mienra-logo.jpeg";
-const ASSET_VERSION = "20260709-unique-receipt-ids";
+const ASSET_VERSION = "20260709-demo-tombstones";
 const CLOUD_CONFIG = globalThis.MIENRA_CLOUD || {};
 // Domaine e-mail utilisé pour mapper un identifiant (ex. "admin") vers un
 // compte Supabase Auth (ex. "admin@mienra.app"). Voir docs/securite-supabase.md.
@@ -1345,13 +1345,16 @@ function removeDemoData() {
   const demoNames = new Set(["Aka Mireille", "Kouadio Jean", "Traoré Aminata"]);
   const demoReceipts = new Set(["REC-2026-0001", "REC-2026-0002"]);
   const demoStudentIds = new Set(state.students.filter((row) => demoMatricules.has(row.matricule) || demoNames.has(row.name)).map((row) => row.id));
-  const demoPaymentIds = new Set(state.payments.filter((row) => demoStudentIds.has(row.studentId) || demoReceipts.has(row.id)).map((row) => row.id));
-  const count = demoStudentIds.size + demoPaymentIds.size + state.enrollments.filter((row) => demoStudentIds.has(row.studentId)).length;
+  const demoPaymentIds = new Set(state.payments.filter((row) => demoStudentIds.has(row.studentId) || demoReceipts.has(row.receiptNo || row.id)).map((row) => row.id));
+  const demoEnrollIds = state.enrollments.filter((row) => demoStudentIds.has(row.studentId)).map((row) => row.id);
+  const count = demoStudentIds.size + demoPaymentIds.size + demoEnrollIds.length;
   if (!count) return alert("Aucune donnée de démonstration connue trouvée.");
   if (!confirm(`Supprimer ${count} élément(s) de démonstration connu(s) ?`)) return;
   state.students = state.students.filter((row) => !demoStudentIds.has(row.id));
   state.enrollments = state.enrollments.filter((row) => !demoStudentIds.has(row.studentId));
   state.payments = state.payments.filter((row) => !demoPaymentIds.has(row.id));
+  // Tombstones : sinon la synchro cloud ferait revenir les données de démo.
+  markDeleted(...demoStudentIds, ...demoEnrollIds, ...demoPaymentIds);
   log("Données de démonstration supprimées", "Sauvegarde", `${demoStudentIds.size} élève(s), ${demoPaymentIds.size} paiement(s)`);
   saveState();
   renderShell();
