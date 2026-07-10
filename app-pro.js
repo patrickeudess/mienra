@@ -4,7 +4,7 @@ const DEVICE_KEY = `${DB_KEY}_device_id`;
 
 const $ = (id) => document.getElementById(id);
 const LOGO_SRC = "assets/mienra-logo.jpeg";
-const ASSET_VERSION = "20260709-auth-hardening";
+const ASSET_VERSION = "20260709-unique-receipt-ids";
 const CLOUD_CONFIG = globalThis.MIENRA_CLOUD || {};
 // Domaine e-mail utilisé pour mapper un identifiant (ex. "admin") vers un
 // compte Supabase Auth (ex. "admin@mienra.app"). Voir docs/securite-supabase.md.
@@ -1099,6 +1099,22 @@ function paymentInfo() {
   if (id && $("payInfo")) $("payInfo").innerHTML = `Attendu : <b>${money(due(id))}</b> · Payé : <b>${money(paid(id))}</b> · Reste : <b>${money(balance(id))}</b>`;
 }
 
+// Numéro de reçu AFFICHÉ : compteur monotone qui ne se réutilise jamais (même
+// après suppression). Il est distinct de l'id INTERNE du paiement (un uid
+// unique) : ainsi un reçu supprimé ne peut plus voir son numéro « recyclé »,
+// ce qui évitait à la fois les doublons d'id et la suppression accidentelle
+// d'un nouveau paiement par une ancienne pierre tombale.
+function nextReceiptNumber() {
+  if (state.receiptSeq == null) {
+    state.receiptSeq = state.payments.reduce((max, p) => {
+      const n = parseInt(String(p.receiptNo || p.id).split("-").pop(), 10);
+      return Number.isFinite(n) ? Math.max(max, n) : max;
+    }, 0);
+  }
+  state.receiptSeq += 1;
+  return `${state.school.receiptPrefix}-${new Date().getFullYear()}-${String(state.receiptSeq).padStart(4, "0")}`;
+}
+
 function savePayment() {
   if (!requireAction("payments")) return;
   const studentId = $("payStudent").value;
@@ -1110,8 +1126,7 @@ function savePayment() {
   if (expectedAtPayment <= 0) return alert("Aucun frais n'est défini pour cet élève sur l'année scolaire sélectionnée.");
   if (balanceBefore <= 0) return alert("Cet élève est déjà soldé pour cette année scolaire. Aucun nouveau reçu ne peut être créé.");
   if (balanceBefore > 0 && amount > balanceBefore) return alert(`Le montant saisi dépasse le reste à payer (${money(balanceBefore)}).`);
-  const receipt = `${state.school.receiptPrefix}-${new Date().getFullYear()}-${String(state.payments.length + 1).padStart(4, "0")}`;
-  const payment = { id: receipt, studentId, year: currentYear(), amount, expectedAtPayment, paidBefore, totalPaidAfter: paidBefore + amount, balanceAfter: expectedAtPayment - paidBefore - amount, paidBy: $("paidBy").value.trim() || student(studentId).parent || "", mode: $("payMode").value, date: $("payDate").value, cashier: $("cashier").value, note: $("payNote").value };
+  const payment = { id: uid("PAY"), receiptNo: nextReceiptNumber(), studentId, year: currentYear(), amount, expectedAtPayment, paidBefore, totalPaidAfter: paidBefore + amount, balanceAfter: expectedAtPayment - paidBefore - amount, paidBy: $("paidBy").value.trim() || student(studentId).parent || "", mode: $("payMode").value, date: $("payDate").value, cashier: $("cashier").value, note: $("payNote").value };
   state.payments.unshift(payment);
   activeReceipt = payment.id;
   log(`Paiement enregistré : ${student(studentId).name} - ${money(amount)}`, "Paiement", `Payé par : ${payment.paidBy || "-"}`);
@@ -1123,7 +1138,7 @@ function savePayment() {
 
 function paymentsTable() {
   const rows = state.payments.filter((row) => row.year === currentYear());
-  return `<table><thead><tr><th>Reçu</th><th>Élève</th><th>Année</th><th>Payé par</th><th>Montant</th><th>Reste après paiement</th><th>Mode</th><th>Date</th><th>Caissier</th><th>Actions</th></tr></thead><tbody>${rows.map((row) => `<tr><td>${clean(row.id)}</td><td>${clean(student(row.studentId).name)}<br><small>${clean(student(row.studentId).matricule)}</small></td><td>${clean(row.year)}</td><td>${clean(paymentPayer(row))}</td><td>${money(row.amount)}</td><td class="${receiptAmounts(row).remaining > 0 ? "amount-danger" : "amount-ok"}">${money(receiptAmounts(row).remaining)}</td><td>${clean(row.mode)}</td><td>${clean(row.date)}<br><small>${clean(row.note)}</small></td><td>${clean(row.cashier)}</td><td><button class="btn quiet small" onclick="openReceipt('${row.id}')">Reçu</button>${canAction("deletePayments") ? ` <button class="btn danger small" onclick="deletePayment('${row.id}')">Supprimer</button>` : ""}</td></tr>`).join("") || `<tr><td colspan="10">Aucun paiement pour cette année scolaire.</td></tr>`}</tbody></table>`;
+  return `<table><thead><tr><th>Reçu</th><th>Élève</th><th>Année</th><th>Payé par</th><th>Montant</th><th>Reste après paiement</th><th>Mode</th><th>Date</th><th>Caissier</th><th>Actions</th></tr></thead><tbody>${rows.map((row) => `<tr><td>${clean(row.receiptNo || row.id)}</td><td>${clean(student(row.studentId).name)}<br><small>${clean(student(row.studentId).matricule)}</small></td><td>${clean(row.year)}</td><td>${clean(paymentPayer(row))}</td><td>${money(row.amount)}</td><td class="${receiptAmounts(row).remaining > 0 ? "amount-danger" : "amount-ok"}">${money(receiptAmounts(row).remaining)}</td><td>${clean(row.mode)}</td><td>${clean(row.date)}<br><small>${clean(row.note)}</small></td><td>${clean(row.cashier)}</td><td><button class="btn quiet small" onclick="openReceipt('${row.id}')">Reçu</button>${canAction("deletePayments") ? ` <button class="btn danger small" onclick="deletePayment('${row.id}')">Supprimer</button>` : ""}</td></tr>`).join("") || `<tr><td colspan="10">Aucun paiement pour cette année scolaire.</td></tr>`}</tbody></table>`;
 }
 
 function deletePayment(id) {
@@ -1141,13 +1156,13 @@ function openReceipt(id) { activeReceipt = id; view = "receipts"; renderNav(); r
 function receiptView() {
   const payment = state.payments.find((row) => row.id === activeReceipt) || state.payments[0];
   if (!payment) { $("content").innerHTML = `<article class="panel empty">Aucun reçu disponible.</article>`; return; }
-  $("content").innerHTML = `<article class="panel receipt-page"><div class="panel-head"><h2>Reçu de paiement</h2><span>${clean(payment.id)}</span></div><div class="receipt-actions actions"><button class="btn secondary" onclick="window.print()">Imprimer / PDF</button><button class="btn quiet" onclick="showFinanceTab('payments')">Retour paiements</button></div><div class="receipt-copies">${receiptCopy(payment, "Exemplaire parent")}${receiptCopy(payment, "Exemplaire archive")}</div></article>`;
+  $("content").innerHTML = `<article class="panel receipt-page"><div class="panel-head"><h2>Reçu de paiement</h2><span>${clean(payment.receiptNo || payment.id)}</span></div><div class="receipt-actions actions"><button class="btn secondary" onclick="window.print()">Imprimer / PDF</button><button class="btn quiet" onclick="showFinanceTab('payments')">Retour paiements</button></div><div class="receipt-copies">${receiptCopy(payment, "Exemplaire parent")}${receiptCopy(payment, "Exemplaire archive")}</div></article>`;
 }
 
 function receiptCopy(payment, copyLabel) {
   const row = student(payment.studentId);
   const amounts = receiptAmounts(payment);
-  return `<div class="receipt"><div class="receipt-copy-label">${clean(copyLabel)}</div>${documentHeader("Reçu de paiement")}<div class="receipt-grid"><p><b>N° reçu</b><span>${clean(payment.id)}</span></p><p><b>Année scolaire</b><span>${clean(payment.year || currentYear())}</span></p><p><b>Date</b><span>${clean(payment.date)}</span></p><p><b>Élève</b><span>${clean(row.name)}</span></p><p><b>Matricule</b><span>${clean(row.matricule)}</span></p><p><b>Classe</b><span>${clean(row.className)}</span></p><p><b>Payé par</b><span>${clean(paymentPayer(payment))}</span></p><p><b>Mode</b><span>${clean(payment.mode)}</span></p><p><b>Frais de scolarité</b><span>${money(amounts.expected)}</span></p><p><b>Versement reçu</b><span>${money(amounts.currentPaid)}</span></p><p><b>Total payé à ce jour</b><span>${money(amounts.totalPaid)}</span></p><p><b>Reste à payer</b><span class="${amounts.remaining > 0 ? "amount-danger" : "amount-ok"}">${money(amounts.remaining)}</span></p></div>${amounts.remaining <= 0 ? `<p class="receipt-status amount-ok"><b>Mention :</b> Soldé</p>` : ""}<p><b>Observation :</b> ${clean(payment.note || "-")}</p><div class="signatures"><p>Caissier<br><b>${clean(payment.cashier)}</b></p><p>Direction<br><b>${clean(state.school.director)}</b></p></div><small>${clean(state.school.receiptFooter)}</small></div>`;
+  return `<div class="receipt"><div class="receipt-copy-label">${clean(copyLabel)}</div>${documentHeader("Reçu de paiement")}<div class="receipt-grid"><p><b>N° reçu</b><span>${clean(payment.receiptNo || payment.id)}</span></p><p><b>Année scolaire</b><span>${clean(payment.year || currentYear())}</span></p><p><b>Date</b><span>${clean(payment.date)}</span></p><p><b>Élève</b><span>${clean(row.name)}</span></p><p><b>Matricule</b><span>${clean(row.matricule)}</span></p><p><b>Classe</b><span>${clean(row.className)}</span></p><p><b>Payé par</b><span>${clean(paymentPayer(payment))}</span></p><p><b>Mode</b><span>${clean(payment.mode)}</span></p><p><b>Frais de scolarité</b><span>${money(amounts.expected)}</span></p><p><b>Versement reçu</b><span>${money(amounts.currentPaid)}</span></p><p><b>Total payé à ce jour</b><span>${money(amounts.totalPaid)}</span></p><p><b>Reste à payer</b><span class="${amounts.remaining > 0 ? "amount-danger" : "amount-ok"}">${money(amounts.remaining)}</span></p></div>${amounts.remaining <= 0 ? `<p class="receipt-status amount-ok"><b>Mention :</b> Soldé</p>` : ""}<p><b>Observation :</b> ${clean(payment.note || "-")}</p><div class="signatures"><p>Caissier<br><b>${clean(payment.cashier)}</b></p><p>Direction<br><b>${clean(state.school.director)}</b></p></div><small>${clean(state.school.receiptFooter)}</small></div>`;
 }
 
 function goPay(id) { if (!requireAction("payments")) return; showFinanceTab("payments"); selectPaymentStudent(id); }
@@ -1301,7 +1316,7 @@ function exportCSV(type) {
   const year = currentYear();
   const yearPayments = state.payments.filter((row) => row.year === year);
   if (type === "students") rows = [["annee", "matricule", "nom", "sexe", "statut", "date_entree_etablissement", "date_saisie", "classe", "parent", "contact", "attendu", "paye", "reste"], ...state.students.map((row) => [year, row.matricule, row.name, row.gender || "", row.status || "", row.entryDate || "", row.addedDate || "", row.className, row.parent, row.phone, due(row.id), paid(row.id), balance(row.id)])];
-  if (type === "payments") rows = [["annee", "recu", "eleve", "matricule", "paye_par", "montant", "mode", "date", "caissier"], ...yearPayments.map((row) => [row.year, row.id, student(row.studentId).name, student(row.studentId).matricule, paymentPayer(row), row.amount, row.mode, row.date, row.cashier])];
+  if (type === "payments") rows = [["annee", "recu", "eleve", "matricule", "paye_par", "montant", "mode", "date", "caissier"], ...yearPayments.map((row) => [row.year, row.receiptNo || row.id, student(row.studentId).name, student(row.studentId).matricule, paymentPayer(row), row.amount, row.mode, row.date, row.cashier])];
   if (type === "paidStudents") rows = [["annee", "matricule", "nom", "sexe", "statut", "date_entree_etablissement", "date_saisie", "classe", "parent", "contact", "attendu", "paye", "reste", "dernier_paye_par"], ...state.students.filter((row) => paid(row.id) > 0).map((row) => [year, row.matricule, row.name, row.gender || "", row.status || "", row.entryDate || "", row.addedDate || "", row.className, row.parent, row.phone, due(row.id), paid(row.id), balance(row.id), paymentPayer(lastPaymentForStudent(row.id))])];
   if (type === "noPaymentStudents") rows = [["annee", "matricule", "nom", "sexe", "statut", "date_entree_etablissement", "date_saisie", "classe", "parent", "contact", "attendu", "paye", "reste"], ...state.students.filter((row) => paid(row.id) <= 0).map((row) => [year, row.matricule, row.name, row.gender || "", row.status || "", row.entryDate || "", row.addedDate || "", row.className, row.parent, row.phone, due(row.id), paid(row.id), balance(row.id)])];
   if (type === "unpaid") rows = [["annee", "matricule", "nom", "sexe", "statut_scolaire", "date_entree_etablissement", "date_saisie", "classe", "parent", "contact", "attendu", "paye", "reste", "statut_paiement", "dernier_paye_par"], ...state.students.map((row) => [year, row.matricule, row.name, row.gender || "", row.status || "", row.entryDate || "", row.addedDate || "", row.className, row.parent, row.phone, due(row.id), paid(row.id), balance(row.id), financeStatus(row), lastPaymentForStudent(row.id) ? paymentPayer(lastPaymentForStudent(row.id)) : ""])];
