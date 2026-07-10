@@ -14,22 +14,30 @@
 // =====================================================================
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const cors = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+// F-1 : on n'autorise que l'origine du site (défense en profondeur). Ajoutez
+// ici d'autres origines si besoin (ex. un domaine personnalisé).
+const ALLOWED_ORIGINS = ["https://patrickeudess.github.io"];
+function corsHeaders(req: Request) {
+  const origin = req.headers.get("Origin") || "";
+  const allow = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  return {
+    "Access-Control-Allow-Origin": allow,
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Vary": "Origin",
+  };
+}
 
 const ROLES = ["Administrateur", "Directeur", "Secrétaire", "Consultation"];
 
-function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...cors, "Content-Type": "application/json" },
-  });
-}
-
 Deno.serve(async (req) => {
+  const cors = corsHeaders(req);
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), {
+      status,
+      headers: { ...cors, "Content-Type": "application/json" },
+    });
+
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json({ error: "Méthode non autorisée" }, 405);
 

@@ -4,7 +4,7 @@ const DEVICE_KEY = `${DB_KEY}_device_id`;
 
 const $ = (id) => document.getElementById(id);
 const LOGO_SRC = "assets/mienra-logo.jpeg";
-const ASSET_VERSION = "20260710-role-from-profiles";
+const ASSET_VERSION = "20260710-perf-and-hardening";
 const CLOUD_CONFIG = globalThis.MIENRA_CLOUD || {};
 // Domaine e-mail utilisé pour mapper un identifiant (ex. "admin") vers un
 // compte Supabase Auth (ex. "admin@mienra.app"). Voir docs/securite-supabase.md.
@@ -469,7 +469,35 @@ function log(action, type = "Action", detail = "") {
 }
 
 function classFee(classes, name) { return Number(classes.find((item) => item.name === name)?.fee || 0); }
-function student(id) { return state.students.find((item) => item.id === id) || {}; }
+
+// --- Index de recherche (performance) ---------------------------------
+// Les recherches par élève étaient rescannées à chaque appel (coût
+// quadratique sur les rapports). On mémoïse des index invalidés dès que le
+// tableau change (référence OU longueur) : les ajouts (push -> longueur),
+// suppressions (filter -> nouvelle référence) et modifications sur place
+// (Object.assign -> même objet dans l'index) restent donc toujours exacts.
+const _idx = { s: { ref: null, len: -1, map: null }, p: { ref: null, len: -1, map: null }, e: { ref: null, len: -1, map: null } };
+function indexById(rows, slot) {
+  if (slot.map && slot.ref === rows && slot.len === rows.length) return slot.map;
+  const map = new Map();
+  rows.forEach((row) => row?.id && map.set(row.id, row));
+  slot.ref = rows; slot.len = rows.length; slot.map = map;
+  return map;
+}
+function groupBy(rows, key, slot) {
+  if (slot.map && slot.ref === rows && slot.len === rows.length) return slot.map;
+  const map = new Map();
+  rows.forEach((row) => {
+    const k = row?.[key];
+    const arr = map.get(k);
+    if (arr) arr.push(row); else map.set(k, [row]);
+  });
+  slot.ref = rows; slot.len = rows.length; slot.map = map;
+  return map;
+}
+function student(id) { return indexById(state.students, _idx.s).get(id) || {}; }
+function enrollmentsOf(id) { return groupBy(state.enrollments, "studentId", _idx.e).get(id) || []; }
+function paymentsOf(id) { return groupBy(state.payments, "studentId", _idx.p).get(id) || []; }
 function enrollmentDue(item) {
   const fee = classFee(state.classes, item.className);
   const amount = Number(item.amount || 0);
@@ -479,13 +507,13 @@ function enrollmentDue(item) {
 function enrollmentNet(item) { return Math.max(0, enrollmentDue(item) - Number(item.discount || 0)); }
 function currentYear() { return state.activeYear || state.school.year; }
 function due(id, year = currentYear()) {
-  const studentEnrollments = state.enrollments.filter((item) => item.studentId === id);
+  const studentEnrollments = enrollmentsOf(id);
   const rows = studentEnrollments.filter((item) => item.year === year);
   if (!rows.length && studentEnrollments.length) return 0;
   if (!rows.length) return classFee(state.classes, student(id).className);
   return rows.reduce((sum, item) => sum + enrollmentNet(item), 0);
 }
-function paid(id, year = currentYear()) { return state.payments.filter((item) => item.studentId === id && item.year === year).reduce((sum, item) => sum + Number(item.amount || 0), 0); }
+function paid(id, year = currentYear()) { return paymentsOf(id).filter((item) => item.year === year).reduce((sum, item) => sum + Number(item.amount || 0), 0); }
 function balance(id, year = currentYear()) { return due(id, year) - paid(id, year); }
 function percent(id, year = currentYear()) { const total = due(id, year); return total ? Math.min(100, Math.round((paid(id, year) / total) * 100)) : 0; }
 function paymentPaidBefore(payment) {
@@ -1265,6 +1293,7 @@ async function saveUser() {
   const creatingNew = !editing;
   if (!data.name || !data.login) return alert("Le nom et l'identifiant sont obligatoires.");
   if (creatingNew && !data.password) return alert("Le mot de passe est obligatoire pour un nouvel utilisateur.");
+  if (data.password && data.password.length < 8) return alert("Le mot de passe doit contenir au moins 8 caractères.");
   if (editing && session?.id === editing && !data.active) return alert("Vous ne pouvez pas verrouiller votre propre compte pendant cette session.");
   if (editing) {
     const activeAdmins = state.users.filter((row) => row.role === "Administrateur" && row.active && row.id !== editing).length;
