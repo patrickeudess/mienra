@@ -4,7 +4,7 @@ const DEVICE_KEY = `${DB_KEY}_device_id`;
 
 const $ = (id) => document.getElementById(id);
 const LOGO_SRC = "assets/mienra-logo.jpeg";
-const ASSET_VERSION = "20260709-demo-tombstones";
+const ASSET_VERSION = "20260710-admin-provisioning";
 const CLOUD_CONFIG = globalThis.MIENRA_CLOUD || {};
 // Domaine e-mail utilisé pour mapper un identifiant (ex. "admin") vers un
 // compte Supabase Auth (ex. "admin@mienra.app"). Voir docs/securite-supabase.md.
@@ -359,6 +359,29 @@ async function loadProfile(userId) {
   } catch {
     return null;
   }
+}
+// Provisionnement des comptes de connexion par l'ADMIN, via la fonction
+// serveur sécurisée « admin-users » (la clé maître reste côté serveur).
+// Renvoie les données en cas de succès, lève une erreur explicite sinon.
+async function adminUsersApi(action, payload) {
+  const sb = getSupabase();
+  if (!sb || !authSession) throw new Error("Connexion sécurisée requise.");
+  const { data, error } = await sb.functions.invoke("admin-users", { body: { action, ...payload } });
+  if (error) {
+    let message = error.message || "Fonction « admin-users » injoignable.";
+    try {
+      const ctx = await error.context?.json?.();
+      if (ctx?.error) message = ctx.error;
+    } catch (_) { /* corps non-JSON : on garde le message par défaut */ }
+    throw new Error(message);
+  }
+  if (data?.error) throw new Error(data.error);
+  return data;
+}
+// L'app gère-t-elle les comptes Supabase (fonction déployée) ? Vrai dès qu'un
+// administrateur est connecté avec une session Supabase.
+function canManageAuthUsers() {
+  return supabaseAuthAvailable() && !!authSession;
 }
 // En mode authentifié, on ne transmet JAMAIS les mots de passe en clair au
 // cloud : ils restent locaux, l'authentification passe par Supabase Auth.
@@ -756,7 +779,7 @@ const pages = {
   },
   users() {
     const item = editing ? state.users.find((row) => row.id === editing) : {};
-    $("content").innerHTML = `<article class="panel"><div class="panel-head"><h2>${editing ? "Modifier un utilisateur" : "Ajouter un utilisateur"}</h2><span>Comptes locaux de test</span></div><div class="form-grid">${field("Nom", "userName", item?.name || "")}${field("Identifiant", "userLogin", item?.login || "")}${field("Mot de passe", "userPass", item?.password || "123456")}<div><label>Rôle</label><select id="userRole">${["Administrateur", "Directeur", "Secrétaire", "Consultation"].map((role) => `<option ${item?.role === role ? "selected" : ""}>${role}</option>`).join("")}</select></div><div><label>Statut</label><select id="userActive"><option value="true" ${item?.active !== false ? "selected" : ""}>Actif</option><option value="false" ${item?.active === false ? "selected" : ""}>Verrouillé</option></select></div></div><div class="actions"><button class="btn primary" onclick="saveUser()">Enregistrer</button></div></article><article class="panel"><div class="panel-head"><h2>Utilisateurs</h2><span>${state.users.length} comptes</span></div><table><thead><tr><th>Nom</th><th>Identifiant</th><th>Rôle</th><th>Statut</th><th>Actions</th></tr></thead><tbody>${state.users.map((row) => `<tr><td>${clean(row.name)}</td><td>${clean(row.login)}</td><td>${clean(row.role)}</td><td>${row.active ? "Actif" : "Verrouillé"}</td><td>${userActions(row)}</td></tr>`).join("")}</tbody></table></article>`;
+    $("content").innerHTML = `<article class="panel"><div class="panel-head"><h2>${editing ? "Modifier un utilisateur" : "Ajouter un utilisateur"}</h2><span>Créez l'accès : identifiant, mot de passe et rôle</span></div><div class="form-grid">${field("Nom", "userName", item?.name || "")}${field("Identifiant", "userLogin", item?.login || "")}<div><label>Mot de passe</label><input id="userPass" type="password" autocomplete="new-password" placeholder="${editing ? "Laisser vide pour ne pas changer" : "Mot de passe du compte"}" value=""></div><div><label>Rôle</label><select id="userRole">${["Administrateur", "Directeur", "Secrétaire", "Consultation"].map((role) => `<option ${item?.role === role ? "selected" : ""}>${role}</option>`).join("")}</select></div><div><label>Statut</label><select id="userActive"><option value="true" ${item?.active !== false ? "selected" : ""}>Actif</option><option value="false" ${item?.active === false ? "selected" : ""}>Verrouillé</option></select></div></div><div class="actions"><button class="btn primary" onclick="saveUser()">Enregistrer</button></div></article><article class="panel"><div class="panel-head"><h2>Utilisateurs</h2><span>${state.users.length} comptes</span></div><table><thead><tr><th>Nom</th><th>Identifiant</th><th>Rôle</th><th>Statut</th><th>Actions</th></tr></thead><tbody>${state.users.map((row) => `<tr><td>${clean(row.name)}</td><td>${clean(row.login)}</td><td>${clean(row.role)}</td><td>${row.active ? "Actif" : "Verrouillé"}</td><td>${userActions(row)}</td></tr>`).join("")}</tbody></table></article>`;
   },
   settings() {
     const item = state.school;
@@ -1245,15 +1268,34 @@ function databaseOverview() {
   return `<table><thead><tr><th>Information</th><th>Valeur</th></tr></thead><tbody>${rows.map(([label, value]) => `<tr><td>${clean(label)}</td><td>${clean(value)}</td></tr>`).join("")}</tbody></table>`;
 }
 
-function saveUser() {
+async function saveUser() {
   if (!requireAction("users")) return;
   const data = { name: $("userName").value.trim(), login: $("userLogin").value.trim(), password: $("userPass").value, role: $("userRole").value, active: $("userActive").value === "true" };
-  if (!data.name || !data.login || !data.password) return alert("Nom, identifiant et mot de passe sont obligatoires.");
+  const creatingNew = !editing;
+  if (!data.name || !data.login) return alert("Le nom et l'identifiant sont obligatoires.");
+  if (creatingNew && !data.password) return alert("Le mot de passe est obligatoire pour un nouvel utilisateur.");
   if (editing && session?.id === editing && !data.active) return alert("Vous ne pouvez pas verrouiller votre propre compte pendant cette session.");
   if (editing) {
     const activeAdmins = state.users.filter((row) => row.role === "Administrateur" && row.active && row.id !== editing).length;
     if ((!data.active || data.role !== "Administrateur") && state.users.find((row) => row.id === editing)?.role === "Administrateur" && activeAdmins === 0) return alert("Il faut conserver au moins un administrateur actif.");
   }
+
+  // Crée / met à jour le COMPTE DE CONNEXION Supabase via la fonction serveur.
+  if (canManageAuthUsers()) {
+    try {
+      if (creatingNew) {
+        await adminUsersApi("create", { email: authEmail(data.login), password: data.password });
+      } else if (data.password) {
+        await adminUsersApi("set-password", { email: authEmail(data.login), password: data.password });
+      }
+    } catch (e) {
+      return alert(`Compte de connexion non enregistré : ${e.message}\n\n(Si la fonction « admin-users » n'est pas encore déployée sur Supabase, voir docs/creer-comptes-depuis-app.md.)`);
+    }
+  }
+
+  // Le mot de passe n'est pas conservé en clair côté cloud (Supabase le gère) ;
+  // en édition sans nouveau mot de passe, on garde l'ancien champ local.
+  if (!creatingNew && !data.password) delete data.password;
   if (editing) Object.assign(state.users.find((row) => row.id === editing), data);
   else state.users.push({ id: uid("USR"), ...data });
   log(`Utilisateur enregistré : ${data.login}`, "Utilisateur", data.role);
@@ -1275,13 +1317,23 @@ function toggleUserLock(id) {
   saveState();
   pages.users();
 }
-function deleteUser(id) {
+async function deleteUser(id) {
   if (!requireAction("users")) return;
   if (state.users.length <= 1) return alert("Il faut conserver au moins un utilisateur.");
   const user = state.users.find((row) => row.id === id);
   if (session?.id === id) return alert("Vous ne pouvez pas supprimer votre propre compte pendant cette session.");
   if (user?.role === "Administrateur" && state.users.filter((row) => row.role === "Administrateur" && row.active && row.id !== id).length === 0) return alert("Il faut conserver au moins un administrateur actif.");
-  if (!confirm("Supprimer cet utilisateur ?")) return;
+  if (!confirm("Supprimer cet utilisateur ? Son accès sera définitivement révoqué.")) return;
+
+  // Supprime le compte de connexion Supabase (coupe l'accès pour de bon).
+  if (canManageAuthUsers() && user?.login) {
+    try {
+      await adminUsersApi("delete", { email: authEmail(user.login) });
+    } catch (e) {
+      if (!confirm(`Le compte de connexion Supabase n'a pas pu être supprimé (${e.message}). Retirer quand même l'utilisateur de la liste ? Il restera bloqué à la connexion.`)) return;
+    }
+  }
+
   state.users = state.users.filter((row) => row.id !== id);
   markDeleted(id);
   saveState();
