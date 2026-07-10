@@ -4,7 +4,7 @@ const DEVICE_KEY = `${DB_KEY}_device_id`;
 
 const $ = (id) => document.getElementById(id);
 const LOGO_SRC = "assets/mienra-logo.jpeg";
-const ASSET_VERSION = "20260709-definitive-deletes";
+const ASSET_VERSION = "20260709-auth-hardening";
 const CLOUD_CONFIG = globalThis.MIENRA_CLOUD || {};
 // Domaine e-mail utilisé pour mapper un identifiant (ex. "admin") vers un
 // compte Supabase Auth (ex. "admin@mienra.app"). Voir docs/securite-supabase.md.
@@ -538,8 +538,8 @@ function renderLogin() {
         <div class="login-brand"><img class="brand-logo" src="${logoUrl()}" alt="Logo EPV Mienrassou"><div><h1>EPV Mienrassou</h1><p>Gestion scolaire : élèves, inscriptions, paiements, reçus et rapports.</p></div></div>
         <label>Identifiant</label><input id="login" placeholder="Votre identifiant" autocomplete="username" onkeydown="if(event.key==='Enter')login()">
         <label>Mot de passe</label><input id="password" type="password" placeholder="Votre mot de passe" autocomplete="current-password" onkeydown="if(event.key==='Enter')login()">
-        <div class="actions"><button class="btn primary" onclick="login()">Se connecter</button><button class="btn quiet" onclick="quickLogin()">Accès rapide admin</button></div>
-        <div class="hint">Comptes test : admin/admin123, directeur/directeur123, secretaire/secretaire123, consultation/consultation123<br>Mode données : ${syncLabel()}</div>
+        <div class="actions"><button class="btn primary" onclick="login()">Se connecter</button></div>
+        <div class="hint">Mode données : ${syncLabel()}</div>
       </div>
     </section>`;
 }
@@ -596,14 +596,19 @@ async function login() {
         log("Connexion réussie (Supabase Auth)", "Connexion");
         return renderShell();
       }
-      // Identifiants Auth invalides : on tente le repli local ci-dessous
-      // (utile tant que les comptes Supabase ne sont pas encore créés).
+      // Supabase Auth est bien configuré mais les identifiants sont refusés :
+      // on N'OUVRE PAS de repli local (sinon un mot de passe par défaut
+      // donnerait un accès admin local). Accès refusé, point.
+      log(`Tentative de connexion échouée : ${username || "identifiant vide"}`, "Connexion", "Identifiants Supabase refusés");
+      return alert("Identifiants incorrects ou compte non autorisé.");
     } catch (e) {
-      console.warn("Supabase Auth indisponible, repli local :", e?.message || e);
+      // Exception (SDK/réseau) : Supabase est momentanément injoignable. On
+      // autorise alors le repli local d'urgence ci-dessous.
+      console.warn("Supabase indisponible, repli local d'urgence :", e?.message || e);
     }
   }
 
-  // 2) Repli local (comportement historique, sans JWT).
+  // 2) Repli local : seulement hors ligne / cloud non configuré / panne Supabase.
   await pullSharedState();
   const user = state.users.find((item) => item.login === username && item.password === password && item.active);
   if (!user) {
@@ -612,13 +617,6 @@ async function login() {
   }
   session = user;
   log("Connexion réussie", "Connexion");
-  renderShell();
-}
-
-async function quickLogin() {
-  await pullSharedState();
-  session = state.users.find((item) => item.login === "admin") || state.users[0];
-  log("Connexion accès rapide", "Connexion");
   renderShell();
 }
 
@@ -1391,9 +1389,17 @@ function importBackup(input) {
 
 function resetApp() {
   if (!requireAction("backup")) return;
-  if (!confirm("Réinitialiser les données de l'application ?")) return;
-  state = cloudEnabled() ? blankState() : seedState();
+  if (!confirm("Réinitialiser les données (élèves, inscriptions, paiements, classes) ? Les comptes utilisateurs sont conservés.")) return;
+  // On marque toutes les données existantes comme supprimées pour que la
+  // réinitialisation soit DÉFINITIVE (sinon la synchro cloud les ferait revenir).
+  const ids = [...state.classes, ...state.students, ...state.enrollments, ...state.payments].map((row) => row.id);
+  markDeleted(...ids);
+  state.students = [];
+  state.enrollments = [];
+  state.payments = [];
+  state.classes = cloudEnabled() ? [] : seedState().classes;
   log("Réinitialisation des données", "Sauvegarde");
+  saveState();
   renderShell();
 }
 
