@@ -8,7 +8,19 @@ Légende : 🔴 Élevé · 🟠 Moyen · 🟢 Faible · ℹ️ Info / bon point.
 
 ---
 
-## 🔴 H-1 — Escalade de privilèges : le rôle est stocké dans des données modifiables par tous
+## ✅ H-1 — RÉSOLU (2026-07-10) : escalade de privilèges par le rôle stocké dans le blob
+
+**Correctif déployé.** Le rôle fait désormais **autorité depuis la table
+`profiles`**, écrite uniquement par la fonction serveur `admin-users` (le
+client ne peut pas écrire `profiles`). La connexion lit le rôle depuis
+`profiles` ; la liste « Utilisateurs » du bloc JSON n'est plus une source
+d'autorisation. Un compte ne peut donc plus s'octroyer un rôle en modifiant
+les données partagées. Le verrouillage d'un compte le **bannit** réellement
+côté Supabase. *(Reste M-1 ci-dessous pour l'intégrité globale des données.)*
+
+<details><summary>Constat d'origine (historique)</summary>
+
+### 🔴 H-1 (avant correctif) — le rôle était stocké dans des données modifiables par tous
 
 **Constat.** La politique RLS de `mienra_app_state` autorise **tout utilisateur
 authentifié** à **lire ET écrire** l'intégralité de l'état (une seule ligne
@@ -32,6 +44,8 @@ protègent pas, car ils sont contournables côté client.
 
 > Tant que l'école n'a que du personnel de confiance, le risque réel est
 > limité ; il devient sérieux dès qu'un compte peu fiable existe.
+
+</details>
 
 ---
 
@@ -92,16 +106,17 @@ besoin un jour.
 
 | Priorité | Action |
 |---|---|
-| 1 | H-1 : rôle depuis `profiles` (serveur) au lieu du blob JSON |
-| 2 | M-1 : isolation des données si multi-écoles |
-| 3 | M-2 : renforcer la politique de mot de passe |
-| 4 | F-1/F-2/F-3 : durcissements de confort |
+| ~~1~~ | ~~H-1 : rôle depuis `profiles`~~ — ✅ **RÉSOLU** |
+| 1 | M-1 : isolation des données si multi-écoles (nécessite tables relationnelles) |
+| 2 | M-2 : renforcer la politique de mot de passe |
+| 3 | F-1/F-2/F-3 : durcissements de confort |
 
 ## Verdict
 
 Pour une **école unique avec personnel de confiance**, le niveau de sécurité
-est désormais **correct** : la surface principale (accès anonyme, contournements
-d'auth, fuite de mots de passe) est fermée. Le point restant réellement
-important est **H-1** (le rôle vit dans des données modifiables par tous) : à
-traiter en priorité si un compte peu fiable doit exister, ou avant un usage
-multi-écoles.
+est **bon** : accès anonyme fermé, contournements d'auth retirés, rôles
+infalsifiables (H-1 résolu), suppressions définitives. Le point restant est
+**M-1** (tout compte connecté peut encore écrire l'ensemble du blob de
+données) : c'est une limite d'intégrité inhérente au modèle « bloc JSON
+unique », à traiter le jour où l'on migre vers de vraies tables relationnelles
+(ce qui règle aussi la performance et le multi-écoles).
