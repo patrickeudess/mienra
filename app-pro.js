@@ -4,7 +4,7 @@ const DEVICE_KEY = `${DB_KEY}_device_id`;
 
 const $ = (id) => document.getElementById(id);
 const LOGO_SRC = "assets/mienra-logo.jpeg";
-const ASSET_VERSION = "20260710-admin-provisioning";
+const ASSET_VERSION = "20260710-role-from-profiles";
 const CLOUD_CONFIG = globalThis.MIENRA_CLOUD || {};
 // Domaine e-mail utilisé pour mapper un identifiant (ex. "admin") vers un
 // compte Supabase Auth (ex. "admin@mienra.app"). Voir docs/securite-supabase.md.
@@ -581,39 +581,30 @@ async function login() {
       });
       if (!error && data?.session) {
         authSession = data.session;
-        // On charge d'abord le carnet partagé pour disposer de la liste des
-        // utilisateurs (et donc des rôles gérés dans l'application).
+        // AUTORITÉ sur le rôle = table « profiles », écrite UNIQUEMENT côté
+        // serveur (fonction admin-users). Un compte sans profil n'a aucun
+        // accès : impossible de s'octroyer un rôle en modifiant les données
+        // partagées (le bloc JSON n'est plus une source d'autorisation).
+        const profile = await loadProfile(data.user.id);
+        if (!profile?.role) {
+          await getSupabase().auth.signOut().catch(() => {});
+          authSession = null;
+          session = null;
+          log(`Accès refusé : ${username}`, "Sécurité", "Aucun rôle attribué (profil absent)");
+          return alert("Ce compte n'a pas (ou plus) accès à l'application. Contactez l'administrateur.");
+        }
         await pullSharedState();
         const authedEmail = (data.user.email || authEmail(username)).toLowerCase();
-        // Le RÔLE vient de « Utilisateurs » : l'administrateur crée les comptes
-        // et fixe leur rôle dans l'app ; Supabase ne sert qu'à la connexion.
-        const appUser = state.users.find((item) => item.active && (
+        // La liste « Utilisateurs » ne sert plus qu'à l'affichage (nom / identifiant).
+        const appUser = state.users.find((item) =>
           authEmail(item.login).toLowerCase() === authedEmail ||
           (item.email && item.email.toLowerCase() === authedEmail)
-        ));
-        let role = appUser?.role;
-        let name = appUser?.name;
-        if (!role) {
-          // Pas (ou plus) d'entrée ACTIVE dans « Utilisateurs ». On n'autorise
-          // que l'administrateur (rôle lu dans profiles) ; tout autre compte
-          // est considéré comme RÉVOQUÉ et l'accès est refusé — même si le mot
-          // de passe Supabase existe encore.
-          const profile = await loadProfile(data.user.id);
-          if (!profile?.role) {
-            await getSupabase().auth.signOut().catch(() => {});
-            authSession = null;
-            session = null;
-            log(`Accès refusé : ${username}`, "Sécurité", "Compte absent ou désactivé dans Utilisateurs");
-            return alert("Ce compte n'a pas (ou plus) accès à l'application. Contactez l'administrateur.");
-          }
-          role = profile.role;
-          name = name || profile.name;
-        }
+        );
         session = {
           id: data.user.id,
           login: appUser?.login || username,
-          name: name || username,
-          role,
+          name: profile.name || appUser?.name || username,
+          role: profile.role,
           active: true
         };
         log("Connexion réussie (Supabase Auth)", "Connexion");
@@ -1280,13 +1271,13 @@ async function saveUser() {
     if ((!data.active || data.role !== "Administrateur") && state.users.find((row) => row.id === editing)?.role === "Administrateur" && activeAdmins === 0) return alert("Il faut conserver au moins un administrateur actif.");
   }
 
-  // Crée / met à jour le COMPTE DE CONNEXION Supabase via la fonction serveur.
+  // Crée / met à jour le COMPTE DE CONNEXION et le RÔLE (profiles) côté serveur.
   if (canManageAuthUsers()) {
     try {
       if (creatingNew) {
-        await adminUsersApi("create", { email: authEmail(data.login), password: data.password });
-      } else if (data.password) {
-        await adminUsersApi("set-password", { email: authEmail(data.login), password: data.password });
+        await adminUsersApi("create", { email: authEmail(data.login), password: data.password, name: data.name, role: data.role });
+      } else {
+        await adminUsersApi("update", { email: authEmail(data.login), name: data.name, role: data.role, password: data.password || undefined });
       }
     } catch (e) {
       return alert(`Compte de connexion non enregistré : ${e.message}\n\n(Si la fonction « admin-users » n'est pas encore déployée sur Supabase, voir docs/creer-comptes-depuis-app.md.)`);
@@ -1305,14 +1296,23 @@ async function saveUser() {
 }
 
 function editUser(id) { if (!requireAction("users")) return; editing = id; pages.users(); }
-function toggleUserLock(id) {
+async function toggleUserLock(id) {
   if (!requireAction("users")) return;
   const user = state.users.find((row) => row.id === id);
   if (!user) return;
   if (session?.id === id && user.active) return alert("Vous ne pouvez pas verrouiller votre propre compte pendant cette session.");
   const activeAdmins = state.users.filter((row) => row.role === "Administrateur" && row.active && row.id !== id).length;
   if (user.active && user.role === "Administrateur" && activeAdmins === 0) return alert("Il faut conserver au moins un administrateur actif.");
-  user.active = !user.active;
+  const willBeActive = !user.active;
+  // Verrouillage réel : on bannit / réactive le compte côté Supabase.
+  if (canManageAuthUsers() && user.login) {
+    try {
+      await adminUsersApi("set-active", { email: authEmail(user.login), active: willBeActive });
+    } catch (e) {
+      return alert(`Changement de statut non appliqué : ${e.message}`);
+    }
+  }
+  user.active = willBeActive;
   log(`${user.active ? "Utilisateur déverrouillé" : "Utilisateur verrouillé"} : ${user.login}`, "Utilisateur", user.role);
   saveState();
   pages.users();
