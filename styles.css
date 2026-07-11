@@ -622,6 +622,65 @@ th {
   color: var(--muted);
 }
 
+/* Notifications (toasts) */
+#toast-root {
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: min(92vw, 380px);
+}
+.toast {
+  background: var(--nav);
+  color: #fff;
+  padding: 12px 16px;
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  font-size: 14px;
+  line-height: 1.35;
+  cursor: pointer;
+  opacity: 0;
+  transform: translateY(-8px);
+  transition: opacity .2s ease, transform .2s ease;
+  border-left: 4px solid rgba(255, 255, 255, .5);
+}
+.toast.show { opacity: 1; transform: translateY(0); }
+.toast.warn { background: #7c3a12; border-left-color: var(--amber); }
+.toast.error { background: #7a231f; border-left-color: var(--red); }
+.toast.success { background: #0f5c3f; border-left-color: var(--green); }
+.toast.info { background: var(--nav); border-left-color: var(--blue); }
+
+/* Confirmation maison (modale) */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(15, 27, 45, .48);
+  opacity: 0;
+  transition: opacity .18s ease;
+}
+.modal-overlay.show { opacity: 1; }
+.modal {
+  background: var(--paper);
+  color: var(--ink);
+  width: min(94vw, 420px);
+  border-radius: 16px;
+  padding: 22px;
+  box-shadow: var(--shadow);
+  transform: translateY(6px) scale(.98);
+  transition: transform .18s ease;
+}
+.modal-overlay.show .modal { transform: translateY(0) scale(1); }
+.modal-msg { margin: 0 0 18px; font-size: 15px; line-height: 1.45; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 10px; }
+
 @media (max-width: 1040px) {
   .app { grid-template-columns: 1fr; }
   .sidebar { position: relative; height: auto; }
@@ -641,7 +700,7 @@ th {
 
 @media print {
   @page { size: A4 portrait; margin: 5mm; }
-  .sidebar, .topbar, .actions, .receipt-actions, .panel-head .btn, .filters { display: none !important; }
+  .sidebar, .topbar, .actions, .receipt-actions, .panel-head .btn, .filters, #toast-root, .modal-overlay { display: none !important; }
   body { background: #fff; }
   .app { display: block; }
   .workspace { padding: 0; }

@@ -4,7 +4,7 @@ const DEVICE_KEY = `${DB_KEY}_device_id`;
 
 const $ = (id) => document.getElementById(id);
 const LOGO_SRC = "assets/mienra-logo.jpeg";
-const ASSET_VERSION = "20260710-perf-and-hardening";
+const ASSET_VERSION = "20260711-toasts-modals";
 const CLOUD_CONFIG = globalThis.MIENRA_CLOUD || {};
 // Domaine e-mail utilisé pour mapper un identifiant (ex. "admin") vers un
 // compte Supabase Auth (ex. "admin@mienra.app"). Voir docs/securite-supabase.md.
@@ -36,6 +36,47 @@ const clean = (value) => String(value ?? "").replace(/[&<>"']/g, (s) => ({
   "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
 })[s]);
 const logoUrl = () => `${LOGO_SRC}?v=${ASSET_VERSION}`;
+
+// --- Notifications (toasts) & confirmations maison --------------------
+function uiRoot(id) {
+  let node = document.getElementById(id);
+  if (!node) { node = document.createElement("div"); node.id = id; document.body.appendChild(node); }
+  return node;
+}
+function notify(message, type = "info", timeout = 4000) {
+  const wrap = uiRoot("toast-root");
+  const toast = document.createElement("div");
+  toast.className = `toast ${type}`;
+  toast.setAttribute("role", "status");
+  toast.textContent = String(message == null ? "" : message);
+  wrap.appendChild(toast);
+  requestAnimationFrame(() => toast.classList.add("show"));
+  const close = () => { toast.classList.remove("show"); setTimeout(() => toast.remove(), 250); };
+  toast.addEventListener("click", close);
+  if (timeout) setTimeout(close, timeout);
+}
+// Toutes les « alertes » de l'application deviennent des toasts non bloquants.
+if (typeof window !== "undefined") window.alert = (message) => notify(message, "warn", 5000);
+
+// Confirmation maison (remplace confirm()). Renvoie une promesse booléenne.
+function confirmDialog(message, { danger = true, okLabel = "Confirmer", cancelLabel = "Annuler" } = {}) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.className = "modal-overlay";
+    overlay.innerHTML = `<div class="modal" role="dialog" aria-modal="true"><p class="modal-msg"></p><div class="modal-actions"><button class="btn quiet" data-act="cancel">${clean(cancelLabel)}</button><button class="btn ${danger ? "danger" : "primary"}" data-act="ok">${clean(okLabel)}</button></div></div>`;
+    overlay.querySelector(".modal-msg").textContent = String(message == null ? "" : message);
+    document.body.appendChild(overlay);
+    requestAnimationFrame(() => overlay.classList.add("show"));
+    const done = (value) => { overlay.classList.remove("show"); setTimeout(() => overlay.remove(), 200); resolve(value); };
+    overlay.addEventListener("click", (event) => {
+      const act = event.target?.dataset?.act;
+      if (act === "ok") done(true);
+      else if (act === "cancel" || event.target === overlay) done(false);
+    });
+    overlay.addEventListener("keydown", (event) => { if (event.key === "Escape") done(false); });
+    setTimeout(() => overlay.querySelector('[data-act="ok"]')?.focus(), 30);
+  });
+}
 
 let view = "dashboard";
 let session = null;
@@ -1012,9 +1053,9 @@ function saveStudent() {
 }
 
 function editStudent(id) { if (!requireAction("students")) return; editing = id; pages.students(); }
-function deleteStudent(id) {
+async function deleteStudent(id) {
   if (!requireAction("students")) return;
-  if (!confirm("Supprimer cet élève, ses inscriptions et ses paiements ?")) return;
+  if (!(await confirmDialog("Supprimer cet élève, ses inscriptions et ses paiements ?"))) return;
   const enrollIds = state.enrollments.filter((row) => row.studentId === id).map((row) => row.id);
   const payIds = state.payments.filter((row) => row.studentId === id).map((row) => row.id);
   state.students = state.students.filter((row) => row.id !== id);
@@ -1046,9 +1087,9 @@ function saveClass() {
 }
 
 function editClass(id) { if (!requireAction("classes")) return; editing = id; pages.classes(); }
-function deleteClass(id) {
+async function deleteClass(id) {
   if (!requireAction("classes")) return;
-  if (!confirm("Supprimer cette classe ?")) return;
+  if (!(await confirmDialog("Supprimer cette classe ?"))) return;
   state.classes = state.classes.filter((row) => row.id !== id);
   markDeleted(id);
   saveState();
@@ -1098,9 +1139,9 @@ function editEnrollment(id) {
   showFinanceTab("enrollments");
 }
 
-function deleteEnrollment(id) {
+async function deleteEnrollment(id) {
   if (!requireAction("deleteEnrollments")) return;
-  if (!confirm("Supprimer cette inscription ?")) return;
+  if (!(await confirmDialog("Supprimer cette inscription ?"))) return;
   state.enrollments = state.enrollments.filter((row) => row.id !== id);
   markDeleted(id);
   log("Inscription supprimée", "Inscription");
@@ -1183,9 +1224,9 @@ function paymentsTable() {
   return `<table><thead><tr><th>Reçu</th><th>Élève</th><th>Année</th><th>Payé par</th><th>Montant</th><th>Reste après paiement</th><th>Mode</th><th>Date</th><th>Caissier</th><th>Actions</th></tr></thead><tbody>${rows.map((row) => `<tr><td>${clean(row.receiptNo || row.id)}</td><td>${clean(student(row.studentId).name)}<br><small>${clean(student(row.studentId).matricule)}</small></td><td>${clean(row.year)}</td><td>${clean(paymentPayer(row))}</td><td>${money(row.amount)}</td><td class="${receiptAmounts(row).remaining > 0 ? "amount-danger" : "amount-ok"}">${money(receiptAmounts(row).remaining)}</td><td>${clean(row.mode)}</td><td>${clean(row.date)}<br><small>${clean(row.note)}</small></td><td>${clean(row.cashier)}</td><td><button class="btn quiet small" onclick="openReceipt('${row.id}')">Reçu</button>${canAction("deletePayments") ? ` <button class="btn danger small" onclick="deletePayment('${row.id}')">Supprimer</button>` : ""}</td></tr>`).join("") || `<tr><td colspan="10">Aucun paiement pour cette année scolaire.</td></tr>`}</tbody></table>`;
 }
 
-function deletePayment(id) {
+async function deletePayment(id) {
   if (!requireAction("deletePayments")) return;
-  if (!confirm("Supprimer ce paiement ?")) return;
+  if (!(await confirmDialog("Supprimer ce paiement ?"))) return;
   state.payments = state.payments.filter((row) => row.id !== id);
   markDeleted(id);
   log("Paiement supprimé", "Paiement");
@@ -1352,14 +1393,14 @@ async function deleteUser(id) {
   const user = state.users.find((row) => row.id === id);
   if (session?.id === id) return alert("Vous ne pouvez pas supprimer votre propre compte pendant cette session.");
   if (user?.role === "Administrateur" && state.users.filter((row) => row.role === "Administrateur" && row.active && row.id !== id).length === 0) return alert("Il faut conserver au moins un administrateur actif.");
-  if (!confirm("Supprimer cet utilisateur ? Son accès sera définitivement révoqué.")) return;
+  if (!(await confirmDialog("Supprimer cet utilisateur ? Son accès sera définitivement révoqué."))) return;
 
   // Supprime le compte de connexion Supabase (coupe l'accès pour de bon).
   if (canManageAuthUsers() && user?.login) {
     try {
       await adminUsersApi("delete", { email: authEmail(user.login) });
     } catch (e) {
-      if (!confirm(`Le compte de connexion Supabase n'a pas pu être supprimé (${e.message}). Retirer quand même l'utilisateur de la liste ? Il restera bloqué à la connexion.`)) return;
+      if (!(await confirmDialog(`Le compte de connexion Supabase n'a pas pu être supprimé (${e.message}). Retirer quand même l'utilisateur de la liste ? Il restera bloqué à la connexion.`))) return;
     }
   }
 
@@ -1420,7 +1461,7 @@ function downloadBackup() {
   download(`mienra-base-complete-${stamp}.json`, JSON.stringify(payload, null, 2), "application/json");
 }
 
-function removeDemoData() {
+async function removeDemoData() {
   if (!requireAction("backup")) return;
   const demoMatricules = new Set(["GSM-2026-0001", "GSM-2026-0002", "GSM-2026-0003"]);
   const demoNames = new Set(["Aka Mireille", "Kouadio Jean", "Traoré Aminata"]);
@@ -1430,7 +1471,7 @@ function removeDemoData() {
   const demoEnrollIds = state.enrollments.filter((row) => demoStudentIds.has(row.studentId)).map((row) => row.id);
   const count = demoStudentIds.size + demoPaymentIds.size + demoEnrollIds.length;
   if (!count) return alert("Aucune donnée de démonstration connue trouvée.");
-  if (!confirm(`Supprimer ${count} élément(s) de démonstration connu(s) ?`)) return;
+  if (!(await confirmDialog(`Supprimer ${count} élément(s) de démonstration connu(s) ?`))) return;
   state.students = state.students.filter((row) => !demoStudentIds.has(row.id));
   state.enrollments = state.enrollments.filter((row) => !demoStudentIds.has(row.studentId));
   state.payments = state.payments.filter((row) => !demoPaymentIds.has(row.id));
@@ -1442,11 +1483,11 @@ function removeDemoData() {
   go("backup");
 }
 
-function restoreLocalBackup() {
+async function restoreLocalBackup() {
   if (!requireAction("backup")) return;
   const saved = localStorage.getItem(DB_BACKUP_KEY);
   if (!saved) return alert("Aucune copie locale de secours trouvée sur ce navigateur.");
-  if (!confirm("Restaurer la dernière copie locale de secours ?")) return;
+  if (!(await confirmDialog("Restaurer la dernière copie locale de secours ?", { danger: false }))) return;
   try {
     state = mergeStates(state, JSON.parse(saved));
     state.updatedAt = new Date().toISOString();
@@ -1486,9 +1527,9 @@ function importBackup(input) {
   reader.readAsText(file);
 }
 
-function resetApp() {
+async function resetApp() {
   if (!requireAction("backup")) return;
-  if (!confirm("Réinitialiser les données (élèves, inscriptions, paiements, classes) ? Les comptes utilisateurs sont conservés.")) return;
+  if (!(await confirmDialog("Réinitialiser les données (élèves, inscriptions, paiements, classes) ? Les comptes utilisateurs sont conservés."))) return;
   // On marque toutes les données existantes comme supprimées pour que la
   // réinitialisation soit DÉFINITIVE (sinon la synchro cloud les ferait revenir).
   const ids = [...state.classes, ...state.students, ...state.enrollments, ...state.payments].map((row) => row.id);
