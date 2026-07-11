@@ -1,10 +1,12 @@
 const DB_KEY = "mienra_web_app_v2";
 const DB_BACKUP_KEY = `${DB_KEY}_last_good`;
 const DEVICE_KEY = `${DB_KEY}_device_id`;
+const BACKUP_STAMP_KEY = `${DB_KEY}_last_export`;
+const BACKUP_REMIND_DAYS = 7;
 
 const $ = (id) => document.getElementById(id);
 const LOGO_SRC = "assets/mienra-logo.jpeg";
-const ASSET_VERSION = "20260711-no-default-passwords";
+const ASSET_VERSION = "20260711-backup-reminder";
 const CLOUD_CONFIG = globalThis.MIENRA_CLOUD || {};
 // Domaine e-mail utilisé pour mapper un identifiant (ex. "admin") vers un
 // compte Supabase Auth (ex. "admin@mienra.app"). Voir docs/securite-supabase.md.
@@ -802,6 +804,7 @@ function renderShell() {
   renderNav();
   renderView();
   observeContentCards();
+  maybeRemindBackup();
 }
 
 function renderNav() {
@@ -918,7 +921,7 @@ const pages = {
 };
 
 pages.backup = function() {
-  $("content").innerHTML = `<article class="panel"><div class="panel-head"><h2>Sauvegardes</h2><span>Base complète</span></div><p class="muted">Mode actuel : ${syncLabel()}. La sauvegarde JSON contient toutes les informations enregistrées dans l'application : école, années scolaires, utilisateurs, classes, élèves, inscriptions, paiements, reçus et journal.</p><div class="actions"><button class="btn secondary" onclick="downloadBackup()">Exporter toute la base JSON</button><button class="btn quiet" onclick="restoreLocalBackup()">Restaurer copie locale</button><button class="btn danger" onclick="removeDemoData()">Supprimer données démo</button><button class="btn danger" onclick="resetApp()">Réinitialiser</button></div><label>Importer une sauvegarde JSON</label><input type="file" accept=".json" onchange="importBackup(this)"></article><article class="panel"><div class="panel-head"><h2>Données enregistrées</h2><span>Vue complète</span></div>${databaseOverview()}</article><article class="panel"><div class="panel-head"><h2>Journal</h2><span>${state.logs.length} opérations</span></div>${logsTable(80)}</article>`;
+  $("content").innerHTML = `<article class="panel"><div class="panel-head"><h2>Sauvegardes</h2><span>Base complète</span></div><p class="muted">Mode actuel : ${syncLabel()}. La sauvegarde JSON contient toutes les informations enregistrées dans l'application : école, années scolaires, utilisateurs, classes, élèves, inscriptions, paiements, reçus et journal.</p>${backupReminderText()}<div class="actions"><button class="btn secondary" onclick="downloadBackup()">Exporter toute la base JSON</button><button class="btn quiet" onclick="restoreLocalBackup()">Restaurer copie locale</button><button class="btn danger" onclick="removeDemoData()">Supprimer données démo</button><button class="btn danger" onclick="resetApp()">Réinitialiser</button></div><label>Importer une sauvegarde JSON</label><input type="file" accept=".json" onchange="importBackup(this)"></article><article class="panel"><div class="panel-head"><h2>Données enregistrées</h2><span>Vue complète</span></div>${databaseOverview()}</article><article class="panel"><div class="panel-head"><h2>Journal</h2><span>${state.logs.length} opérations</span></div>${logsTable(80)}</article>`;
 };
 
 function stat(label, value, tone = "") { return `<div class="stat ${tone}"><span>${label}</span><strong>${value}</strong></div>`; }
@@ -1514,6 +1517,37 @@ function exportCSV(type) {
   download(`${type}.csv`, rows.map((row) => row.map((cell) => `"${String(cell ?? "").replaceAll('"', '""')}"`).join(";")).join("\n"), "text/csv;charset=utf-8");
 }
 
+// --- Rappel de sauvegarde ---------------------------------------------
+// On mémorise (par appareil) la date du dernier export JSON, et on rappelle
+// gentiment d'exporter si c'est ancien (ou jamais fait).
+function recordBackup() {
+  try { localStorage.setItem(BACKUP_STAMP_KEY, new Date().toISOString()); } catch (_) {}
+}
+function lastBackupInfo() {
+  const iso = (() => { try { return localStorage.getItem(BACKUP_STAMP_KEY); } catch (_) { return null; } })();
+  if (!iso) return { iso: null, days: null };
+  const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+  return { iso, days };
+}
+function backupReminderText() {
+  const info = lastBackupInfo();
+  if (!info.iso) return `<article class="panel notice">Aucune sauvegarde exportée sur cet appareil. Cliquez sur « Exporter toute la base JSON » et conservez le fichier en lieu sûr.</article>`;
+  const when = new Date(info.iso).toLocaleDateString("fr-FR");
+  const overdue = info.days >= BACKUP_REMIND_DAYS;
+  return `<article class="panel notice">Dernière sauvegarde exportée sur cet appareil : <b>${clean(when)}</b> (il y a ${info.days} jour${info.days > 1 ? "s" : ""})${overdue ? " — pensez à en exporter une nouvelle." : "."}</article>`;
+}
+let backupReminded = false;
+function maybeRemindBackup() {
+  if (backupReminded || !session || !canAction("backup")) return;
+  backupReminded = true;
+  const info = lastBackupInfo();
+  if (info.days === null) {
+    notify("Pensez à exporter une sauvegarde (Sauvegardes → Exporter la base JSON).", "warn", 6000);
+  } else if (info.days >= BACKUP_REMIND_DAYS) {
+    notify(`Dernière sauvegarde il y a ${info.days} jours. Pensez à en exporter une nouvelle.`, "warn", 6000);
+  }
+}
+
 function downloadBackup() {
   if (!requireAction("backup")) return;
   const stamp = new Date().toISOString().slice(0, 10);
@@ -1524,8 +1558,10 @@ function downloadBackup() {
     exportedAt: new Date().toISOString(),
     data: normalizeState(state)
   };
+  recordBackup();
   log("Export sauvegarde JSON complet", "Sauvegarde");
   download(`mienra-base-complete-${stamp}.json`, JSON.stringify(payload, null, 2), "application/json");
+  notify("Sauvegarde exportée. Conservez le fichier en lieu sûr.", "success", 3500);
 }
 
 async function removeDemoData() {
