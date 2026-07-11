@@ -4,7 +4,7 @@ const DEVICE_KEY = `${DB_KEY}_device_id`;
 
 const $ = (id) => document.getElementById(id);
 const LOGO_SRC = "assets/mienra-logo.jpeg";
-const ASSET_VERSION = "20260711-dark-mode";
+const ASSET_VERSION = "20260711-cards-charts";
 const CLOUD_CONFIG = globalThis.MIENRA_CLOUD || {};
 // Domaine e-mail utilisé pour mapper un identifiant (ex. "admin") vers un
 // compte Supabase Auth (ex. "admin@mienra.app"). Voir docs/securite-supabase.md.
@@ -99,6 +99,31 @@ function toggleTheme() {
   notify(`Thème : ${{ auto: "automatique", light: "clair", dark: "sombre" }[next]}`, "info", 1500);
 }
 applyTheme();
+
+// --- Tableaux en cartes sur mobile ------------------------------------
+// Pour chaque <table class="cards">, on recopie l'en-tête de colonne dans un
+// attribut data-label des cellules ; le CSS s'en sert pour l'affichage en
+// cartes sur petit écran. Un observateur couvre tous les rendus (y compris
+// les rafraîchissements directs après un enregistrement).
+function decorateCardTables() {
+  document.querySelectorAll("table.cards").forEach((table) => {
+    const heads = [...table.querySelectorAll("thead th")].map((th) => th.textContent.trim());
+    table.querySelectorAll("tbody tr").forEach((tr) => {
+      [...tr.children].forEach((td, i) => {
+        if (heads[i] && !td.hasAttribute("data-label")) td.setAttribute("data-label", heads[i]);
+      });
+    });
+  });
+}
+let _cardObserver = null;
+function observeContentCards() {
+  const content = document.getElementById("content");
+  if (!content || typeof MutationObserver === "undefined") return;
+  if (_cardObserver) _cardObserver.disconnect();
+  _cardObserver = new MutationObserver(() => decorateCardTables());
+  _cardObserver.observe(content, { childList: true, subtree: true });
+  decorateCardTables();
+}
 
 let view = "dashboard";
 let session = null;
@@ -776,6 +801,7 @@ function renderShell() {
     </div>`;
   renderNav();
   renderView();
+  observeContentCards();
 }
 
 function renderNav() {
@@ -813,6 +839,25 @@ function renderView() {
   pages[view]();
 }
 
+// Graphique simple (barres) : encaissement par classe. Une seule série
+// (grandeur) -> teinte unique, valeurs affichées, libellés texte (pas de sens
+// porté par la couleur seule). Rendu en HTML/CSS, sans dépendance externe.
+function collectionChart() {
+  const rows = state.classes.map((cls) => {
+    const ids = state.students.filter((s) => s.className === cls.name).map((s) => s.id);
+    const collected = ids.reduce((sum, id) => sum + paid(id), 0);
+    const expected = ids.reduce((sum, id) => sum + due(id), 0);
+    return { name: cls.name, collected, expected };
+  }).filter((r) => r.expected > 0 || r.collected > 0);
+  if (!rows.length) return "";
+  const max = Math.max(1, ...rows.map((r) => r.collected));
+  return `<div class="bar-chart" role="img" aria-label="Encaissement par classe">${rows.map((r) => {
+    const width = Math.round((r.collected / max) * 100);
+    const rate = r.expected ? Math.round((r.collected / r.expected) * 100) : 0;
+    return `<div class="bar-row"><span class="bar-key">${clean(r.name)}</span><span class="bar-track"><span class="bar-fill" style="width:${width}%"></span></span><span class="bar-val">${money(r.collected)} <small>${rate}%</small></span></div>`;
+  }).join("")}</div>`;
+}
+
 const pages = {
   dashboard() {
     const t = totals();
@@ -820,7 +865,7 @@ const pages = {
       ${dashboardDetail ? dashboardDetailPanel(dashboardDetail) : ""}
       <div class="stats">${stat("Élèves", state.students.length)}${stat("Montant attendu", money(t.expected))}${stat("Montant encaissé", money(t.collected))}${stat("Reste à payer", money(t.remaining), t.remaining > 0 ? "danger" : "ok")}</div>
       <div class="layout-two">
-        <article class="panel"><div class="panel-head"><h2>Recouvrement par classe</h2><span>${t.rate}% encaissé</span></div>${classSummary()}</article>
+        <article class="panel"><div class="panel-head"><h2>Recouvrement par classe</h2><span>${t.rate}% encaissé</span></div>${collectionChart()}${classSummary()}</article>
         <article class="panel"><div class="panel-head"><h2>Désagrégation par sexe</h2><span>Effectif et paiements</span></div>${genderSummary()}</article>
         <article class="panel activity-panel"><div class="panel-head"><h2>Effectifs par classe</h2><span>Sexe et statut scolaire</span></div>${classEnrollmentSummary()}</article>
         <article class="panel activity-panel"><div class="panel-head"><h2>Activité récente</h2><span>${state.logs.length} opérations</span></div>${logsTable(9)}</article>
@@ -927,7 +972,7 @@ function drawStudents() {
   if (payStatus === "paid") rows = rows.filter((row) => balance(row.id) <= 0 && due(row.id) > 0);
   if (payStatus === "partial") rows = rows.filter((row) => balance(row.id) > 0 && paid(row.id) > 0);
   if (payStatus === "unpaid") rows = rows.filter((row) => balance(row.id) > 0 && paid(row.id) === 0);
-  $("studentsTable").innerHTML = `<table><thead><tr><th>Matricule</th><th>Élève</th><th>Entrée école</th><th>Date saisie</th><th>Classe</th><th>Parent</th><th>Paiement</th><th>Actions</th></tr></thead><tbody>${rows.map((row) => `<tr><td>${clean(row.matricule)}</td><td>${clean(row.name)}<br><small>${clean(row.gender)} · ${clean(row.status)}</small></td><td>${clean(row.entryDate || "-")}</td><td>${clean(row.addedDate || "-")}</td><td>${clean(row.className)}</td><td>${clean(row.parent)}<br><small>${clean(row.phone)}</small></td><td>${paymentStatus(row)}</td><td>${studentActions(row.id)}</td></tr>`).join("") || `<tr><td colspan="8">Aucun élève trouvé.</td></tr>`}</tbody></table>`;
+  $("studentsTable").innerHTML = `<table class="cards"><thead><tr><th>Matricule</th><th>Élève</th><th>Entrée école</th><th>Date saisie</th><th>Classe</th><th>Parent</th><th>Paiement</th><th>Actions</th></tr></thead><tbody>${rows.map((row) => `<tr><td>${clean(row.matricule)}</td><td>${clean(row.name)}<br><small>${clean(row.gender)} · ${clean(row.status)}</small></td><td>${clean(row.entryDate || "-")}</td><td>${clean(row.addedDate || "-")}</td><td>${clean(row.className)}</td><td>${clean(row.parent)}<br><small>${clean(row.phone)}</small></td><td>${paymentStatus(row)}</td><td>${studentActions(row.id)}</td></tr>`).join("") || `<tr><td colspan="8">Aucun élève trouvé.</td></tr>`}</tbody></table>`;
 }
 
 function studentActions(id) {
@@ -1243,7 +1288,7 @@ function savePayment() {
 
 function paymentsTable() {
   const rows = state.payments.filter((row) => row.year === currentYear());
-  return `<table><thead><tr><th>Reçu</th><th>Élève</th><th>Année</th><th>Payé par</th><th>Montant</th><th>Reste après paiement</th><th>Mode</th><th>Date</th><th>Caissier</th><th>Actions</th></tr></thead><tbody>${rows.map((row) => `<tr><td>${clean(row.receiptNo || row.id)}</td><td>${clean(student(row.studentId).name)}<br><small>${clean(student(row.studentId).matricule)}</small></td><td>${clean(row.year)}</td><td>${clean(paymentPayer(row))}</td><td>${money(row.amount)}</td><td class="${receiptAmounts(row).remaining > 0 ? "amount-danger" : "amount-ok"}">${money(receiptAmounts(row).remaining)}</td><td>${clean(row.mode)}</td><td>${clean(row.date)}<br><small>${clean(row.note)}</small></td><td>${clean(row.cashier)}</td><td><button class="btn quiet small" onclick="openReceipt('${row.id}')">Reçu</button>${canAction("deletePayments") ? ` <button class="btn danger small" onclick="deletePayment('${row.id}')">Supprimer</button>` : ""}</td></tr>`).join("") || `<tr><td colspan="10">Aucun paiement pour cette année scolaire.</td></tr>`}</tbody></table>`;
+  return `<table class="cards"><thead><tr><th>Reçu</th><th>Élève</th><th>Année</th><th>Payé par</th><th>Montant</th><th>Reste après paiement</th><th>Mode</th><th>Date</th><th>Caissier</th><th>Actions</th></tr></thead><tbody>${rows.map((row) => `<tr><td>${clean(row.receiptNo || row.id)}</td><td>${clean(student(row.studentId).name)}<br><small>${clean(student(row.studentId).matricule)}</small></td><td>${clean(row.year)}</td><td>${clean(paymentPayer(row))}</td><td>${money(row.amount)}</td><td class="${receiptAmounts(row).remaining > 0 ? "amount-danger" : "amount-ok"}">${money(receiptAmounts(row).remaining)}</td><td>${clean(row.mode)}</td><td>${clean(row.date)}<br><small>${clean(row.note)}</small></td><td>${clean(row.cashier)}</td><td><button class="btn quiet small" onclick="openReceipt('${row.id}')">Reçu</button>${canAction("deletePayments") ? ` <button class="btn danger small" onclick="deletePayment('${row.id}')">Supprimer</button>` : ""}</td></tr>`).join("") || `<tr><td colspan="10">Aucun paiement pour cette année scolaire.</td></tr>`}</tbody></table>`;
 }
 
 async function deletePayment(id) {

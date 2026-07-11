@@ -656,6 +656,16 @@ th {
   color: var(--muted);
 }
 
+/* Graphique de barres (tableau de bord) */
+.bar-chart { display: grid; gap: 10px; margin: 4px 0 14px; }
+.bar-row { display: grid; grid-template-columns: 92px 1fr auto; align-items: center; gap: 10px; }
+.bar-key { font-size: 12px; font-weight: 700; color: var(--muted); }
+.bar-track { height: 12px; background: var(--soft); border-radius: 999px; overflow: hidden; }
+.bar-fill { display: block; height: 100%; background: var(--green); border-radius: 999px; min-width: 3px; }
+.bar-val { font-size: 12px; font-weight: 800; color: var(--ink); white-space: nowrap; }
+.bar-val small { color: var(--muted); font-weight: 700; }
+@media (max-width: 560px) { .bar-row { grid-template-columns: 66px 1fr auto; } }
+
 /* Notifications (toasts) */
 #toast-root {
   position: fixed;
@@ -730,6 +740,41 @@ th {
   nav { grid-template-columns: 1fr; }
   .signatures { grid-template-columns: 1fr; }
   .document-header { flex-direction: column; }
+
+  /* Listes principales en cartes empilées (au lieu d'un tableau qui défile). */
+  table.cards { display: block; min-width: 0; white-space: normal; overflow: visible; }
+  table.cards thead { display: none; }
+  table.cards tbody { display: block; }
+  table.cards tr {
+    display: block;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--paper);
+    padding: 6px 12px;
+    margin-bottom: 10px;
+    box-shadow: var(--shadow);
+  }
+  table.cards td {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 14px;
+    border: 0;
+    border-bottom: 1px dashed var(--line);
+    padding: 8px 0;
+    text-align: right;
+    white-space: normal;
+  }
+  table.cards td:last-child { border-bottom: 0; justify-content: flex-end; flex-wrap: wrap; }
+  table.cards td::before {
+    content: attr(data-label);
+    font-weight: 800;
+    color: var(--muted);
+    text-align: left;
+    flex: 0 0 auto;
+  }
+  table.cards td[colspan]::before { content: ""; }
+  table.cards td small { color: var(--muted); }
 }
 
 @media print {
