@@ -1,0 +1,23 @@
+# Exécute la suite de tests MIENRA à chaque push et sur les pull requests.
+# Sans dépendance : juste Node. Un échec bloque (statut rouge sur le commit/PR).
+name: Tests
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - claude/mienra-school-app-ag0l9x
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Lancer les tests
+        run: node tests/run.js
