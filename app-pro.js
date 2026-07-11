@@ -4,7 +4,7 @@ const DEVICE_KEY = `${DB_KEY}_device_id`;
 
 const $ = (id) => document.getElementById(id);
 const LOGO_SRC = "assets/mienra-logo.jpeg";
-const ASSET_VERSION = "20260711-cards-charts";
+const ASSET_VERSION = "20260711-no-default-passwords";
 const CLOUD_CONFIG = globalThis.MIENRA_CLOUD || {};
 // Domaine e-mail utilisé pour mapper un identifiant (ex. "admin") vers un
 // compte Supabase Auth (ex. "admin@mienra.app"). Voir docs/securite-supabase.md.
@@ -189,11 +189,11 @@ function seedState() {
     },
     years: ["2025-2026", "2026-2027"],
     activeYear: "2026-2027",
+    // Aucun mot de passe par défaut dans le code : l'authentification passe par
+    // Supabase Auth (les mots de passe sont gérés côté serveur). Ces entrées ne
+    // servent qu'à l'affichage initial hors ligne ; elles ne donnent aucun accès.
     users: [
-      { id: "USR-ADMIN", name: "Administrateur", login: "admin", password: "admin123", role: "Administrateur", active: true },
-      { id: "USR-DIRECTEUR", name: "Directeur", login: "directeur", password: "directeur123", role: "Directeur", active: true },
-      { id: "USR-SECRETAIRE", name: "Secrétaire", login: "secretaire", password: "secretaire123", role: "Secrétaire", active: true },
-      { id: "USR-CONSULTATION", name: "Consultation", login: "consultation", password: "consultation123", role: "Consultation", active: true }
+      { id: "USR-ADMIN", name: "Administrateur", login: "admin", password: "", role: "Administrateur", active: true }
     ],
     classes,
     students: [],
