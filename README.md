@@ -1,157 +1,78 @@
-# MIENRA — Logiciel de gestion scolaire
+# MIENRA Web - EPV Mienrassou
 
-Application de bureau **100 % offline** pour la gestion des inscriptions, des
-paiements, des reçus et des rapports financiers des établissements scolaires
-(primaire, collège, lycée), conçue pour la Côte d'Ivoire.
+Application web de gestion scolaire pour **EPV Mienrassou**. Elle fonctionne dans le navigateur, est publiée sur GitHub Pages et synchronise les données avec Supabase lorsque l'authentification est configurée.
 
-## Stack technique
+Lien public : https://patrickeudess.github.io/mienra/
 
-| Couche | Technologie |
-|---|---|
-| Interface | React 18 + TypeScript strict + Tailwind CSS |
-| Application desktop | Electron (electron-vite) |
-| Base de données | SQLite locale via Prisma |
-| Formulaires | React Hook Form + Zod |
-| PDF / Excel | pdf-lib / ExcelJS |
-| Graphiques | Recharts |
-| Installateur Windows | Electron Builder (NSIS) |
+## Fonctionnalités principales
 
-## Architecture
+- Tableau de bord financier et effectifs par classe.
+- Désagrégation par sexe et statut scolaire.
+- Gestion des élèves avec matricule unique.
+- Classes et frais officiels : 70 000 FCFA de la maternelle au CM1, 75 000 FCFA en CM2.
+- Paiements par versements successifs jusqu'au solde.
+- Suivi des paiements : payé, reste à payer, statut, payé par, historique par élève.
+- Reçus imprimables en deux exemplaires sur une feuille A4.
+- Rapports complets et exports CSV.
+- Utilisateurs, rôles, verrouillage d'accès et journal des actions.
+- Sauvegarde JSON complète avec rappel périodique.
 
-```
-mienra/
-├── prisma/
-│   ├── schema.prisma        # Schéma de la base (SQLite)
-│   ├── migrations/          # Migrations versionnées
-│   └── seed.ts              # Données initiales (+ démo avec SEED_DEMO=1)
-├── src/
-│   ├── main/                # Processus principal Electron (Node.js)
-│   │   ├── index.ts         # Fenêtre, cycle de vie, sauvegarde à la fermeture
-│   │   ├── database/        # Client Prisma + sauvegardes automatiques
-│   │   ├── services/        # Services transverses (journal d'activité)
-│   │   └── ipc/             # Handlers IPC, un fichier par module
-│   ├── preload/             # Pont sécurisé contextBridge (window.api)
-│   ├── shared/              # Types, schémas Zod et canaux IPC partagés
-│   └── renderer/            # Interface React
-│       └── src/
-│           ├── components/  # Composants réutilisables (layout, ui)
-│           ├── context/     # Contexte d'authentification
-│           ├── lib/         # Utilitaires (formatage FCFA…)
-│           └── modules/     # Un dossier par module métier
-│               ├── auth/
-│               ├── dashboard/
-│               └── …        # eleves, inscriptions, paiements, recus,
-│                            # rapports, utilisateurs, parametres,
-│                            # sauvegardes, journal (étapes suivantes)
-├── electron.vite.config.ts
-├── electron-builder.yml     # Installateur Windows
-└── tailwind.config.js       # Palette MIENRA (bleu foncé, vert, gris clair)
-```
+## Données et synchronisation
 
-**Principe de sécurité** : le renderer (React) n'a aucun accès à Node ni à la
-base. Toutes les opérations passent par des canaux IPC typés exposés dans le
-preload (`window.api`). Les mots de passe sont hachés avec bcrypt et ne
-quittent jamais le processus principal.
+L'application utilise Supabase pour partager les données entre plusieurs appareils connectés avec les mêmes comptes.
 
-## Démarrage (développement)
+- `cloud-config.js` active la synchronisation Supabase.
+- `supabase-config.js` contient la clé publique publishable.
+- La table `mienra_app_state` conserve l'état partagé de l'école.
+- La table `profiles` porte le rôle applicatif de chaque utilisateur.
+- La fonction Supabase `admin-users` permet à l'administrateur de créer, modifier, verrouiller ou supprimer les comptes de connexion.
 
-```bash
-npm install
-npx prisma migrate dev      # crée prisma/dev.db
-npm run db:seed:demo        # utilisateurs + classes + données de démonstration
-npm run dev                 # lance Electron + rechargement à chaud
-```
+Les suppressions sont protégées par des `tombstones`, ce qui évite que des données supprimées reviennent après actualisation ou synchronisation.
 
-Comptes créés par le seed (mots de passe à changer en production) :
+## Sécurité
 
-| Identifiant | Mot de passe | Rôle |
-|---|---|---|
-| `admin` | `admin123` | Administrateur |
-| `directeur` | `directeur123` | Directeur |
-| `secretaire` | `secretaire123` | Secrétaire / Comptable |
+La connexion robuste passe par Supabase Auth. Les rôles utilisés par l'application sont lus côté serveur depuis `profiles`, pas depuis l'interface.
 
-## Tester l'application dans un navigateur (sans Electron)
+Points importants :
+
+- Ne jamais publier la clé `service_role` dans GitHub Pages.
+- Créer au moins un compte administrateur dans Supabase Auth avant de durcir les règles RLS.
+- Conserver des sauvegardes JSON régulières pendant l'année scolaire.
+
+Guides utiles :
+
+- `docs/securite-supabase.md`
+- `docs/creer-comptes-depuis-app.md`
+- `supabase/admin-setup.sql`
+- `supabase/schema.sql`
+
+## Déploiement GitHub Pages
+
+Le workflow `.github/workflows/pages.yml` publie automatiquement l'application statique à chaque push sur la branche :
+
+`claude/mienra-school-app-ag0l9x`
+
+Fichiers servis :
+
+- `index.html`
+- `styles.css`
+- `design-polish.css`
+- `app-pro.js`
+- `cloud-config.js`
+- `supabase-config.js`
+- `assets/`
+- `.nojekyll`
+
+## Tests
+
+La suite de tests protège les calculs financiers, les reçus et la synchronisation.
 
 ```bash
-npm run build      # compile l'interface
-npm run test:app   # http://localhost:5199 (version compilée)
-
-npm run test:app:dev   # http://localhost:5200 (rechargement automatique)
+node tests/run.js
 ```
 
-Le mode `test:app:dev` recharge tout automatiquement : les modifications de
-l'interface s'affichent instantanément dans la page ouverte (HMR de Vite,
-sans F5) et le serveur des handlers réels redémarre seul quand le code du
-processus principal change (`tsx watch`).
+Le workflow `.github/workflows/tests.yml` exécute aussi ces tests sur GitHub Actions.
 
-Le serveur de test (`dev/serveur-test.ts`) exécute les **vrais handlers IPC**
-et la **vraie base** `prisma/dev.db` ; seul le module `electron` est remplacé
-par un stub (`dev/electron-stub.ts`, alias dans `dev/tsconfig.json`). Le pont
-`window.api` est généré automatiquement depuis la carte des canaux IPC :
-l'application complète se pilote alors depuis un navigateur — pratique pour
-tester ou faire une démonstration sans installer quoi que ce soit.
+## Limite actuelle
 
-## Scripts utiles
-
-| Commande | Rôle |
-|---|---|
-| `npm run dev` | Application en mode développement |
-| `npm run build` | Build de production (main + preload + renderer) |
-| `npm run typecheck` | Vérification TypeScript stricte |
-| `npm run db:migrate` | Nouvelle migration Prisma |
-| `npm run db:seed` | Données de base (sans démo) |
-| `npm run dist:win` | Installateur Windows (NSIS) — génère d'abord la base modèle |
-
-## Installateur Windows
-
-`npm run dist:win` enchaîne :
-
-1. `db:template` — crée `resources/mienra-template.db` (migrations + comptes,
-   année scolaire et classes de départ) ;
-2. build de production ;
-3. Electron Builder (NSIS). La base modèle est embarquée en ressource et
-   copiée dans le dossier `userData` de la machine au premier lancement.
-
-## Multi-établissement
-
-Chaque école qui installe MIENRA personnalise le logiciel à son image :
-
-- **Assistant de bienvenue** au premier lancement : l'administrateur
-  renseigne le nom, l'adresse, le téléphone, l'email, le **code de
-  l'établissement** et téléverse le **logo** ;
-- ces informations habillent l'en-tête des **reçus PDF**, des **rapports
-  PDF et Excel** et la barre latérale ;
-- le code sert de préfixe aux **matricules** (ex. `GSM-2026-0001`), avec
-  une numérotation propre à chaque établissement ;
-- tout reste modifiable dans **Paramètres**.
-
-## Interface responsive
-
-La barre latérale se replie en mode icônes (avec info-bulles) sous 1024 px
-de large ; les grilles de cartes s'adaptent et les tableaux défilent
-horizontalement dans leur conteneur. Fenêtre minimale : 800 × 600.
-
-## Sauvegardes automatiques
-
-À chaque fermeture de l'application, une copie horodatée de la base est créée
-dans le dossier `backups/` (dossier `userData` en production). Les **dix
-dernières** sauvegardes sont conservées. La restauration et l'export seront
-pilotables depuis le module Sauvegardes.
-
-## Feuille de route
-
-- [x] Étape 1 — Architecture du projet
-- [x] Étape 2 — Initialisation Electron / React / TypeScript / Tailwind / SQLite / Prisma
-- [x] Étape 3 — Configuration de la base de données
-- [x] Étape 4 — Premières tables (utilisateurs, années, classes, élèves, inscriptions, paiements, journal)
-- [x] Étape 5 — Tableau de bord + authentification
-- [x] Étape 6 — Module Élèves (liste, recherche, fiche, matricule automatique, photo)
-- [x] Étape 7 — Module Inscriptions (classe, année, montants, total automatique)
-- [x] Étape 8 — Module Paiements (versements multiples, reçu automatique, historique)
-- [x] Étape 9 — Reçus PDF (génération automatique, QR code, impression en un clic)
-- [x] Étape 10 — Impayés (pourcentage payé, filtres classe / niveau / année)
-- [x] Étape 11 — Rapports (8 rapports, aperçu, exports PDF / Excel)
-- [x] Étape 12 — Utilisateurs & rôles (création, activation, mots de passe, garde-fous)
-- [x] Étape 13 — Journal d'activité (consultation filtrable, accès admin/directeur)
-- [x] Étape 14 — Sauvegardes (manuelle, restauration avec filet de sécurité, export)
-- [x] Étape 15 — Paramètres (école, logo, années, classes), responsive & installateur Windows
+La version actuelle est adaptée à une école pilote avec personnel de confiance. Le chantier de fond suivant sera une base Supabase relationnelle complète, avec tables séparées pour élèves, paiements, inscriptions, classes et journaux.
