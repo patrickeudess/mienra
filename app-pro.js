@@ -4,7 +4,7 @@ const DEVICE_KEY = `${DB_KEY}_device_id`;
 
 const $ = (id) => document.getElementById(id);
 const LOGO_SRC = "assets/mienra-logo.jpeg";
-const ASSET_VERSION = "20260711-toasts-modals";
+const ASSET_VERSION = "20260711-dark-mode";
 const CLOUD_CONFIG = globalThis.MIENRA_CLOUD || {};
 // Domaine e-mail utilisé pour mapper un identifiant (ex. "admin") vers un
 // compte Supabase Auth (ex. "admin@mienra.app"). Voir docs/securite-supabase.md.
@@ -77,6 +77,28 @@ function confirmDialog(message, { danger = true, okLabel = "Confirmer", cancelLa
     setTimeout(() => overlay.querySelector('[data-act="ok"]')?.focus(), 30);
   });
 }
+
+// --- Thème (clair / sombre / auto) ------------------------------------
+const THEME_KEY = "mienra_theme";
+function currentTheme() { return localStorage.getItem(THEME_KEY) || "auto"; }
+function applyTheme(theme = currentTheme()) {
+  const root = document.documentElement;
+  if (!root || !root.setAttribute) return;
+  if (theme === "auto") root.removeAttribute("data-theme");
+  else root.setAttribute("data-theme", theme);
+}
+function themeIcon() {
+  return { auto: "🌗 Auto", light: "☀️ Clair", dark: "🌙 Sombre" }[currentTheme()] || "🌗 Auto";
+}
+function toggleTheme() {
+  const order = ["auto", "light", "dark"];
+  const next = order[(order.indexOf(currentTheme()) + 1) % order.length];
+  localStorage.setItem(THEME_KEY, next);
+  applyTheme(next);
+  if (typeof renderShell === "function" && session) renderShell();
+  notify(`Thème : ${{ auto: "automatique", light: "clair", dark: "sombre" }[next]}`, "info", 1500);
+}
+applyTheme();
 
 let view = "dashboard";
 let session = null;
@@ -741,7 +763,7 @@ function renderShell() {
     <div class="app">
       <aside class="sidebar">
         <div class="brand-row"><img class="brand-logo small-logo" src="${logoUrl()}" alt="Logo EPV Mienrassou"><div><strong>EPV Mienrassou</strong><span>${clean(currentYear())}</span></div></div>
-        <div class="account"><b>${clean(session.name)}</b><span>${clean(session.role)} · ${syncLabel()}</span><button class="btn small quiet" onclick="logout()">Déconnexion</button></div>
+        <div class="account"><b>${clean(session.name)}</b><span>${clean(session.role)} · ${syncLabel()}</span><div class="account-actions"><button class="btn small quiet" onclick="toggleTheme()" title="Changer le thème (clair / sombre / auto)">${themeIcon()}</button><button class="btn small quiet" onclick="logout()">Déconnexion</button></div></div>
         <nav id="nav"></nav>
       </aside>
       <main class="workspace">
