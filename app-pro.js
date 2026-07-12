@@ -6,7 +6,7 @@ const BACKUP_REMIND_DAYS = 7;
 
 const $ = (id) => document.getElementById(id);
 const LOGO_SRC = "assets/mienra-logo.jpeg";
-const ASSET_VERSION = "20260711-backup-reminder";
+const ASSET_VERSION = "20260712-dashboard-polish";
 const CLOUD_CONFIG = globalThis.MIENRA_CLOUD || {};
 // Domaine e-mail utilisé pour mapper un identifiant (ex. "admin") vers un
 // compte Supabase Auth (ex. "admin@mienra.app"). Voir docs/securite-supabase.md.
@@ -857,7 +857,7 @@ function collectionChart() {
   return `<div class="bar-chart" role="img" aria-label="Encaissement par classe">${rows.map((r) => {
     const width = Math.round((r.collected / max) * 100);
     const rate = r.expected ? Math.round((r.collected / r.expected) * 100) : 0;
-    return `<div class="bar-row"><span class="bar-key">${clean(r.name)}</span><span class="bar-track"><span class="bar-fill" style="width:${width}%"></span></span><span class="bar-val">${money(r.collected)} <small>${rate}%</small></span></div>`;
+    return `<div class="bar-row"><span class="bar-key">${clean(r.name)}</span><span class="bar-track"><span class="bar-fill" style="width:${width}%"></span></span><span class="bar-val">${money(r.collected)} <small class="${rate >= 100 ? "rate-full" : ""}">${rate}%</small></span></div>`;
   }).join("")}</div>`;
 }
 
@@ -866,7 +866,7 @@ const pages = {
     const t = totals();
     $("content").innerHTML = `
       ${dashboardDetail ? dashboardDetailPanel(dashboardDetail) : ""}
-      <div class="stats">${stat("Élèves", state.students.length)}${stat("Montant attendu", money(t.expected))}${stat("Montant encaissé", money(t.collected))}${stat("Reste à payer", money(t.remaining), t.remaining > 0 ? "danger" : "ok")}</div>
+      <div class="stats">${stat("Élèves", state.students.length)}${stat("Montant attendu", money(t.expected))}${stat("Montant encaissé", money(t.collected), "ok")}${stat("Reste à payer", money(t.remaining), t.remaining > 0 ? "danger" : "ok")}</div>
       <div class="layout-two">
         <article class="panel"><div class="panel-head"><h2>Recouvrement par classe</h2><span>${t.rate}% encaissé</span></div>${collectionChart()}${classSummary()}</article>
         <article class="panel"><div class="panel-head"><h2>Désagrégation par sexe</h2><span>Effectif et paiements</span></div>${genderSummary()}</article>
@@ -937,6 +937,7 @@ function attachDashboardStatActions() {
     card.classList.add("clickable");
     card.setAttribute("role", "button");
     card.setAttribute("tabindex", "0");
+    if (!card.querySelector(".stat-hint")) card.insertAdjacentHTML("beforeend", `<span class="stat-hint">Voir le détail →</span>`);
     card.onclick = () => showDashboardDetail(type);
     card.onkeydown = (event) => {
       if (event.key === "Enter" || event.key === " ") showDashboardDetail(type);
