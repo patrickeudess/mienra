@@ -193,7 +193,7 @@ nav span {
 
 .topbar h1 {
   margin: 2px 0 0;
-  color: var(--nav);
+  color: var(--ink);
   font-size: 28px;
 }
 
@@ -281,7 +281,7 @@ nav span {
 .stat strong {
   display: block;
   margin-top: 8px;
-  color: var(--nav);
+  color: var(--ink);
   font-size: 25px;
   font-weight: 900;
   line-height: 1.1;
@@ -350,7 +350,7 @@ nav span {
 
 .panel-head h2 {
   margin: 0;
-  color: var(--nav);
+  color: var(--ink);
   font-size: 19px;
 }
 
@@ -403,8 +403,8 @@ textarea { min-height: 92px; }
 .btn.primary { background: var(--green); color: #fff; }
 .btn.secondary { background: var(--blue); color: #fff; }
 .btn.danger { background: rgba(194, 65, 58, .15); color: var(--red); }
-.btn.quiet { background: var(--soft); color: var(--nav); }
-.sidebar .btn.quiet { background: rgba(255, 255, 255, .92); }
+.btn.quiet { background: var(--soft); color: var(--ink); }
+.sidebar .btn.quiet { background: rgba(255, 255, 255, .92); color: #14345f; }
 
 .hint, .notice {
   margin-top: 12px;
@@ -515,7 +515,7 @@ th, td {
 }
 
 th {
-  color: var(--nav);
+  color: var(--ink);
   background: var(--soft);
   font-size: 12px;
   text-transform: uppercase;
@@ -707,7 +707,7 @@ th {
 /* Notifications (toasts) */
 #toast-root {
   position: fixed;
-  top: 18px;
+  bottom: 18px;
   right: 18px;
   z-index: 9999;
   display: flex;
@@ -725,7 +725,7 @@ th {
   line-height: 1.35;
   cursor: pointer;
   opacity: 0;
-  transform: translateY(-8px);
+  transform: translateY(8px);
   transition: opacity .2s ease, transform .2s ease;
   border-left: 4px solid rgba(255, 255, 255, .5);
 }

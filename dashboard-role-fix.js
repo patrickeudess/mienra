@@ -32,7 +32,7 @@
     const t = totals();
     $("content").innerHTML = `
       ${dashboardDetail ? dashboardDetailPanel(dashboardDetail) : ""}
-      <div class="stats">${stat("Élèves", state.students.length)}${stat("Montant attendu", money(t.expected))}${stat("Montant encaissé", money(t.collected))}${stat("Reste à payer", money(t.remaining), t.remaining > 0 ? "danger" : "ok")}</div>
+      <div class="stats">${stat("Élèves", state.students.length)}${stat("Montant attendu", money(t.expected))}${stat("Montant encaissé", money(t.collected), "ok")}${stat("Reste à payer", money(t.remaining), t.remaining > 0 ? "danger" : "ok")}</div>
       <div class="layout-two">
         <article class="panel"><div class="panel-head"><h2>Recouvrement par classe</h2><span>${t.rate}% encaissé</span></div>${collectionChart()}${classSummary()}</article>
         <article class="panel activity-panel"><div class="panel-head"><h2>Effectifs par classe</h2><span>Sexe et statut scolaire</span></div>${classEnrollmentSummary()}</article>

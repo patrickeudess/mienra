@@ -142,15 +142,15 @@ let supabaseClient = null;
 let state = loadState();
 
 const menu = [
-  ["dashboard", "Tableau de bord", "◼"],
-  ["students", "Élèves", "●"],
-  ["classes", "Classes & frais", "▦"],
-  ["finance", "Paiements & inscriptions", "+"],
-  ["receipts", "Reçus", "#"],
-  ["reports", "Rapports", "▤"],
-  ["users", "Utilisateurs", "◎"],
-  ["settings", "Paramètres", "⚙"],
-  ["backup", "Sauvegardes", "⇩"]
+  ["dashboard", "Tableau de bord", "🏠"],
+  ["students", "Élèves", "🎓"],
+  ["classes", "Classes & frais", "🏫"],
+  ["finance", "Paiements & inscriptions", "💳"],
+  ["receipts", "Reçus", "🧾"],
+  ["reports", "Rapports", "📊"],
+  ["users", "Utilisateurs", "👤"],
+  ["settings", "Paramètres", "⚙️"],
+  ["backup", "Sauvegardes", "💾"]
 ];
 
 const roleAccess = {
