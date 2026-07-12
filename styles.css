@@ -89,6 +89,18 @@ button, input, select, textarea { font: inherit; }
   color: var(--muted);
 }
 
+/* Page de connexion : marque centrée, bouton pleine largeur. */
+.login-brand {
+  flex-direction: column;
+  text-align: center;
+  gap: 10px;
+  margin-bottom: 22px;
+}
+.login-panel label { margin-top: 12px; }
+.login-panel .actions { display: block; margin-top: 20px; }
+.login-panel .actions .btn { width: 100%; padding: 13px; font-size: 15px; }
+.login-panel .hint { margin-top: 18px; text-align: center; }
+
 .mark {
   width: 46px;
   height: 46px;
@@ -400,7 +412,7 @@ textarea { min-height: 92px; }
   font-size: 12px;
 }
 
-.btn.primary { background: var(--green); color: #fff; }
+.btn.primary { background: var(--blue); color: #fff; }
 .btn.secondary { background: var(--blue); color: #fff; }
 .btn.danger { background: rgba(194, 65, 58, .15); color: var(--red); }
 .btn.quiet { background: var(--soft); color: var(--ink); }
