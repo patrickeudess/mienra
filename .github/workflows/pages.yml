@@ -37,7 +37,7 @@ jobs:
       - name: Assembler le site statique
         run: |
           mkdir -p _site
-          cp index.html styles.css design-polish.css cloud-config.js supabase-config.js app-pro.js _site/
+          cp index.html styles.css design-polish.css cloud-config.js supabase-config.js app-pro.js dashboard-role-fix.js _site/
           cp -r assets _site/
           touch _site/.nojekyll
 
