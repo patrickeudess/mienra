@@ -51,6 +51,7 @@ declare
   v_year_id uuid;
   v_year_name text;
   v_next integer;
+  v_existing_max integer;
 begin
   if auth.uid() is null or not public.can_manage_school_data() then
     raise exception 'Acces refuse au compteur de recus';
@@ -77,9 +78,17 @@ begin
     raise exception 'Annee scolaire introuvable';
   end if;
 
+  select coalesce(max((regexp_match(receipt_no, '(\d+)$'))[1]::integer), 0)
+  into v_existing_max
+  from public.payments
+  where school_id = v_school_id
+    and school_year_id = v_year_id
+    and receipt_no ~ '\d+$';
+
   insert into public.receipt_counters (school_id, school_year_id, last_number)
-  values (v_school_id, v_year_id, 0)
-  on conflict (school_id, school_year_id) do nothing;
+  values (v_school_id, v_year_id, v_existing_max)
+  on conflict (school_id, school_year_id) do update
+  set last_number = greatest(public.receipt_counters.last_number, excluded.last_number);
 
   update public.receipt_counters
   set last_number = last_number + 1
