@@ -228,6 +228,16 @@
     align-items: start;
   }
 
+  .dashboard-stack {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .dashboard-recovery {
+    overflow-x: auto;
+  }
+
   .panel {
     border-radius: 8px;
     padding: 16px;
@@ -326,6 +336,33 @@
     min-width: 760px;
   }
 
+  .dashboard-class-table,
+  .secretary-payment-table {
+    min-width: 0;
+    table-layout: fixed;
+  }
+
+  .dashboard-class-table th,
+  .dashboard-class-table td,
+  .secretary-payment-table th,
+  .secretary-payment-table td {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .dashboard-class-table th:nth-child(1),
+  .dashboard-class-table td:nth-child(1) { width: 22%; }
+  .dashboard-class-table th:nth-child(2),
+  .dashboard-class-table td:nth-child(2) { width: 10%; }
+  .dashboard-class-table th:nth-child(3),
+  .dashboard-class-table td:nth-child(3),
+  .dashboard-class-table th:nth-child(4),
+  .dashboard-class-table td:nth-child(4),
+  .dashboard-class-table th:nth-child(5),
+  .dashboard-class-table td:nth-child(5) { width: 18%; }
+  .dashboard-class-table th:nth-child(6),
+  .dashboard-class-table td:nth-child(6) { width: 14%; }
+
   .secretary-dashboard {
     display: grid;
     grid-template-columns: 1fr;
@@ -334,11 +371,6 @@
 
   .secretary-dashboard .panel {
     overflow-x: auto;
-  }
-
-  .secretary-payment-table {
-    min-width: 0;
-    table-layout: fixed;
   }
 
   .secretary-payment-table th:nth-child(1),
@@ -355,12 +387,6 @@
   .secretary-payment-table td:nth-child(6) { width: 12%; }
   .secretary-payment-table th:nth-child(7),
   .secretary-payment-table td:nth-child(7) { width: 11%; }
-
-  .secretary-payment-table th,
-  .secretary-payment-table td {
-    white-space: normal;
-    overflow-wrap: anywhere;
-  }
 
   .bar-chart {
     gap: 9px;
