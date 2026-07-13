@@ -57,6 +57,10 @@
     letter-spacing: 0;
   }
 
+  .login-panel .hint {
+    display: none;
+  }
+
   .app {
     grid-template-columns: 264px minmax(0, 1fr);
   }
