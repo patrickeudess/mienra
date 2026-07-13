@@ -20,7 +20,8 @@ Le relationnel apporte :
 - des reçus uniques par école ;
 - des paiements reliés à un élève et une année scolaire ;
 - des restrictions serveur selon les rôles ;
-- des rapports plus fiables via SQL.
+- des rapports plus fiables via SQL ;
+- un compteur serveur de reçus pour éviter les doublons.
 
 ## Ordre recommandé
 
@@ -33,10 +34,11 @@ Avant toute manipulation, faire une sauvegarde depuis l'application :
 Ensuite dans **Supabase → SQL Editor** :
 
 1. Exécuter `supabase/relational-schema-compatible.sql`.
-2. Exécuter `supabase/relational-runtime-fixes.sql`.
+2. Exécuter ou relancer `supabase/relational-runtime-fixes.sql`.
 3. Vérifier que les tables apparaissent : `schools`, `school_years`, `classes`, `students`, `enrollments`, `payments`, `receipt_counters`, `app_logs`.
 4. Exécuter `supabase/migrate-json-to-relational.sql` si des données existent déjà dans `mienra_app_state`.
-5. Ouvrir l'application publiée, se connecter en administrateur, puis cliquer sur **Synchroniser**.
+5. Exécuter `supabase/post-migration-checks.sql` pour vérifier les données, les vues de rapports, les doublons et le journal.
+6. Ouvrir l'application publiée, se connecter en administrateur, puis cliquer sur **Synchroniser**.
 
 L'application affichera **Données relationnelles** lorsque la bascule est active. Si les tables ne sont pas encore prêtes, elle garde l'ancien mode JSON partagé au lieu de couper l'accès.
 
@@ -61,11 +63,36 @@ order by class_name, name;
 Voir les paiements d'une journée :
 
 ```sql
-select paid_on, receipt_no, amount, paid_by, mode, cashier
-from public.payments
-where paid_on = current_date
-order by created_at desc;
+select *
+from public.daily_payment_report
+order by paid_on desc;
 ```
+
+Voir les paiements détaillés :
+
+```sql
+select *
+from public.payment_detail_report
+order by paid_on desc, created_at desc;
+```
+
+## Tester le compteur de reçus
+
+Après connexion dans l'application, enregistre un petit paiement réel ou test. Le reçu doit être généré par Supabase avec un numéro du type :
+
+```text
+REC-2026-0001
+REC-2026-0002
+```
+
+Le compteur est conservé dans `receipt_counters` et ne doit jamais revenir en arrière.
+
+## Tester les rôles
+
+- Administrateur : peut gérer élèves, classes, paiements, utilisateurs, rapports et sauvegardes.
+- Secrétaire : peut ajouter des élèves et encaisser, mais ne doit pas supprimer/modifier les paiements.
+- Directeur : doit pouvoir suivre les données et rapports selon les accès définis.
+- Consultation : lecture seule.
 
 ## Activation manuelle si nécessaire
 
@@ -81,6 +108,12 @@ Puis actualiser la page. Pour vérifier l'état :
 await window.mienraRelationnel.etat()
 ```
 
+Pour tester uniquement le prochain numéro de reçu serveur :
+
+```js
+await window.mienraRecuServeur.prochainNumero()
+```
+
 ## Important
 
 La migration **copie** les données. Elle ne supprime pas `mienra_app_state`. Ce choix permet de garder une sauvegarde pendant la période de transition.
@@ -93,3 +126,4 @@ Pendant les premiers jours d'utilisation réelle, conserver l'habitude d'exporte
 - Le secrétaire peut créer des paiements, mais la modification/suppression des paiements reste réservée à l'administrateur.
 - Les frais officiels sont initialisés à 70 000 FCFA de la maternelle au CM1 et 75 000 FCFA en CM2.
 - Les années scolaires sont des données centrales : chaque paiement et inscription doit être rattaché à une année.
+- Les vues `student_payment_summary`, `payment_detail_report` et `daily_payment_report` doivent retourner les mêmes montants que l'application.
