@@ -1,11 +1,11 @@
 // MIENRA Web - Adaptateur Supabase relationnel
-// Charge apres app-pro.js. Il remplace progressivement la synchronisation
-// JSON par une lecture/ecriture dans les tables relationnelles Supabase.
+// Charge apres app-pro.js. Il fait une bascule progressive : les tables
+// relationnelles sont utilisees des qu'elles sont pretes, tout en gardant
+// l'ancien bloc JSON comme sauvegarde de transition.
 
 (() => {
   const RELATIONAL_MODE_KEY = "mienra_relational_mode";
   const SCHOOL_SLUG = "epv-mienrassou";
-  const SCHOOL_FALLBACK_ID = "epp-mienrassou";
 
   if (typeof getSupabase !== "function") return;
 
@@ -17,18 +17,10 @@
   let relationalSyncing = false;
   let relationalLastError = "";
 
-  function relationModeEnabled() {
-    return localStorage.getItem(RELATIONAL_MODE_KEY) === "on";
-  }
-
-  function setRelationMode(value) {
-    localStorage.setItem(RELATIONAL_MODE_KEY, value ? "on" : "off");
-  }
-
-  function sbClient() {
-    if (!supabaseAuthAvailable() || !authSession) return null;
-    return getSupabase();
-  }
+  const relationModeEnabled = () => localStorage.getItem(RELATIONAL_MODE_KEY) === "on";
+  const setRelationMode = (value) => localStorage.setItem(RELATIONAL_MODE_KEY, value ? "on" : "off");
+  const sbClient = () => (supabaseAuthAvailable() && authSession ? getSupabase() : null);
+  const asDate = (value) => (value ? String(value).slice(0, 10) : null);
 
   async function fetchSchool(sb) {
     const { data, error } = await sb.from("schools").select("*").eq("slug", SCHOOL_SLUG).maybeSingle();
@@ -36,21 +28,13 @@
     return data || null;
   }
 
-  async function relationTablesReady({ requireData = false } = {}) {
+  async function relationTablesReady() {
     const sb = sbClient();
     if (!sb) return false;
-    if (relationalReadyCache && !requireData) return true;
+    if (relationalReadyCache) return true;
     try {
       const school = await fetchSchool(sb);
       if (!school?.id) return false;
-      if (requireData) {
-        const { count, error } = await sb
-          .from("students")
-          .select("id", { count: "exact", head: true })
-          .eq("school_id", school.id);
-        if (error) throw error;
-        if (!count && state.students.length > 0 && !relationModeEnabled()) return false;
-      }
       relationalReadyCache = { schoolId: school.id, school };
       return true;
     } catch (error) {
@@ -60,8 +44,14 @@
     }
   }
 
-  function asDate(value) {
-    return value ? String(value).slice(0, 10) : null;
+  async function relationHasBusinessData(sb, schoolId) {
+    const tables = ["students", "payments", "enrollments"];
+    for (const table of tables) {
+      const { count, error } = await sb.from(table).select("id", { count: "exact", head: true }).eq("school_id", schoolId);
+      if (error) throw error;
+      if (count > 0) return true;
+    }
+    return false;
   }
 
   function buildSchoolState(row) {
@@ -81,10 +71,10 @@
   }
 
   function toAppState({ school, years, classes, students, enrollments, payments, logs }) {
-    const classByUuid = new Map((classes || []).map((row) => [row.id, row]));
-    const classAppIdByUuid = new Map((classes || []).map((row) => [row.id, row.legacy_id || row.id]));
-    const studentAppIdByUuid = new Map((students || []).map((row) => [row.id, row.legacy_id || row.id]));
-    const yearByUuid = new Map((years || []).map((row) => [row.id, row]));
+    const classByUuid = new Map(classes.map((row) => [row.id, row]));
+    const classAppIdByUuid = new Map(classes.map((row) => [row.id, row.legacy_id || row.id]));
+    const studentAppIdByUuid = new Map(students.map((row) => [row.id, row.legacy_id || row.id]));
+    const yearByUuid = new Map(years.map((row) => [row.id, row]));
     const activeYear = years.find((row) => row.is_active)?.name || state.activeYear || state.school.year;
 
     return normalizeState({
@@ -98,23 +88,20 @@
         level: row.level,
         fee: Number(row.fee || 0)
       })),
-      students: students.map((row) => {
-        const cls = classByUuid.get(row.class_id);
-        return {
-          id: row.legacy_id || row.id,
-          matricule: row.matricule,
-          name: row.name,
-          gender: row.gender || "",
-          birth: asDate(row.birth),
-          entryDate: asDate(row.entry_date),
-          addedDate: asDate(row.added_date) || today(),
-          className: cls?.name || "",
-          parent: row.parent_name || "",
-          phone: row.phone || "",
-          address: row.address || "",
-          status: row.status || "Actif"
-        };
-      }),
+      students: students.map((row) => ({
+        id: row.legacy_id || row.id,
+        matricule: row.matricule,
+        name: row.name,
+        gender: row.gender || "",
+        birth: asDate(row.birth),
+        entryDate: asDate(row.entry_date),
+        addedDate: asDate(row.added_date) || today(),
+        className: classByUuid.get(row.class_id)?.name || "",
+        parent: row.parent_name || "",
+        phone: row.phone || "",
+        address: row.address || "",
+        status: row.status || "Actif"
+      })),
       enrollments: enrollments.map((row) => ({
         id: row.legacy_id || row.id,
         studentId: studentAppIdByUuid.get(row.student_id) || row.student_id,
@@ -158,9 +145,12 @@
 
   async function pullRelationalState() {
     const sb = sbClient();
-    if (!sb || !(await relationTablesReady({ requireData: true }))) return false;
+    if (!sb || !(await relationTablesReady())) return false;
     const school = relationalReadyCache.school || await fetchSchool(sb);
     const schoolId = school.id;
+
+    if (!relationModeEnabled() && !(await relationHasBusinessData(sb, schoolId))) return false;
+
     const [yearsRes, classesRes, studentsRes, enrollmentsRes, paymentsRes, logsRes] = await Promise.all([
       sb.from("school_years").select("*").eq("school_id", schoolId).order("name"),
       sb.from("classes").select("*").eq("school_id", schoolId).order("name"),
@@ -169,7 +159,6 @@
       sb.from("payments").select("*").eq("school_id", schoolId).order("created_at", { ascending: false }),
       sb.from("app_logs").select("*").eq("school_id", schoolId).order("created_at", { ascending: false }).limit(500)
     ]);
-
     const firstError = [yearsRes, classesRes, studentsRes, enrollmentsRes, paymentsRes, logsRes].find((res) => res.error)?.error;
     if (firstError) throw firstError;
 
@@ -213,14 +202,14 @@
     const sb = sbClient();
     if (!sb || relationalSyncing) return false;
     if (!(await relationTablesReady())) return false;
-
     relationalSyncing = true;
+
     try {
       const school = await ensureBaseRows(sb);
       const schoolId = school.id;
       const activeYear = currentYear();
 
-      await sb.from("schools").update({
+      const schoolUpdate = await sb.from("schools").update({
         name: state.school.name || SCHOOL_IDENTITY.name,
         code: state.school.code || SCHOOL_IDENTITY.code,
         phone: state.school.phone || null,
@@ -230,28 +219,18 @@
         receipt_prefix: state.school.receiptPrefix || "REC",
         receipt_footer: state.school.receiptFooter || "Merci pour votre paiement."
       }).eq("id", schoolId);
+      if (schoolUpdate.error) throw schoolUpdate.error;
 
-      const yearRows = [...new Set([...(state.years || []), activeYear])].filter(Boolean).map((name) => ({
-        school_id: schoolId,
-        name,
-        is_active: name === activeYear
-      }));
+      const yearRows = [...new Set([...(state.years || []), activeYear])].filter(Boolean).map((name) => ({ school_id: schoolId, name, is_active: name === activeYear }));
       if (yearRows.length) {
         const { error } = await sb.from("school_years").upsert(yearRows, { onConflict: "school_id,name" });
         if (error) throw error;
       }
-
       const { data: yearData, error: yearError } = await sb.from("school_years").select("id,name").eq("school_id", schoolId);
       if (yearError) throw yearError;
       const yearIdByName = new Map((yearData || []).map((row) => [row.name, row.id]));
 
-      const classRows = state.classes.map((row) => ({
-        school_id: schoolId,
-        legacy_id: row.id,
-        name: row.name,
-        level: row.level || "Primaire",
-        fee: Number(row.fee || 0)
-      }));
+      const classRows = state.classes.map((row) => ({ school_id: schoolId, legacy_id: row.id, name: row.name, level: row.level || "Primaire", fee: Number(row.fee || 0) }));
       if (classRows.length) {
         const { error } = await sb.from("classes").upsert(classRows, { onConflict: "school_id,name" });
         if (error) throw error;
@@ -284,10 +263,8 @@
       const studentByAppId = new Map();
       (studentData || []).forEach((row) => {
         if (row.legacy_id) studentByAppId.set(row.legacy_id, row.id);
-        if (row.matricule) {
-          const app = state.students.find((s) => s.matricule === row.matricule);
-          if (app?.id) studentByAppId.set(app.id, row.id);
-        }
+        const app = state.students.find((s) => s.matricule === row.matricule);
+        if (app?.id) studentByAppId.set(app.id, row.id);
       });
 
       const enrollmentRows = state.enrollments.map((row) => {
@@ -295,18 +272,7 @@
         const classId = classByName.get(row.className)?.id;
         const yearId = yearIdByName.get(row.year || activeYear);
         if (!studentId || !classId || !yearId) return null;
-        return {
-          school_id: schoolId,
-          legacy_id: row.id,
-          student_id: studentId,
-          school_year_id: yearId,
-          class_id: classId,
-          amount: Number(row.amount || 0),
-          discount: Number(row.discount || 0),
-          enrolled_on: row.date || today(),
-          note: row.note || null,
-          created_by: authSession?.user?.id || null
-        };
+        return { school_id: schoolId, legacy_id: row.id, student_id: studentId, school_year_id: yearId, class_id: classId, amount: Number(row.amount || 0), discount: Number(row.discount || 0), enrolled_on: row.date || today(), note: row.note || null, created_by: authSession?.user?.id || null };
       }).filter(Boolean);
       if (enrollmentRows.length) {
         const { error } = await sb.from("enrollments").upsert(enrollmentRows, { onConflict: "student_id,school_year_id" });
@@ -317,31 +283,14 @@
         const studentId = studentByAppId.get(row.studentId);
         const yearId = yearIdByName.get(row.year || activeYear);
         if (!studentId || !yearId) return null;
-        return {
-          school_id: schoolId,
-          legacy_id: row.id,
-          student_id: studentId,
-          school_year_id: yearId,
-          receipt_no: row.receiptNo || row.number || row.id,
-          amount: Number(row.amount || 0),
-          expected_at_payment: Number(row.expectedAtPayment || 0),
-          paid_before: Number(row.paidBefore || 0),
-          total_paid_after: Number(row.totalPaidAfter || 0),
-          balance_after: Number(row.balanceAfter || 0),
-          paid_by: row.paidBy || null,
-          mode: row.mode || "Espèces",
-          paid_on: row.date || today(),
-          cashier: row.cashier || null,
-          note: row.note || null,
-          created_by: authSession?.user?.id || null
-        };
+        return { school_id: schoolId, legacy_id: row.id, student_id: studentId, school_year_id: yearId, receipt_no: row.receiptNo || row.number || row.id, amount: Number(row.amount || 0), expected_at_payment: Number(row.expectedAtPayment || 0), paid_before: Number(row.paidBefore || 0), total_paid_after: Number(row.totalPaidAfter || 0), balance_after: Number(row.balanceAfter || 0), paid_by: row.paidBy || null, mode: row.mode || "Espèces", paid_on: row.date || today(), cashier: row.cashier || null, note: row.note || null, created_by: authSession?.user?.id || null };
       }).filter((row) => row && row.amount > 0);
       if (paymentRows.length) {
         const { error } = await sb.from("payments").upsert(paymentRows, { onConflict: "school_id,receipt_no" });
         if (error) throw error;
       }
 
-      const logRows = (state.logs || []).slice(0, 100).map((row) => ({
+      const logRows = (state.logs || []).slice(0, 100).filter((row) => row.id).map((row) => ({
         school_id: schoolId,
         legacy_id: row.id,
         user_id: authSession?.user?.id || null,
@@ -353,7 +302,10 @@
         device: row.device || null,
         created_at: row.iso || new Date().toISOString()
       }));
-      if (logRows.length) await sb.from("app_logs").insert(logRows).throwOnError?.();
+      if (logRows.length) {
+        const { error } = await sb.from("app_logs").upsert(logRows, { onConflict: "school_id,legacy_id" });
+        if (error) throw error;
+      }
 
       setRelationMode(true);
       relationalLastError = "";
@@ -379,7 +331,6 @@
 
   pushSharedState = async function pushSharedStateRelationalFirst() {
     if (await pushRelationalState()) {
-      // On garde aussi l'ancien bloc JSON comme sauvegarde lisible pendant la transition.
       originalPushSharedState();
       return true;
     }
@@ -400,11 +351,7 @@
       return relationModeEnabled();
     },
     async etat() {
-      return {
-        actif: relationModeEnabled(),
-        pret: await relationTablesReady(),
-        erreur: relationalLastError || ""
-      };
+      return { actif: relationModeEnabled(), pret: await relationTablesReady(), erreur: relationalLastError || "" };
     },
     desactiver() {
       setRelationMode(false);
