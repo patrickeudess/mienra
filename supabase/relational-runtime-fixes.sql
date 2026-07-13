@@ -190,8 +190,20 @@ declare
   v_action text;
   v_type text;
   v_detail text;
+  v_payload jsonb;
+  v_row_id text;
 begin
-  v_school_id := coalesce(new.school_id, old.school_id, public.current_profile_school_id());
+  if tg_op = 'DELETE' then
+    v_payload := to_jsonb(old);
+    v_school_id := old.school_id;
+    v_row_id := old.id::text;
+  else
+    v_payload := to_jsonb(new);
+    v_school_id := new.school_id;
+    v_row_id := new.id::text;
+  end if;
+
+  v_school_id := coalesce(v_school_id, public.current_profile_school_id());
   v_action := tg_op || ' ' || tg_table_name;
   v_type := case tg_table_name
     when 'students' then 'Eleve'
@@ -200,15 +212,12 @@ begin
     when 'classes' then 'Classe'
     else 'Donnee'
   end;
-  v_detail := case tg_op
-    when 'DELETE' then coalesce(old.matricule, old.receipt_no, old.legacy_id, old.id::text)
-    else coalesce(new.matricule, new.receipt_no, new.legacy_id, new.id::text)
-  end;
+  v_detail := coalesce(v_payload->>'matricule', v_payload->>'receipt_no', v_payload->>'legacy_id', v_payload->>'id', v_row_id);
 
   insert into public.app_logs (school_id, legacy_id, user_id, user_name, role, type, action, detail, device, created_at)
   values (
     v_school_id,
-    'AUD-' || tg_table_name || '-' || coalesce(coalesce(new.id, old.id)::text, gen_random_uuid()::text) || '-' || extract(epoch from clock_timestamp())::text,
+    'AUD-' || tg_table_name || '-' || coalesce(v_row_id, gen_random_uuid()::text) || '-' || extract(epoch from clock_timestamp())::text,
     auth.uid(),
     coalesce(public.current_profile_role(), 'Systeme'),
     public.current_profile_role(),
@@ -219,9 +228,15 @@ begin
     now()
   );
 
-  return coalesce(new, old);
+  if tg_op = 'DELETE' then
+    return old;
+  end if;
+  return new;
 exception when others then
-  return coalesce(new, old);
+  if tg_op = 'DELETE' then
+    return old;
+  end if;
+  return new;
 end;
 $$;
 
