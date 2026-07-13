@@ -10,6 +10,17 @@
     }).join("") || `<tr><td colspan="7">${emptyMessage || "Aucun élève trouvé."}</td></tr>`}</tbody></table>`;
   }
 
+  function classRecoveryTable() {
+    return `<table class="cards dashboard-class-table"><thead><tr><th>Classe</th><th>Élèves</th><th>Attendu</th><th>Payé</th><th>Reste</th><th>Taux</th></tr></thead><tbody>${state.classes.map((row) => {
+      const ids = state.students.filter((item) => item.className === row.name).map((item) => item.id);
+      const expected = ids.reduce((sum, id) => sum + due(id), 0);
+      const collected = ids.reduce((sum, id) => sum + paid(id), 0);
+      const remaining = expected - collected;
+      const rate = expected ? Math.round((collected / expected) * 100) : 0;
+      return `<tr><td>${clean(row.name)}<br><small>${clean(row.level)}</small></td><td>${ids.length}</td><td>${money(expected)}</td><td class="amount-ok">${money(collected)}</td><td class="${remaining > 0 ? "amount-danger" : "amount-ok"}">${money(remaining)}</td><td>${rate}%</td></tr>`;
+    }).join("")}</tbody></table>`;
+  }
+
   function secretaryDashboard() {
     const paidRows = state.students.filter((row) => paid(row.id) > 0);
     const noPaymentRows = state.students.filter((row) => due(row.id) > 0 && paid(row.id) <= 0);
@@ -37,13 +48,14 @@
     $("content").innerHTML = `
       ${dashboardDetail ? dashboardDetailPanel(dashboardDetail) : ""}
       <div class="stats">${stat("Élèves", state.students.length)}${stat("Montant attendu", money(t.expected))}${stat("Montant encaissé", money(t.collected), "ok")}${stat("Reste à payer", money(t.remaining), t.remaining > 0 ? "danger" : "ok")}</div>
-      <div class="layout-two">
-        <article class="panel"><div class="panel-head"><h2>Recouvrement par classe</h2><span>${t.rate}% encaissé</span></div>${collectionChart()}${classSummary()}</article>
-        <article class="panel activity-panel"><div class="panel-head"><h2>Effectifs par classe</h2><span>Sexe et statut scolaire</span></div>${classEnrollmentSummary()}</article>
-        <article class="panel activity-panel"><div class="panel-head"><h2>Activité récente</h2><span>${state.logs.length} opérations</span></div>${logsTable(9)}</article>
+      <div class="dashboard-stack">
+        <article class="panel dashboard-recovery"><div class="panel-head"><h2>Recouvrement par classe</h2><span>${t.rate}% encaissé</span></div>${collectionChart()}${classRecoveryTable()}</article>
+        <article class="panel"><div class="panel-head"><h2>Effectifs par classe</h2><span>Sexe et statut scolaire</span></div>${classEnrollmentSummary()}</article>
+        <article class="panel"><div class="panel-head"><h2>Activité récente</h2><span>${state.logs.length} opérations</span></div>${logsTable(9)}</article>
       </div>`;
     attachDashboardStatActions();
     if (dashboardDetail) drawDashboardDetail();
+    decorateCardTables();
   }
 
   pages.dashboard = function dashboardByRole() {
