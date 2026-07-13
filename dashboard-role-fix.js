@@ -3,16 +3,50 @@
 (function () {
   if (typeof pages === "undefined" || !pages.dashboard) return;
 
+  const filterState = { q: "", className: "", payStatus: "", studentStatus: "" };
+
+  function syncDashboardFilters(prefix) {
+    filterState.q = ($(prefix + "Search")?.value || "").toLowerCase().trim();
+    filterState.className = $(prefix + "Class")?.value || "";
+    filterState.payStatus = $(prefix + "PayStatus")?.value || "";
+    filterState.studentStatus = $(prefix + "StudentStatus")?.value || "";
+  }
+
+  function dashboardFilters(prefix, onchange) {
+    const classes = state.classes.map((row) => `<option value="${clean(row.name)}" ${filterState.className === row.name ? "selected" : ""}>${clean(row.name)}</option>`).join("");
+    const statuses = ["Actif", "Redoublant", "Abandon", "Inactif", "Transféré"].map((status) => `<option value="${clean(status)}" ${filterState.studentStatus === status ? "selected" : ""}>${clean(status)}</option>`).join("");
+    return `<div class="filters dashboard-filters">
+      <input id="${prefix}Search" value="${clean(filterState.q)}" placeholder="Rechercher nom, matricule, parent, contact..." oninput="${onchange}">
+      <select id="${prefix}Class" onchange="${onchange}"><option value="">Toutes les classes</option>${classes}</select>
+      <select id="${prefix}PayStatus" onchange="${onchange}"><option value="">Tous paiements</option><option value="paid" ${filterState.payStatus === "paid" ? "selected" : ""}>Soldés</option><option value="partial" ${filterState.payStatus === "partial" ? "selected" : ""}>Partiels</option><option value="unpaid" ${filterState.payStatus === "unpaid" ? "selected" : ""}>Sans paiement</option><option value="remaining" ${filterState.payStatus === "remaining" ? "selected" : ""}>Avec reste</option></select>
+      <select id="${prefix}StudentStatus" onchange="${onchange}"><option value="">Tous statuts élève</option>${statuses}</select>
+    </div>`;
+  }
+
+  function filteredStudents(rows = state.students) {
+    return rows.filter((row) => {
+      const haystack = [row.name, row.matricule, row.parent, row.phone, row.className, row.status].join(" ").toLowerCase();
+      if (filterState.q && !haystack.includes(filterState.q)) return false;
+      if (filterState.className && row.className !== filterState.className) return false;
+      if (filterState.studentStatus && row.status !== filterState.studentStatus) return false;
+      if (filterState.payStatus === "paid" && !(balance(row.id) <= 0 && due(row.id) > 0)) return false;
+      if (filterState.payStatus === "partial" && !(paid(row.id) > 0 && balance(row.id) > 0)) return false;
+      if (filterState.payStatus === "unpaid" && !(due(row.id) > 0 && paid(row.id) <= 0)) return false;
+      if (filterState.payStatus === "remaining" && !(balance(row.id) > 0)) return false;
+      return true;
+    });
+  }
+
   function secretaryPaymentRows(rows, emptyMessage) {
     return `<table class="cards secretary-payment-table"><thead><tr><th>Élève</th><th>Classe</th><th>Frais</th><th>Payé</th><th>Reste</th><th>Statut</th><th>Action</th></tr></thead><tbody>${rows.map((row) => {
       const left = balance(row.id);
-      return `<tr><td>${clean(row.name)}<br><small>${clean(row.matricule)}</small></td><td>${clean(row.className)}</td><td>${money(due(row.id))}</td><td class="amount-ok">${money(paid(row.id))}</td><td class="${left > 0 ? "amount-danger" : "amount-ok"}">${money(left)}</td><td>${financeStatus(row)}</td><td><button class="btn quiet small" onclick="showStudentPayments('${row.id}')">Versements</button>${canAction("payments") ? ` <button class="btn secondary small" onclick="goPay('${row.id}')">Payer</button>` : ""}</td></tr>`;
+      return `<tr><td>${clean(row.name)}<br><small>${clean(row.matricule)} · ${clean(row.status || "-")}</small></td><td>${clean(row.className)}</td><td>${money(due(row.id))}</td><td class="amount-ok">${money(paid(row.id))}</td><td class="${left > 0 ? "amount-danger" : "amount-ok"}">${money(left)}</td><td>${financeStatus(row)}</td><td><button class="btn quiet small" onclick="showStudentPayments('${row.id}')">Versements</button>${canAction("payments") ? ` <button class="btn secondary small" onclick="goPay('${row.id}')">Payer</button>` : ""}</td></tr>`;
     }).join("") || `<tr><td colspan="7">${emptyMessage || "Aucun élève trouvé."}</td></tr>`}</tbody></table>`;
   }
 
-  function classRecoveryTable() {
+  function classRecoveryTable(rows = filteredStudents()) {
     return `<table class="cards dashboard-class-table"><thead><tr><th>Classe</th><th>Élèves</th><th>Attendu</th><th>Payé</th><th>Reste</th><th>Taux</th></tr></thead><tbody>${state.classes.map((row) => {
-      const ids = state.students.filter((item) => item.className === row.name).map((item) => item.id);
+      const ids = rows.filter((item) => item.className === row.name).map((item) => item.id);
       const expected = ids.reduce((sum, id) => sum + due(id), 0);
       const collected = ids.reduce((sum, id) => sum + paid(id), 0);
       const remaining = expected - collected;
@@ -22,19 +56,21 @@
   }
 
   function secretaryDashboard() {
-    const paidRows = state.students.filter((row) => paid(row.id) > 0);
-    const noPaymentRows = state.students.filter((row) => due(row.id) > 0 && paid(row.id) <= 0);
-    const remainingRows = state.students.filter((row) => balance(row.id) > 0);
-    const partialRows = state.students.filter((row) => paid(row.id) > 0 && balance(row.id) > 0);
+    const allRows = filteredStudents();
+    const paidRows = allRows.filter((row) => paid(row.id) > 0);
+    const noPaymentRows = allRows.filter((row) => due(row.id) > 0 && paid(row.id) <= 0);
+    const remainingRows = allRows.filter((row) => balance(row.id) > 0);
+    const partialRows = allRows.filter((row) => paid(row.id) > 0 && balance(row.id) > 0);
     const remainingTotal = remainingRows.reduce((sum, row) => sum + balance(row.id), 0);
 
     $("content").innerHTML = `
       <div class="stats secretary-stats">
-        ${stat("Élèves ayant payé", paidRows.length)}
+        ${stat("Élèves trouvés", allRows.length)}
+        ${stat("Ayant payé", paidRows.length)}
         ${stat("Sans paiement", noPaymentRows.length, noPaymentRows.length ? "danger" : "ok")}
-        ${stat("Paiements partiels", partialRows.length)}
         ${stat("Reste à payer", money(remainingTotal), remainingTotal > 0 ? "danger" : "ok")}
       </div>
+      <article class="panel dashboard-filter-panel"><div class="panel-head"><h2>Filtres</h2><span>Recherche rapide</span></div>${dashboardFilters("secDash", "applySecretaryDashboardFilters()")}</article>
       <div class="secretary-dashboard">
         <article class="panel"><div class="panel-head"><h2>Élèves qui ont payé</h2><span>${paidRows.length} dossier(s)</span></div>${secretaryPaymentRows(paidRows.sort((a, b) => paid(b.id) - paid(a.id)), "Aucun élève avec paiement.")}</article>
         <article class="panel"><div class="panel-head"><h2>Élèves sans paiement</h2><span>${noPaymentRows.length} dossier(s)</span></div>${secretaryPaymentRows(noPaymentRows.sort((a, b) => String(a.className).localeCompare(String(b.className)) || String(a.name).localeCompare(String(b.name))), "Aucun élève sans paiement.")}</article>
@@ -43,20 +79,44 @@
     decorateCardTables();
   }
 
+  function filteredClassEnrollmentSummary(rows = filteredStudents()) {
+    const countBy = (items, predicate) => items.filter(predicate).length;
+    return `<table class="cards dashboard-class-table"><thead><tr><th>Classe</th><th>Total</th><th>Garçons</th><th>Filles</th><th>Actifs</th><th>Redoublants</th><th>Abandons</th><th>Inactifs</th></tr></thead><tbody>${state.classes.map((row) => {
+      const items = rows.filter((item) => item.className === row.name);
+      const inactive = countBy(items, (item) => ["Inactif", "Transféré"].includes(item.status));
+      return `<tr><td>${clean(row.name)}</td><td>${items.length}</td><td>${countBy(items, (item) => item.gender === "M")}</td><td>${countBy(items, (item) => item.gender === "F")}</td><td>${countBy(items, (item) => item.status === "Actif")}</td><td>${countBy(items, (item) => item.status === "Redoublant")}</td><td>${countBy(items, (item) => item.status === "Abandon")}</td><td>${inactive}</td></tr>`;
+    }).join("")}</tbody></table>`;
+  }
+
   function managementDashboard() {
-    const t = totals();
+    const rows = filteredStudents();
+    const expected = rows.reduce((sum, row) => sum + due(row.id), 0);
+    const collected = rows.reduce((sum, row) => sum + paid(row.id), 0);
+    const remaining = expected - collected;
+    const rate = expected ? Math.round((collected / expected) * 100) : 0;
     $("content").innerHTML = `
       ${dashboardDetail ? dashboardDetailPanel(dashboardDetail) : ""}
-      <div class="stats">${stat("Élèves", state.students.length)}${stat("Montant attendu", money(t.expected))}${stat("Montant encaissé", money(t.collected), "ok")}${stat("Reste à payer", money(t.remaining), t.remaining > 0 ? "danger" : "ok")}</div>
+      <div class="stats">${stat("Élèves trouvés", rows.length)}${stat("Montant attendu", money(expected))}${stat("Montant encaissé", money(collected), "ok")}${stat("Reste à payer", money(remaining), remaining > 0 ? "danger" : "ok")}</div>
+      <article class="panel dashboard-filter-panel"><div class="panel-head"><h2>Filtres</h2><span>Recherche rapide</span></div>${dashboardFilters("admDash", "applyManagementDashboardFilters()")}</article>
       <div class="dashboard-stack">
-        <article class="panel dashboard-recovery"><div class="panel-head"><h2>Recouvrement par classe</h2><span>${t.rate}% encaissé</span></div>${collectionChart()}${classRecoveryTable()}</article>
-        <article class="panel"><div class="panel-head"><h2>Effectifs par classe</h2><span>Sexe et statut scolaire</span></div>${classEnrollmentSummary()}</article>
+        <article class="panel dashboard-recovery"><div class="panel-head"><h2>Recouvrement par classe</h2><span>${rate}% encaissé</span></div>${classRecoveryTable(rows)}</article>
+        <article class="panel"><div class="panel-head"><h2>Effectifs par classe</h2><span>Sexe et statut scolaire</span></div>${filteredClassEnrollmentSummary(rows)}</article>
         <article class="panel"><div class="panel-head"><h2>Activité récente</h2><span>${state.logs.length} opérations</span></div>${logsTable(9)}</article>
       </div>`;
     attachDashboardStatActions();
     if (dashboardDetail) drawDashboardDetail();
     decorateCardTables();
   }
+
+  window.applySecretaryDashboardFilters = function () {
+    syncDashboardFilters("secDash");
+    secretaryDashboard();
+  };
+
+  window.applyManagementDashboardFilters = function () {
+    syncDashboardFilters("admDash");
+    managementDashboard();
+  };
 
   pages.dashboard = function dashboardByRole() {
     if (session?.role === "Secrétaire") {
