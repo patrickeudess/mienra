@@ -42,6 +42,7 @@ Fichiers utiles :
 - `supabase/migrate-json-to-relational.sql` : copie les données existantes de `mienra_app_state` vers les tables relationnelles.
 - `supabase/post-migration-checks.sql` : contrôles après migration.
 - `docs/migration-relationnelle.md` : ordre d'exécution, vérifications et précautions.
+- `docs/checklist-recette-ecole.md` : scénario de test avant utilisation réelle.
 
 Important : l'application publiée utilise les tables relationnelles quand elles sont prêtes et contiennent des données. Si elles ne sont pas encore disponibles, elle retombe sur l'ancien stockage JSON partagé pour éviter une coupure.
 
@@ -60,6 +61,7 @@ Guides utiles :
 
 - `docs/securite-supabase.md`
 - `docs/migration-relationnelle.md`
+- `docs/checklist-recette-ecole.md`
 - `docs/creer-comptes-depuis-app.md`
 - `supabase/admin-setup.sql`
 - `supabase/schema.sql`
