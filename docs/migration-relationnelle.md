@@ -85,7 +85,7 @@ REC-2026-0001
 REC-2026-0002
 ```
 
-Le compteur est conservé dans `receipt_counters` et ne doit jamais revenir en arrière.
+Le compteur est conservé dans `receipt_counters` et ne doit jamais revenir en arrière. Ne lance pas directement la fonction `mienra_next_receipt_no` pour tester, car elle réserve vraiment un numéro.
 
 ## Tester les rôles
 
@@ -106,12 +106,6 @@ Puis actualiser la page. Pour vérifier l'état :
 
 ```js
 await window.mienraRelationnel.etat()
-```
-
-Pour tester uniquement le prochain numéro de reçu serveur :
-
-```js
-await window.mienraRecuServeur.prochainNumero()
 ```
 
 ## Important
