@@ -12,7 +12,8 @@ Lien public : https://patrickeudess.github.io/mienra/
 - Paiements par versements successifs jusqu'au solde.
 - Suivi des paiements : payé, reste à payer, statut, payé par, historique par élève.
 - Reçus imprimables en deux exemplaires sur une feuille A4.
-- Rapports complets et exports CSV.
+- Numéros de reçus sécurisés par compteur serveur Supabase quand le mode relationnel est actif.
+- Rapports complets, vues SQL relationnelles et exports CSV.
 - Utilisateurs, rôles, verrouillage d'accès et journal des actions.
 - Sauvegarde JSON complète avec rappel périodique.
 
@@ -23,6 +24,7 @@ L'application utilise Supabase pour partager les données entre plusieurs appare
 - `cloud-config.js` active la synchronisation Supabase.
 - `supabase-config.js` contient la clé publique publishable.
 - `relational-sync.js` active la synchronisation progressive avec les tables relationnelles Supabase.
+- `server-receipts.js` demande les numéros de reçus au compteur serveur `mienra_next_receipt_no`.
 - `mienra_app_state` reste conservée comme sauvegarde JSON pendant la transition.
 - La table `profiles` porte le rôle applicatif de chaque utilisateur.
 - La fonction Supabase `admin-users` permet à l'administrateur de créer, modifier, verrouiller ou supprimer les comptes de connexion.
@@ -36,8 +38,9 @@ La base relationnelle sépare les données en tables métier : écoles, années 
 Fichiers utiles :
 
 - `supabase/relational-schema-compatible.sql` : schéma relationnel compatible avec Supabase SQL Editor.
-- `supabase/relational-runtime-fixes.sql` : ajustements nécessaires à l'adaptateur web et à l'accès REST authentifié.
+- `supabase/relational-runtime-fixes.sql` : compteur serveur, vues de rapports, audit et accès REST authentifié.
 - `supabase/migrate-json-to-relational.sql` : copie les données existantes de `mienra_app_state` vers les tables relationnelles.
+- `supabase/post-migration-checks.sql` : contrôles après migration.
 - `docs/migration-relationnelle.md` : ordre d'exécution, vérifications et précautions.
 
 Important : l'application publiée utilise les tables relationnelles quand elles sont prêtes et contiennent des données. Si elles ne sont pas encore disponibles, elle retombe sur l'ancien stockage JSON partagé pour éviter une coupure.
@@ -51,6 +54,7 @@ Points importants :
 - Ne jamais publier la clé `service_role` dans GitHub Pages.
 - Créer au moins un compte administrateur dans Supabase Auth avant de durcir les règles RLS.
 - Conserver des sauvegardes JSON régulières pendant l'année scolaire.
+- Tester les rôles après migration : administrateur, directeur, secrétaire et consultation.
 
 Guides utiles :
 
@@ -61,6 +65,7 @@ Guides utiles :
 - `supabase/schema.sql`
 - `supabase/relational-schema-compatible.sql`
 - `supabase/relational-runtime-fixes.sql`
+- `supabase/post-migration-checks.sql`
 
 ## Déploiement GitHub Pages
 
@@ -77,6 +82,7 @@ Fichiers servis :
 - `dashboard-filters.css`
 - `app-pro.js`
 - `relational-sync.js`
+- `server-receipts.js`
 - `cloud-config.js`
 - `supabase-config.js`
 - `assets/`
