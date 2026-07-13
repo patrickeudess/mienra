@@ -2,7 +2,7 @@
 
 Ce guide explique comment préparer MIENRA Web pour une utilisation plus solide sur une année scolaire complète.
 
-L'application actuelle continue de fonctionner avec `mienra_app_state`, la table JSON partagée. Les fichiers relationnels ajoutés ici préparent la prochaine étape : stocker les élèves, classes, inscriptions, paiements, reçus et traces dans des tables séparées.
+L'application peut maintenant utiliser les tables relationnelles via `relational-sync.js`. Pendant la transition, l'ancien bloc JSON `mienra_app_state` reste conservé comme sauvegarde lisible.
 
 ## Pourquoi passer au relationnel ?
 
@@ -33,9 +33,12 @@ Avant toute manipulation, faire une sauvegarde depuis l'application :
 Ensuite dans **Supabase → SQL Editor** :
 
 1. Exécuter `supabase/relational-schema-compatible.sql`.
-2. Vérifier que les tables apparaissent : `schools`, `school_years`, `classes`, `students`, `enrollments`, `payments`, `receipt_counters`, `app_logs`.
-3. Exécuter `supabase/migrate-json-to-relational.sql` si des données existent déjà dans `mienra_app_state`.
-4. Lancer les requêtes de vérification ci-dessous.
+2. Exécuter `supabase/relational-runtime-fixes.sql`.
+3. Vérifier que les tables apparaissent : `schools`, `school_years`, `classes`, `students`, `enrollments`, `payments`, `receipt_counters`, `app_logs`.
+4. Exécuter `supabase/migrate-json-to-relational.sql` si des données existent déjà dans `mienra_app_state`.
+5. Ouvrir l'application publiée, se connecter en administrateur, puis cliquer sur **Synchroniser**.
+
+L'application affichera **Données relationnelles** lorsque la bascule est active. Si les tables ne sont pas encore prêtes, elle garde l'ancien mode JSON partagé au lieu de couper l'accès.
 
 ## Vérifications rapides
 
@@ -64,16 +67,25 @@ where paid_on = current_date
 order by created_at desc;
 ```
 
+## Activation manuelle si nécessaire
+
+Si les scripts SQL sont exécutés mais que l'application reste en mode JSON, ouvrir la console du navigateur sur le site publié et lancer :
+
+```js
+await window.mienraRelationnel.activer()
+```
+
+Puis actualiser la page. Pour vérifier l'état :
+
+```js
+await window.mienraRelationnel.etat()
+```
+
 ## Important
 
-Cette migration **copie** les données. Elle ne supprime pas `mienra_app_state` et ne force pas encore l'application à lire les tables relationnelles.
+La migration **copie** les données. Elle ne supprime pas `mienra_app_state`. Ce choix permet de garder une sauvegarde pendant la période de transition.
 
-La bascule complète se fera en deuxième étape :
-
-- créer un adaptateur JavaScript qui lit et écrit dans `students`, `payments`, `enrollments`, etc. ;
-- garder un export JSON de secours pendant la transition ;
-- tester les rôles administrateur, directeur et secrétaire ;
-- vérifier les rapports et reçus sur des données réelles.
+Pendant les premiers jours d'utilisation réelle, conserver l'habitude d'exporter une sauvegarde JSON régulière.
 
 ## Points de contrôle avant usage réel
 
