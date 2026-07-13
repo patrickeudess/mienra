@@ -22,23 +22,25 @@ L'application utilise Supabase pour partager les données entre plusieurs appare
 
 - `cloud-config.js` active la synchronisation Supabase.
 - `supabase-config.js` contient la clé publique publishable.
-- La table `mienra_app_state` conserve aujourd'hui l'état partagé de l'école.
+- `relational-sync.js` active la synchronisation progressive avec les tables relationnelles Supabase.
+- `mienra_app_state` reste conservée comme sauvegarde JSON pendant la transition.
 - La table `profiles` porte le rôle applicatif de chaque utilisateur.
 - La fonction Supabase `admin-users` permet à l'administrateur de créer, modifier, verrouiller ou supprimer les comptes de connexion.
 
-Les suppressions sont protégées par des `tombstones`, ce qui évite que des données supprimées reviennent après actualisation ou synchronisation.
+Les suppressions restent protégées par des `tombstones` dans le mode JSON de secours, ce qui évite que des données supprimées reviennent après actualisation ou synchronisation.
 
 ## Base relationnelle Supabase
 
-Une base relationnelle est maintenant préparée pour l'étape suivante. Elle sépare les données en tables métier : écoles, années scolaires, classes, élèves, inscriptions, paiements, compteurs de reçus et journal.
+La base relationnelle sépare les données en tables métier : écoles, années scolaires, classes, élèves, inscriptions, paiements, compteurs de reçus et journal.
 
 Fichiers utiles :
 
 - `supabase/relational-schema-compatible.sql` : schéma relationnel compatible avec Supabase SQL Editor.
+- `supabase/relational-runtime-fixes.sql` : ajustements nécessaires à l'adaptateur web et à l'accès REST authentifié.
 - `supabase/migrate-json-to-relational.sql` : copie les données existantes de `mienra_app_state` vers les tables relationnelles.
 - `docs/migration-relationnelle.md` : ordre d'exécution, vérifications et précautions.
 
-Important : l'application publiée continue de fonctionner sur l'état JSON partagé tant que l'adaptateur applicatif relationnel n'est pas activé. Le schéma relationnel est donc prêt, mais la bascule complète doit être faite et testée comme une étape séparée.
+Important : l'application publiée utilise les tables relationnelles quand elles sont prêtes et contiennent des données. Si elles ne sont pas encore disponibles, elle retombe sur l'ancien stockage JSON partagé pour éviter une coupure.
 
 ## Sécurité
 
@@ -58,6 +60,7 @@ Guides utiles :
 - `supabase/admin-setup.sql`
 - `supabase/schema.sql`
 - `supabase/relational-schema-compatible.sql`
+- `supabase/relational-runtime-fixes.sql`
 
 ## Déploiement GitHub Pages
 
@@ -73,6 +76,7 @@ Fichiers servis :
 - `dashboard-role-fix.js`
 - `dashboard-filters.css`
 - `app-pro.js`
+- `relational-sync.js`
 - `cloud-config.js`
 - `supabase-config.js`
 - `assets/`
@@ -90,4 +94,4 @@ Le workflow `.github/workflows/tests.yml` exécute aussi ces tests sur GitHub Ac
 
 ## Limite actuelle
 
-La version publiée est adaptée à une école pilote avec personnel de confiance. La prochaine amélioration majeure est la bascule du code applicatif vers les tables relationnelles Supabase déjà préparées, afin d'obtenir des contrôles serveur plus stricts et des rapports SQL plus robustes.
+La bascule relationnelle est progressive : le site garde le JSON partagé comme secours pendant les premiers tests réels. Après validation sur les données de l'école, on pourra retirer progressivement l'ancien stockage `mienra_app_state`.
