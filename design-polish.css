@@ -326,6 +326,42 @@
     min-width: 760px;
   }
 
+  .secretary-dashboard {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .secretary-dashboard .panel {
+    overflow-x: auto;
+  }
+
+  .secretary-payment-table {
+    min-width: 0;
+    table-layout: fixed;
+  }
+
+  .secretary-payment-table th:nth-child(1),
+  .secretary-payment-table td:nth-child(1) { width: 24%; }
+  .secretary-payment-table th:nth-child(2),
+  .secretary-payment-table td:nth-child(2) { width: 11%; }
+  .secretary-payment-table th:nth-child(3),
+  .secretary-payment-table td:nth-child(3),
+  .secretary-payment-table th:nth-child(4),
+  .secretary-payment-table td:nth-child(4),
+  .secretary-payment-table th:nth-child(5),
+  .secretary-payment-table td:nth-child(5) { width: 14%; }
+  .secretary-payment-table th:nth-child(6),
+  .secretary-payment-table td:nth-child(6) { width: 12%; }
+  .secretary-payment-table th:nth-child(7),
+  .secretary-payment-table td:nth-child(7) { width: 11%; }
+
+  .secretary-payment-table th,
+  .secretary-payment-table td {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
   .bar-chart {
     gap: 9px;
   }
@@ -462,7 +498,8 @@
       font-size: 24px;
     }
 
-    .stats {
+    .stats,
+    .secretary-stats {
       grid-template-columns: 1fr;
     }
 
