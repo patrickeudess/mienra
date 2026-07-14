@@ -453,8 +453,68 @@
   /* Mini-stats (bandeaux de synthèse) */
   .mini-stats span { box-shadow: var(--shadow-sm); }
 
-  /* Reçu à l'écran (l'impression A4 reste gérée par styles.css) */
-  .receipt { border-radius: var(--r-lg); }
+  /* ==============================================================
+     Reçu à l'écran — présentation « document premium ».
+     Tout est sous @media screen : l'impression A4 (gérée par le bloc
+     @media print de styles.css) reste strictement inchangée.
+     ============================================================== */
+
+  /* Les deux exemplaires centrés, largeur « papier » confortable. */
+  .receipt-copies {
+    max-width: 820px;
+    margin-inline: auto;
+  }
+
+  .receipt {
+    position: relative;
+    border: 1px solid var(--line);        /* net à l'écran (pointillés = impression) */
+    border-radius: var(--r-lg);
+    padding: 26px 26px 22px;
+    background: var(--paper);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+
+  /* Liseré d'accent en haut du document. */
+  .receipt::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--brand), var(--green));
+  }
+
+  /* Badge d'exemplaire : pastille teintée marque. */
+  .receipt-copy-label {
+    border-radius: var(--r-pill);
+    background: color-mix(in srgb, var(--brand) 12%, var(--paper));
+    color: var(--brand-ink);
+    letter-spacing: .06em;
+  }
+  :root[data-theme="dark"] .receipt-copy-label {
+    background: color-mix(in srgb, var(--brand) 22%, transparent);
+    color: #cfe0ff;
+  }
+
+  /* Grille d'informations : libellés discrets, valeurs nettes et alignées. */
+  .receipt-grid { gap: 12px 22px; }
+  .receipt-grid p b {
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: none;
+  }
+  .receipt-grid p span { font-weight: 700; }
+
+  /* Mention « Soldé » : bandeau vert plus affirmé. */
+  .receipt-status {
+    border-radius: var(--r-md);
+    border-color: color-mix(in srgb, var(--green) 45%, var(--line));
+    background: color-mix(in srgb, var(--green) 10%, var(--paper));
+    font-weight: 800;
+  }
+
+  /* Signatures : lignes plus douces. */
+  .signatures p { border-top-color: var(--line-strong); }
 
   /* Accessibilité clavier — anneaux de focus visibles */
   .sidebar nav button:focus-visible,
