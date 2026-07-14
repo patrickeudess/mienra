@@ -16,7 +16,7 @@
 // Mise à jour : le nom de cache est versionné (VERSION). Pour forcer un
 // rafraîchissement propre après un déploiement, incrémenter le suffixe.
 
-const VERSION = "mienra-cache-v1-20260714";
+const VERSION = "mienra-cache-v2-20260714";
 
 // Coquille complète, précachée dès l'installation (chemins « propres », sans
 // query) : l'app est utilisable hors ligne dès la première visite en ligne.
@@ -40,6 +40,8 @@ const CORE = [
   "./supabase-config.js",
   "./assets/mienra-logo.jpeg",
   "./assets/icon.svg",
+  "./assets/icon-192.png",
+  "./assets/icon-512.png",
   "./assets/fonts/inter-latin-400.woff2",
   "./assets/fonts/inter-latin-600.woff2",
   "./assets/fonts/inter-latin-700.woff2",
