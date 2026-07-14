@@ -1,0 +1,103 @@
+/* MIENRA Web - etat systeme et mode production */
+
+.system-panel .stats {
+  margin: 12px 0 16px;
+}
+
+.system-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 26px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.system-badge.ok {
+  color: var(--green);
+  background: rgba(20, 128, 88, .10);
+  border-color: rgba(20, 128, 88, .22);
+}
+
+.system-badge.warn {
+  color: var(--red);
+  background: rgba(196, 59, 52, .10);
+  border-color: rgba(196, 59, 52, .22);
+}
+
+.system-probe-wrap {
+  margin: 12px 0;
+}
+
+.system-probe {
+  display: grid;
+  grid-template-columns: minmax(160px, .8fr) minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--soft);
+}
+
+.system-probe span {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.system-actions {
+  margin-top: 14px;
+}
+
+.system-lock-list {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.system-lock-list span {
+  min-height: 54px;
+  display: flex;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--soft);
+  font-weight: 900;
+  color: var(--ink);
+}
+
+@media screen and (max-width: 900px) {
+  .system-probe {
+    grid-template-columns: 1fr auto;
+  }
+
+  .system-probe b,
+  .system-probe span {
+    grid-column: 1 / -1;
+  }
+
+  .system-lock-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media screen and (max-width: 640px) {
+  .system-badge {
+    width: max-content;
+  }
+
+  .system-probe,
+  .system-lock-list {
+    grid-template-columns: 1fr;
+  }
+
+  .system-probe .system-badge {
+    justify-self: start;
+  }
+}
