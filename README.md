@@ -16,6 +16,8 @@ Lien public : https://patrickeudess.github.io/mienra/
 - Rapports complets, vues SQL relationnelles et exports CSV.
 - Utilisateurs, rôles, verrouillage d'accès et journal des actions.
 - Sauvegarde JSON complète avec rappel périodique.
+- Page **État système** pour contrôler Supabase, la session, les reçus, les sauvegardes et l'état relationnel.
+- **Mode production** pour bloquer les actions dangereuses après validation de l'application.
 
 ## Données et synchronisation
 
@@ -25,11 +27,33 @@ L'application utilise Supabase pour partager les données entre plusieurs appare
 - `supabase-config.js` contient la clé publique publishable.
 - `relational-sync.js` active la synchronisation progressive avec les tables relationnelles Supabase.
 - `server-receipts.js` demande les numéros de reçus au compteur serveur `mienra_next_receipt_no`.
+- `production-tools.js` ajoute l'état système et le mode production.
 - `mienra_app_state` reste conservée comme sauvegarde JSON pendant la transition.
 - La table `profiles` porte le rôle applicatif de chaque utilisateur.
 - La fonction Supabase `admin-users` permet à l'administrateur de créer, modifier, verrouiller ou supprimer les comptes de connexion.
 
 Les suppressions restent protégées par des `tombstones` dans le mode JSON de secours, ce qui évite que des données supprimées reviennent après actualisation ou synchronisation.
+
+## Mode production
+
+Avant de remettre l'application à l'école, ouvrir le menu **État système** avec un compte administrateur ou directeur.
+
+À vérifier :
+
+- Supabase configuré et session authentifiée.
+- Tables relationnelles actives.
+- Année scolaire correcte.
+- Compteur de reçus cohérent.
+- Sauvegarde récente.
+
+Quand tout est correct, l'administrateur peut activer le **mode production**. Ce mode bloque :
+
+- la réinitialisation complète ;
+- l'import JSON ;
+- la restauration locale ;
+- la suppression des données démo/test.
+
+Le mode production ne bloque pas les opérations normales : ajouter un élève, enregistrer un paiement, imprimer un reçu, consulter les rapports ou exporter une sauvegarde.
 
 ## Base relationnelle Supabase
 
@@ -56,6 +80,7 @@ Points importants :
 - Créer au moins un compte administrateur dans Supabase Auth avant de durcir les règles RLS.
 - Conserver des sauvegardes JSON régulières pendant l'année scolaire.
 - Tester les rôles après migration : administrateur, directeur, secrétaire et consultation.
+- Activer le mode production seulement après avoir nettoyé les données de test et validé les reçus.
 
 Guides utiles :
 
@@ -80,11 +105,14 @@ Fichiers servis :
 - `index.html`
 - `styles.css`
 - `design-polish.css`
-- `dashboard-role-fix.js`
 - `dashboard-filters.css`
+- `responsive.css`
+- `production-tools.css`
 - `app-pro.js`
 - `relational-sync.js`
 - `server-receipts.js`
+- `production-tools.js`
+- `dashboard-role-fix.js`
 - `cloud-config.js`
 - `supabase-config.js`
 - `assets/`
