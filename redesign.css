@@ -146,7 +146,7 @@
     border: 1px solid rgba(255, 255, 255, .14);
     padding: 34px 32px;
     box-shadow: 0 40px 90px rgba(0, 0, 0, .42);
-    animation: mienra-pop var(--dur-slow) var(--ease) both;
+    animation: mienra-pop var(--dur-slow) var(--ease) backwards;
   }
 
   .login-panel h1 {
@@ -240,7 +240,7 @@
     transition: transform var(--dur) var(--ease),
                 box-shadow var(--dur) var(--ease),
                 border-color var(--dur) var(--ease);
-    animation: mienra-rise var(--dur-slow) var(--ease) both;
+    animation: mienra-rise var(--dur-slow) var(--ease) backwards;
   }
   .stats .stat:nth-child(2) { animation-delay: .05s; }
   .stats .stat:nth-child(3) { animation-delay: .1s; }
@@ -320,7 +320,7 @@
   .panel {
     border-radius: var(--r-lg);
     box-shadow: var(--shadow-sm);
-    animation: mienra-rise var(--dur-slow) var(--ease) both;
+    animation: mienra-rise var(--dur-slow) var(--ease) backwards;
   }
 
   .subtabs { border-radius: var(--r-md); }
@@ -481,6 +481,26 @@
 
   /* Sélection de texte */
   ::selection { background: color-mix(in srgb, var(--brand) 26%, transparent); }
+
+  /* Bouton en cours d'action (ex. « Connexion… ») */
+  .btn:disabled {
+    opacity: .55;
+    cursor: default;
+    transform: none;
+    box-shadow: none;
+  }
+
+  /* Toasts sur mobile : bandeau pleine largeur en bas, sans masquer
+     la colonne de droite comme le faisait la version ancrée à droite. */
+  @media (max-width: 560px) {
+    #toast-root {
+      left: 12px;
+      right: 12px;
+      bottom: 12px;
+      max-width: none;
+    }
+    .toast { font-size: 13px; }
+  }
 
   /* ==============================================================
      12. ACCESSIBILITÉ — mouvement réduit

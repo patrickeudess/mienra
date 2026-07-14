@@ -46,6 +46,7 @@ function loadApp() {
       get state() { return state; }, set state(v) { state = v; },
       mergeStates, normalizeState, normalizeTombstones,
       uid, due, paid, balance, student, classFee, enrollmentNet, currentYear,
+      financeStatus, statusBadge, clean,
       nextReceiptNumber: (typeof nextReceiptNumber === "function" ? nextReceiptNumber : null)
     };`;
   vm.runInContext(src + "\n" + epilogue, sb);

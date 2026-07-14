@@ -21,6 +21,7 @@ exécute automatiquement à chaque push et sur les pull requests.
 | `sync.test.js` | Suppressions définitives (tombstones), ajouts préservés, idempotence, cascade élève → inscriptions/paiements |
 | `receipt.test.js` | Unicité des identifiants ; un numéro de reçu recyclé ne fait pas supprimer un nouveau paiement |
 | `finance.test.js` | `due` / `paid` / `student` indexés = mêmes montants que la force brute ; invalidation de l'index après ajout / suppression / modification |
+| `badge.test.js` | Badges de statut : tonalités correctes, HTML échappé ; `financeStatus()` reste du texte brut (contrat exports CSV / impression) |
 
 ## Ajouter un test
 

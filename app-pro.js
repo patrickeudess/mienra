@@ -679,13 +679,27 @@ function renderLogin() {
         <div class="login-brand"><img class="brand-logo" src="${logoUrl()}" alt="Logo EPV Mienrassou"><div><h1>EPV Mienrassou</h1><p>Gestion scolaire : élèves, inscriptions, paiements, reçus et rapports.</p></div></div>
         <label>Identifiant</label><input id="login" placeholder="Votre identifiant" autocomplete="username" onkeydown="if(event.key==='Enter')login()">
         <label>Mot de passe</label><input id="password" type="password" placeholder="Votre mot de passe" autocomplete="current-password" onkeydown="if(event.key==='Enter')login()">
-        <div class="actions"><button class="btn primary" onclick="login()">Se connecter</button></div>
+        <div class="actions"><button id="loginBtn" class="btn primary" onclick="login()">Se connecter</button></div>
         <div class="hint">Mode données : ${syncLabel()}</div>
       </div>
     </section>`;
 }
 
+// Retour visuel pendant l'authentification (Supabase peut être lent sur
+// mobile) : bouton désactivé + libellé « Connexion… », restauré quoi qu'il
+// arrive. Après succès, renderShell() remplace l'écran : $() rend null, no-op.
 async function login() {
+  const btn = $("loginBtn");
+  if (btn) { btn.disabled = true; btn.textContent = "Connexion…"; }
+  try {
+    await doLogin();
+  } finally {
+    const after = $("loginBtn");
+    if (after) { after.disabled = false; after.textContent = "Se connecter"; }
+  }
+}
+
+async function doLogin() {
   const username = $("login").value.trim();
   const password = $("password").value.trim();
   if (!username || !password) return alert("Renseignez votre identifiant et votre mot de passe.");
@@ -808,7 +822,7 @@ function renderShell() {
 }
 
 function renderNav() {
-  $("nav").innerHTML = availableMenu().map(([key, label, icon]) => `<button class="${view === key ? "active" : ""}" onclick="go('${key}')"><span>${icon}</span>${label}</button>`).join("");
+  $("nav").innerHTML = availableMenu().map(([key, label, icon]) => `<button class="${view === key ? "active" : ""}"${view === key ? ' aria-current="page"' : ""} onclick="go('${key}')"><span aria-hidden="true">${icon}</span>${label}</button>`).join("");
 }
 
 function go(key) {
