@@ -989,8 +989,7 @@ function paymentStatus(row) {
   const left = balance(row.id);
   const collected = paid(row.id);
   const label = left <= 0 ? "Soldé" : collected > 0 ? "Partiel" : "Impayé";
-  const tone = left <= 0 ? "amount-ok" : collected > 0 ? "amount-warn" : "amount-danger";
-  return `<b class="${tone}">${label}</b><div class="progress"><span style="width:${percent(row.id)}%"></span></div><small>${percent(row.id)}% · reste ${money(left)}</small>`;
+  return `${statusBadge(label)}<div class="progress"><span style="width:${percent(row.id)}%"></span></div><small>${percent(row.id)}% · reste ${money(left)}</small>`;
 }
 
 function financeStatus(row) {
@@ -999,6 +998,19 @@ function financeStatus(row) {
   if (due(row.id) <= 0) return "Sans frais";
   if (left <= 0) return "Soldé";
   return collected > 0 ? "Partiel" : "Impayé";
+}
+
+// Badge coloré pour l'affichage. NE PAS utiliser dans les exports CSV ni les
+// documents nettoyés par clean() : garder financeStatus() (texte brut) pour
+// ces cas. Ici on ne fait que colorer un libellé déjà connu.
+function statusBadge(label) {
+  const tone = {
+    "Soldé": "ok",
+    "Partiel": "warn",
+    "Impayé": "danger",
+    "Sans frais": "muted"
+  }[label] || "muted";
+  return `<span class="badge badge-${tone}">${clean(label)}</span>`;
 }
 
 function financialFilters(prefix, includeDate = false) {
@@ -1027,7 +1039,7 @@ function financialRows(rows, emptyMessage = "Aucun élève trouvé.") {
   return `<table><thead><tr><th>Élève</th><th>Classe</th><th>Frais classe</th><th>Déjà payé</th><th>Reste à payer</th><th>Statut</th><th>Payé par</th><th>Parent</th><th>Action</th></tr></thead><tbody>${rows.map((row) => {
     const left = balance(row.id);
     const lastPayment = lastPaymentForStudent(row.id);
-    return `<tr><td>${clean(row.name)}<br><small>${clean(row.matricule)}</small></td><td>${clean(row.className)}</td><td>${money(due(row.id))}</td><td class="amount-ok">${money(paid(row.id))}</td><td class="${left > 0 ? "amount-danger" : "amount-ok"}">${money(left)}</td><td>${financeStatus(row)}</td><td>${lastPayment ? clean(paymentPayer(lastPayment)) : "-"}</td><td>${clean(row.parent)}<br><small>${clean(row.phone)}</small></td><td><button class="btn quiet small" onclick="showStudentPayments('${row.id}')">Versements</button>${canAction("payments") ? ` <button class="btn secondary small" onclick="goPay('${row.id}')">Payer</button>` : ""}</td></tr>`;
+    return `<tr><td>${clean(row.name)}<br><small>${clean(row.matricule)}</small></td><td>${clean(row.className)}</td><td>${money(due(row.id))}</td><td class="amount-ok">${money(paid(row.id))}</td><td class="${left > 0 ? "amount-danger" : "amount-ok"}">${money(left)}</td><td>${statusBadge(financeStatus(row))}</td><td>${lastPayment ? clean(paymentPayer(lastPayment)) : "-"}</td><td>${clean(row.parent)}<br><small>${clean(row.phone)}</small></td><td><button class="btn quiet small" onclick="showStudentPayments('${row.id}')">Versements</button>${canAction("payments") ? ` <button class="btn secondary small" onclick="goPay('${row.id}')">Payer</button>` : ""}</td></tr>`;
   }).join("") || `<tr><td colspan="9">${emptyMessage}</td></tr>`}</tbody></table>`;
 }
 

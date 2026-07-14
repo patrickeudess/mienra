@@ -375,6 +375,114 @@
   }
 
   /* ==============================================================
+     11 bis. FINITIONS TRANSVERSES (toutes les pages)
+     ============================================================== */
+
+  /* Badges de statut — pastille + libellé, lisibles en clair et sombre */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px 3px 8px;
+    border-radius: var(--r-pill);
+    border: 1px solid transparent;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.5;
+    white-space: nowrap;
+  }
+  .badge::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+  .badge-ok {
+    color: var(--green);
+    background: color-mix(in srgb, var(--green) 12%, transparent);
+    border-color: color-mix(in srgb, var(--green) 24%, transparent);
+  }
+  .badge-warn {
+    color: var(--amber);
+    background: color-mix(in srgb, var(--amber) 14%, transparent);
+    border-color: color-mix(in srgb, var(--amber) 26%, transparent);
+  }
+  .badge-danger {
+    color: var(--red);
+    background: color-mix(in srgb, var(--red) 12%, transparent);
+    border-color: color-mix(in srgb, var(--red) 24%, transparent);
+  }
+  .badge-muted {
+    color: var(--muted);
+    background: color-mix(in srgb, var(--muted) 12%, transparent);
+    border-color: color-mix(in srgb, var(--muted) 22%, transparent);
+  }
+
+  /* Le badge dans la colonne « Paiement » de la liste des élèves */
+  .cards td .badge { margin-bottom: 6px; }
+
+  /* Notices & aides — fond légèrement teinté, accent net */
+  .notice, .hint {
+    border-left-width: 3px;
+    background: color-mix(in srgb, var(--brand) 5%, var(--soft));
+  }
+
+  /* États vides (lignes « Aucun … » sur colspan) : centrés, doux, aérés */
+  td[colspan] {
+    text-align: center;
+    color: var(--muted);
+    padding: 26px 12px;
+    font-style: italic;
+  }
+
+  /* Indice « Voir le détail → » : la flèche glisse au survol */
+  .stat-hint { transition: transform var(--dur) var(--ease), opacity var(--dur) var(--ease); }
+  .stat.clickable:hover .stat-hint { transform: translateX(3px); }
+
+  /* Boutons discrets : bordure fine, survol franc */
+  .btn.quiet {
+    background: var(--paper);
+    border-color: var(--line-strong);
+  }
+  .btn.quiet:hover {
+    background: var(--soft);
+    border-color: var(--brand);
+  }
+
+  /* Mini-stats (bandeaux de synthèse) */
+  .mini-stats span { box-shadow: var(--shadow-sm); }
+
+  /* Reçu à l'écran (l'impression A4 reste gérée par styles.css) */
+  .receipt { border-radius: var(--r-lg); }
+
+  /* Accessibilité clavier — anneaux de focus visibles */
+  .sidebar nav button:focus-visible,
+  .account-actions .btn:focus-visible {
+    outline: 0;
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, .6);
+  }
+  .subtabs button:focus-visible,
+  a:focus-visible {
+    outline: 0;
+    box-shadow: var(--ring);
+  }
+
+  /* Barres de défilement discrètes */
+  * { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+  *::-webkit-scrollbar { width: 10px; height: 10px; }
+  *::-webkit-scrollbar-thumb {
+    background: var(--line-strong);
+    border-radius: var(--r-pill);
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  *::-webkit-scrollbar-thumb:hover { background: var(--muted); background-clip: padding-box; }
+
+  /* Sélection de texte */
+  ::selection { background: color-mix(in srgb, var(--brand) 26%, transparent); }
+
+  /* ==============================================================
      12. ACCESSIBILITÉ — mouvement réduit
      ============================================================== */
   @media (prefers-reduced-motion: reduce) {
