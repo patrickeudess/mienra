@@ -18,6 +18,25 @@ Lien public : https://patrickeudess.github.io/mienra/
 - Sauvegarde JSON complète avec rappel périodique.
 - Page **État système** pour contrôler Supabase, la session, les reçus, les sauvegardes et l'état relationnel.
 - **Mode production** pour bloquer les actions dangereuses après validation de l'application.
+- **Application installable et utilisable hors ligne (PWA)** : après une première visite en ligne, l'app se charge sans réseau ; la police est hébergée localement (aucune dépendance externe pour l'affichage).
+
+## Fonctionnement hors ligne (PWA)
+
+L'application est une **PWA** : elle peut être installée (icône sur téléphone ou ordinateur) et fonctionne hors ligne après une première ouverture en ligne.
+
+- `sw.js` (service worker) met en cache la coquille de l'application (HTML, CSS, JS, police) pour un chargement sans réseau ; le cache est versionné (`VERSION`) pour des mises à jour propres.
+- `manifest.webmanifest` rend l'application installable (nom, icônes, thème, plein écran).
+- `fonts.css` + `assets/fonts/` hébergent la police Inter localement (plus de dépendance Google Fonts).
+- **Les appels Supabase (données et authentification) ne sont jamais mis en cache** : la synchronisation et la connexion passent toujours par le réseau, donc rien ne change à ce niveau.
+
+Ce que le mode hors ligne permet et ne permet pas :
+
+| Action | Hors ligne | Retour en ligne |
+|---|---|---|
+| Charger et ouvrir l'application | Oui, après une première visite en ligne | — |
+| Saisir / modifier des données (élèves, paiements…) | Oui (stockage local) | Se synchronise et se propage aux autres appareils |
+| Gérer les comptes utilisateurs (créer, rôle, mot de passe) | Non — passe par la fonction serveur `admin-users` | À faire en ligne |
+| Se connecter la première fois sur un appareil | Non — authentification serveur requise une fois | Session mémorisée ensuite pour l'usage hors ligne |
 
 ## Données et synchronisation
 
@@ -109,6 +128,9 @@ Fichiers servis :
 - `responsive.css`
 - `production-tools.css`
 - `redesign.css`
+- `fonts.css` (+ `assets/fonts/`)
+- `manifest.webmanifest`
+- `sw.js`
 - `app-pro.js`
 - `relational-sync.js`
 - `server-receipts.js`

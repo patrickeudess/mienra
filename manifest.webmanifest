@@ -1,0 +1,28 @@
+{
+  "name": "EPV Mienrassou — Gestion scolaire",
+  "short_name": "Mienrassou",
+  "description": "Gestion scolaire : élèves, inscriptions, paiements, reçus et rapports. Utilisable hors ligne après la première connexion.",
+  "lang": "fr",
+  "dir": "ltr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0f2544",
+  "theme_color": "#0f2544",
+  "categories": ["education", "productivity"],
+  "icons": [
+    {
+      "src": "assets/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "assets/mienra-logo.jpeg",
+      "sizes": "640x640",
+      "type": "image/jpeg",
+      "purpose": "any"
+    }
+  ]
+}
