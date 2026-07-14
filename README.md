@@ -98,7 +98,7 @@ Guides utiles :
 
 Le workflow `.github/workflows/pages.yml` publie automatiquement l'application statique à chaque push sur la branche :
 
-`claude/mienra-school-app-ag0l9x`
+`claude/project-analysis-qllb86`
 
 Fichiers servis :
 
@@ -108,6 +108,7 @@ Fichiers servis :
 - `dashboard-filters.css`
 - `responsive.css`
 - `production-tools.css`
+- `redesign.css`
 - `app-pro.js`
 - `relational-sync.js`
 - `server-receipts.js`
