@@ -37,3 +37,6 @@ recus/
 rapports/
 backups/
 logo.*
+.agents/
+.claude/
+skills-lock.json
