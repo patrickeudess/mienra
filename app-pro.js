@@ -875,10 +875,25 @@ function collectionChart() {
   }).join("")}</div>`;
 }
 
+// Carte d'accueil affichée quand l'école démarre (aucun élève) : oriente vers
+// les 3 premières étapes, en ne proposant que les actions permises au rôle.
+function onboardingCard() {
+  const steps = [
+    canAction("classes") ? ["1", "Créer vos classes", "Définissez les niveaux et les frais annuels", "go('classes')"] : null,
+    canAction("students") ? ["2", "Ajouter vos élèves", "Nom, classe, parent et contact", "go('students')"] : null,
+    canAction("payments") ? ["3", "Enregistrer un paiement", "Le reçu est généré automatiquement", "showFinanceTab('payments')"] : null
+  ].filter(Boolean);
+  const list = steps.length
+    ? `<div class="onboard-steps">${steps.map(([n, title, hint, action]) => `<button class="onboard-step" onclick="${action}"><span class="onboard-num">${n}</span><span class="onboard-text"><b>${title}</b><small>${hint}</small></span><span class="onboard-go" aria-hidden="true">→</span></button>`).join("")}</div>`
+    : `<p class="muted">Aucune donnée pour l'instant. Un administrateur peut ajouter des classes et des élèves.</p>`;
+  return `<article class="panel onboard"><div class="panel-head"><h2>Bienvenue sur ${clean(state.school.name)} 👋</h2><span>Votre espace est prêt. Commencez en ${steps.length || 3} étape${steps.length > 1 ? "s" : ""}.</span></div>${list}</article>`;
+}
+
 const pages = {
   dashboard() {
     const t = totals();
     $("content").innerHTML = `
+      ${state.students.length === 0 ? onboardingCard() : ""}
       ${dashboardDetail ? dashboardDetailPanel(dashboardDetail) : ""}
       <div class="stats">${stat("Élèves", state.students.length)}${stat("Montant attendu", money(t.expected))}${stat("Montant encaissé", money(t.collected), "ok")}${stat("Reste à payer", money(t.remaining), t.remaining > 0 ? "danger" : "ok")}</div>
       <div class="layout-two">

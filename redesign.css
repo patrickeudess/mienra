@@ -454,6 +454,81 @@
   .mini-stats span { box-shadow: var(--shadow-sm); }
 
   /* ==============================================================
+     États vides & carte d'accueil (onboarding)
+     ============================================================== */
+
+  /* Cellules « Aucun … » : centrées, discrètes, aérées (au lieu d'un
+     texte brut collé à gauche). N'affecte pas le mode cartes mobile. */
+  tbody td[colspan] {
+    text-align: center;
+    color: var(--muted);
+    padding: 26px 14px;
+    font-style: italic;
+  }
+  .panel.empty {
+    padding: 34px;
+    text-align: center;
+    color: var(--muted);
+  }
+
+  /* Carte d'accueil de l'école (tableau de bord vide). */
+  .panel.onboard {
+    background:
+      radial-gradient(520px 200px at 100% 0%, color-mix(in srgb, var(--brand) 10%, transparent), transparent 70%),
+      var(--paper);
+  }
+  .onboard-steps {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+  }
+  @media (max-width: 820px) { .onboard-steps { grid-template-columns: 1fr; } }
+
+  .onboard-step {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px;
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    background: var(--paper);
+    text-align: left;
+    cursor: pointer;
+    transition: transform var(--dur-fast) var(--ease),
+                border-color var(--dur-fast) var(--ease),
+                box-shadow var(--dur-fast) var(--ease);
+  }
+  .onboard-step:hover,
+  .onboard-step:focus-visible {
+    transform: translateY(-2px);
+    border-color: color-mix(in srgb, var(--brand) 45%, var(--line));
+    box-shadow: var(--shadow);
+    outline: 0;
+  }
+  .onboard-num {
+    flex: 0 0 auto;
+    width: 30px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+    border-radius: var(--r-pill);
+    background: linear-gradient(180deg, #3d76ff, var(--brand-ink));
+    color: #fff;
+    font-weight: 800;
+    font-size: 14px;
+  }
+  .onboard-text { display: grid; gap: 2px; min-width: 0; }
+  .onboard-text b { color: var(--ink); font-size: 14px; }
+  .onboard-text small { color: var(--muted); }
+  .onboard-go {
+    margin-left: auto;
+    color: var(--brand);
+    font-weight: 800;
+    transition: transform var(--dur-fast) var(--ease);
+  }
+  .onboard-step:hover .onboard-go { transform: translateX(3px); }
+
+  /* ==============================================================
      Reçu à l'écran — présentation « document premium ».
      Tout est sous @media screen : l'impression A4 (gérée par le bloc
      @media print de styles.css) reste strictement inchangée.
