@@ -1064,11 +1064,35 @@ function filterFinancialStudents(prefix, rows = state.students) {
   return filtered;
 }
 
+// Numéro exploitable pour un lien wa.me : chiffres uniquement, avec l'indicatif
+// ivoirien (225) préfixé s'il est absent. Renvoie "" si le numéro est vide ou
+// trop court pour être un vrai contact.
+function whatsappNumber(phone) {
+  const digits = String(phone || "").replace(/\D/g, "");
+  if (digits.length < 8) return "";
+  return digits.startsWith("225") ? digits : `225${digits}`;
+}
+
+// Ouvre WhatsApp avec un message de rappel pré-rempli au parent d'un élève
+// ayant un solde restant. Ne transmet rien à un serveur : simple lien wa.me.
+function remindWhatsApp(id) {
+  const row = student(id);
+  if (!row) return;
+  const num = whatsappNumber(row.phone);
+  if (!num) { notify("Aucun numéro de téléphone valide pour ce parent.", "warn"); return; }
+  const left = balance(id);
+  const school = state.school?.name || "l'école";
+  const message = `Bonjour, ici ${school}. Rappel concernant ${row.name} (${row.className}) : il reste ${money(left)} à régler sur les frais de scolarité ${currentYear()}. Merci de votre paiement.`;
+  window.open(`https://wa.me/${num}?text=${encodeURIComponent(message)}`, "_blank", "noopener");
+  log(`Rappel WhatsApp envoyé — ${row.name}`, "Impayés", `Reste ${money(left)}`);
+}
+
 function financialRows(rows, emptyMessage = "Aucun élève trouvé.") {
   return `<table><thead><tr><th>Élève</th><th>Classe</th><th>Frais classe</th><th>Déjà payé</th><th>Reste à payer</th><th>Statut</th><th>Payé par</th><th>Parent</th><th>Action</th></tr></thead><tbody>${rows.map((row) => {
     const left = balance(row.id);
     const lastPayment = lastPaymentForStudent(row.id);
-    return `<tr><td>${clean(row.name)}<br><small>${clean(row.matricule)}</small></td><td>${clean(row.className)}</td><td>${money(due(row.id))}</td><td class="amount-ok">${money(paid(row.id))}</td><td class="${left > 0 ? "amount-danger" : "amount-ok"}">${money(left)}</td><td>${statusBadge(financeStatus(row))}</td><td>${lastPayment ? clean(paymentPayer(lastPayment)) : "-"}</td><td>${clean(row.parent)}<br><small>${clean(row.phone)}</small></td><td><button class="btn quiet small" onclick="showStudentPayments('${row.id}')">Versements</button>${canAction("payments") ? ` <button class="btn secondary small" onclick="goPay('${row.id}')">Payer</button>` : ""}</td></tr>`;
+    const canRemind = left > 0 && whatsappNumber(row.phone);
+    return `<tr><td>${clean(row.name)}<br><small>${clean(row.matricule)}</small></td><td>${clean(row.className)}</td><td>${money(due(row.id))}</td><td class="amount-ok">${money(paid(row.id))}</td><td class="${left > 0 ? "amount-danger" : "amount-ok"}">${money(left)}</td><td>${statusBadge(financeStatus(row))}</td><td>${lastPayment ? clean(paymentPayer(lastPayment)) : "-"}</td><td>${clean(row.parent)}<br><small>${clean(row.phone)}</small></td><td><button class="btn quiet small" onclick="showStudentPayments('${row.id}')">Versements</button>${canRemind ? ` <button class="btn wa small" onclick="remindWhatsApp('${row.id}')" title="Envoyer un rappel WhatsApp au parent">WhatsApp</button>` : ""}${canAction("payments") ? ` <button class="btn secondary small" onclick="goPay('${row.id}')">Payer</button>` : ""}</td></tr>`;
   }).join("") || `<tr><td colspan="9">${emptyMessage}</td></tr>`}</tbody></table>`;
 }
 

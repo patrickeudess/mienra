@@ -11,6 +11,7 @@ Lien public : https://patrickeudess.github.io/mienra/
 - Classes et frais officiels : 70 000 FCFA de la maternelle au CM1, 75 000 FCFA en CM2.
 - Paiements par versements successifs jusqu'au solde.
 - Suivi des paiements : payé, reste à payer, statut, payé par, historique par élève.
+- Rappels **WhatsApp** aux parents d'élèves ayant un solde restant (message pré-rempli avec l'élève, le reste à payer et l'école ; simple lien wa.me, aucune donnée envoyée à un serveur).
 - Reçus imprimables en deux exemplaires sur une feuille A4.
 - Numéros de reçus sécurisés par compteur serveur Supabase quand le mode relationnel est actif.
 - Rapports complets, vues SQL relationnelles et exports CSV.
