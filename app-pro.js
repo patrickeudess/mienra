@@ -103,15 +103,23 @@ function toggleTheme() {
 applyTheme();
 
 // --- Tableaux en cartes sur mobile ------------------------------------
-// Pour chaque <table class="cards">, on recopie l'en-tête de colonne dans un
-// attribut data-label des cellules ; le CSS s'en sert pour l'affichage en
-// cartes sur petit écran. Un observateur couvre tous les rendus (y compris
-// les rafraîchissements directs après un enregistrement).
+// Pour CHAQUE tableau de données affiché, on recopie l'en-tête de colonne dans
+// un attribut data-label des cellules ; le CSS s'en sert pour l'affichage en
+// cartes lisibles (« Colonne : valeur ») sur petit écran. Auparavant seuls les
+// tableaux `.cards` étaient étiquetés, si bien que les autres perdaient leur
+// en-tête sur mobile et devenaient une pile de valeurs sans libellé.
+// Un observateur couvre tous les rendus (y compris les rafraîchissements
+// directs après un enregistrement). Ajouter la classe `no-cards` à un tableau
+// permet de l'exclure au besoin. Les cellules d'état vide (colspan) sont
+// laissées telles quelles.
 function decorateCardTables() {
-  document.querySelectorAll("table.cards").forEach((table) => {
+  document.querySelectorAll("table").forEach((table) => {
+    if (table.classList.contains("no-cards")) return;
     const heads = [...table.querySelectorAll("thead th")].map((th) => th.textContent.trim());
+    if (!heads.length) return;
     table.querySelectorAll("tbody tr").forEach((tr) => {
       [...tr.children].forEach((td, i) => {
+        if (td.hasAttribute("colspan")) return;
         if (heads[i] && !td.hasAttribute("data-label")) td.setAttribute("data-label", heads[i]);
       });
     });
