@@ -19,8 +19,20 @@ Objectif : connecter MIENRA Web à une vraie base de données en ligne tout en g
    - `payments`
    - `activity_logs`
 3. Copier le Project URL.
-4. Copier la clé `anon public`.
-5. Coller ces valeurs dans le fichier `supabase-config.js`.
+4. Copier la clé publishable (`anon public`).
+5. Coller ces valeurs dans le fichier `cloud-config.js` (unique fichier de configuration lu par l'application) :
+
+```js
+window.MIENRA_CLOUD = {
+  enabled: true,
+  provider: "supabase",
+  supabaseUrl: "https://VOTRE-PROJET.supabase.co",
+  supabaseAnonKey: "VOTRE_CLE_PUBLISHABLE",
+  stateId: "epp-mienrassou"
+};
+```
+
+> Ne jamais coller la clé `service_role` dans ce fichier : il est publié sur GitHub Pages.
 
 ## Tables recommandées
 

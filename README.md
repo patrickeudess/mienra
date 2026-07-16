@@ -43,8 +43,7 @@ Ce que le mode hors ligne permet et ne permet pas :
 
 L'application utilise Supabase pour partager les données entre plusieurs appareils connectés avec les mêmes comptes.
 
-- `cloud-config.js` active la synchronisation Supabase.
-- `supabase-config.js` contient la clé publique publishable.
+- `cloud-config.js` active la synchronisation Supabase et contient l'URL du projet et la clé publique publishable (source unique de configuration lue par l'application).
 - `relational-sync.js` active la synchronisation progressive avec les tables relationnelles Supabase.
 - `server-receipts.js` demande les numéros de reçus au compteur serveur `mienra_next_receipt_no`.
 - `production-tools.js` ajoute l'état système et le mode production.
@@ -138,7 +137,6 @@ Fichiers servis :
 - `production-tools.js`
 - `dashboard-role-fix.js`
 - `cloud-config.js`
-- `supabase-config.js`
 - `assets/`
 - `.nojekyll`
 
