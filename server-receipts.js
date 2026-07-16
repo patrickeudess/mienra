@@ -113,7 +113,7 @@
       balanceAfter: expectedAtPayment - paidBefore - amount,
       paidBy: $("paidBy").value.trim() || student(studentId).parent || "",
       mode: $("payMode").value,
-      date: $("payDate").value,
+      date: $("payDate").value || today(),
       cashier: $("cashier").value,
       note: $("payNote").value
     };

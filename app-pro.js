@@ -516,7 +516,28 @@ async function pushSharedState() {
   if (!cloudEnabled() || cloudSyncing) return false;
   cloudSyncing = true;
   try {
-    const url = `${CLOUD_CONFIG.supabaseUrl.replace(/\/$/, "")}/rest/v1/mienra_app_state?on_conflict=id`;
+    const base = CLOUD_CONFIG.supabaseUrl.replace(/\/$/, "");
+    // Fusion avant écriture (read-modify-write). Sans elle, deux appareils qui
+    // enregistrent la même journée s'écrasaient mutuellement : le dernier POST
+    // remplaçait TOUT le bloc distant, faisant perdre les saisies de l'autre
+    // poste. On relit donc l'état distant courant et on le fusionne au nôtre
+    // AVANT d'écrire. La fusion respecte les pierres tombales : les
+    // suppressions ne « reviennent » pas. En cas d'échec de relecture, on
+    // retombe sur l'écriture directe (comportement d'avant).
+    try {
+      const readUrl = `${base}/rest/v1/mienra_app_state?id=eq.${cloudStateId()}&select=data,updated_at&limit=1`;
+      const readRes = await fetch(readUrl, { headers: supabaseHeaders() });
+      if (readRes.ok) {
+        const rows = await readRes.json();
+        if (rows[0]?.data) {
+          state = mergeStates(state, { ...rows[0].data, updatedAt: rows[0].data.updatedAt || rows[0].updated_at });
+          saveLocalState();
+        }
+      }
+    } catch (mergeError) {
+      console.warn("Fusion avant écriture ignorée :", mergeError?.message || mergeError);
+    }
+    const url = `${base}/rest/v1/mienra_app_state?on_conflict=id`;
     const response = await fetch(url, {
       method: "POST",
       headers: supabaseHeaders({ Prefer: "resolution=merge-duplicates" }),
@@ -1345,7 +1366,7 @@ function savePayment() {
   if (expectedAtPayment <= 0) return alert("Aucun frais n'est défini pour cet élève sur l'année scolaire sélectionnée.");
   if (balanceBefore <= 0) return alert("Cet élève est déjà soldé pour cette année scolaire. Aucun nouveau reçu ne peut être créé.");
   if (balanceBefore > 0 && amount > balanceBefore) return alert(`Le montant saisi dépasse le reste à payer (${money(balanceBefore)}).`);
-  const payment = { id: uid("PAY"), receiptNo: nextReceiptNumber(), studentId, year: currentYear(), amount, expectedAtPayment, paidBefore, totalPaidAfter: paidBefore + amount, balanceAfter: expectedAtPayment - paidBefore - amount, paidBy: $("paidBy").value.trim() || student(studentId).parent || "", mode: $("payMode").value, date: $("payDate").value, cashier: $("cashier").value, note: $("payNote").value };
+  const payment = { id: uid("PAY"), receiptNo: nextReceiptNumber(), studentId, year: currentYear(), amount, expectedAtPayment, paidBefore, totalPaidAfter: paidBefore + amount, balanceAfter: expectedAtPayment - paidBefore - amount, paidBy: $("paidBy").value.trim() || student(studentId).parent || "", mode: $("payMode").value, date: $("payDate").value || today(), cashier: $("cashier").value, note: $("payNote").value };
   state.payments.unshift(payment);
   activeReceipt = payment.id;
   log(`Paiement enregistré : ${student(studentId).name} - ${money(amount)}`, "Paiement", `Payé par : ${payment.paidBy || "-"}`);

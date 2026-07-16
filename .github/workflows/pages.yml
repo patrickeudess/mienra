@@ -10,10 +10,6 @@ name: Déploiement GitHub Pages
 
 on:
   push:
-    branches:
-      - main
-      - master
-      - claude/project-analysis-qllb86
   workflow_dispatch:
 
 permissions:
@@ -28,6 +24,12 @@ concurrency:
 
 jobs:
   build:
+    # On ne publie QUE depuis la branche par défaut du dépôt (quelle que soit
+    # son nom : main, master, ou la branche courante). Un push sur une branche
+    # de travail ne déclenche donc aucun déploiement, et le workflow ne casse
+    # pas si la branche par défaut est renommée. Le déclenchement manuel
+    # (workflow_dispatch) reste possible depuis n'importe quelle branche.
+    if: github.event_name == 'workflow_dispatch' || github.ref_name == github.event.repository.default_branch
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -37,7 +39,7 @@ jobs:
       - name: Assembler le site statique
         run: |
           mkdir -p _site
-          cp index.html styles.css design-polish.css dashboard-filters.css responsive.css production-tools.css redesign.css fonts.css cloud-config.js supabase-config.js app-pro.js relational-sync.js server-receipts.js production-tools.js dashboard-role-fix.js sw.js manifest.webmanifest _site/
+          cp index.html styles.css design-polish.css dashboard-filters.css responsive.css production-tools.css redesign.css fonts.css cloud-config.js app-pro.js relational-sync.js server-receipts.js production-tools.js dashboard-role-fix.js sw.js manifest.webmanifest _site/
           cp -r assets _site/
           touch _site/.nojekyll
 

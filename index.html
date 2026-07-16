@@ -23,9 +23,20 @@
     </div>
   </noscript>
   <div id="root"></div>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="supabase-config.js?v=20260707-student-installments"></script>
-  <script src="cloud-config.js?v=20260707-student-installments"></script>
+  <!-- SDK Supabase auto-hébergé (aucune dépendance CDN au chargement) : l'app
+       reste installable et fonctionne hors ligne sans requête externe. -->
+  <script src="assets/vendor/supabase-js-2.110.7.min.js?v=20260716-vendored"></script>
+  <script>
+    // Filet de secours : uniquement si le bundle local n'a pas pu se charger
+    // (fichier absent ou corrompu), on récupère la lib depuis le CDN. En
+    // fonctionnement normal, aucune requête externe n'est émise.
+    if (typeof window.supabase === "undefined" || typeof window.supabase.createClient !== "function") {
+      var supabaseFallback = document.createElement("script");
+      supabaseFallback.src = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2";
+      document.head.appendChild(supabaseFallback);
+    }
+  </script>
+  <script src="cloud-config.js?v=20260716-config-unifiee"></script>
   <script src="app-pro.js?v=20260712-clean-ui"></script>
   <script src="relational-sync.js?v=20260713-relational-sync"></script>
   <script src="server-receipts.js?v=20260713-receipt-unique-fix"></script>
