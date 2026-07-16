@@ -33,6 +33,17 @@ module.exports = (app, t) => {
     t.ok(!merged.students.map((s) => s.id).includes("STU-1"), "sync: après plusieurs fusions, la suppression tient");
   }
 
+  // 3bis) Fusion avant écriture (read-modify-write) : deux appareils qui
+  // encaissent en parallèle ne s'écrasent pas. Chacun fusionne l'état distant
+  // AVANT d'écrire, donc les DEUX paiements survivent.
+  {
+    const distantAvantEcriture = normalizeState({ payments: [{ id: "PAY-B", studentId: "STU-1", year: "2026-2027", amount: 5000 }], updatedAt: "2026-07-09T10:05:00Z" });
+    const localAppareilA = normalizeState({ payments: [{ id: "PAY-A", studentId: "STU-1", year: "2026-2027", amount: 3000 }], updatedAt: "2026-07-09T10:00:00Z" });
+    const aEcrire = mergeStates(localAppareilA, distantAvantEcriture);
+    const ids = aEcrire.payments.map((p) => p.id);
+    t.ok(ids.includes("PAY-A") && ids.includes("PAY-B"), "sync: fusion avant écriture — les deux paiements concurrents sont conservés");
+  }
+
   // 4) Cascade élève -> inscriptions / paiements.
   {
     const remote = normalizeState({ enrollments: [{ id: "INS-1", studentId: "STU-1" }], payments: [{ id: "PAY-1", studentId: "STU-1", year: "2026-2027", amount: 1 }], updatedAt: "2026-07-09T09:00:00Z" });
