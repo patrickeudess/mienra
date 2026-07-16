@@ -19,7 +19,7 @@ Lien public : https://patrickeudess.github.io/mienra/
 - Sauvegarde JSON complète avec rappel périodique.
 - Page **État système** pour contrôler Supabase, la session, les reçus, les sauvegardes et l'état relationnel.
 - **Mode production** pour bloquer les actions dangereuses après validation de l'application.
-- **Application installable et utilisable hors ligne (PWA)** : après une première visite en ligne, l'app se charge sans réseau ; la police est hébergée localement (aucune dépendance externe pour l'affichage).
+- **Application installable et utilisable hors ligne (PWA)** : après une première visite en ligne, l'app se charge sans réseau ; la police **et le SDK Supabase** sont hébergés localement (aucune dépendance CDN externe au chargement).
 
 ## Fonctionnement hors ligne (PWA)
 
@@ -28,6 +28,7 @@ L'application est une **PWA** : elle peut être installée (icône sur télépho
 - `sw.js` (service worker) met en cache la coquille de l'application (HTML, CSS, JS, police) pour un chargement sans réseau ; le cache est versionné (`VERSION`) pour des mises à jour propres.
 - `manifest.webmanifest` rend l'application installable (nom, icônes, thème, plein écran).
 - `fonts.css` + `assets/fonts/` hébergent la police Inter localement (plus de dépendance Google Fonts).
+- `assets/vendor/supabase-js-2.110.7.min.js` héberge le SDK Supabase localement : plus aucune dépendance CDN au chargement (un filet de secours ne va sur le CDN que si le fichier local manque). Le SDK est précaché par le service worker pour l'usage hors ligne.
 - **Les appels Supabase (données et authentification) ne sont jamais mis en cache** : la synchronisation et la connexion passent toujours par le réseau, donc rien ne change à ce niveau.
 
 Ce que le mode hors ligne permet et ne permet pas :
