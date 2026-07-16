@@ -112,6 +112,7 @@ Guides utiles :
 - `supabase/schema.sql`
 - `supabase/relational-schema-compatible.sql`
 - `supabase/relational-runtime-fixes.sql`
+- `supabase/mienra-app-state-rls.sql` (politiques RLS du bloc JSON de secours)
 - `supabase/post-migration-checks.sql`
 
 ## Déploiement GitHub Pages
