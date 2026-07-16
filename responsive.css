@@ -380,6 +380,37 @@
     grid-template-columns: 1fr 1fr;
     gap: 8px;
   }
+
+  /* Page Rapports (.printable-document, utilisée uniquement là) : les grands
+     tableaux restent de VRAIS tableaux avec défilement horizontal (glisser du
+     doigt), au lieu de très longues piles de cartes. Le panneau parent
+     (.panel) fournit déjà le conteneur overflow-x: auto. */
+  .printable-document table {
+    min-width: max-content !important;
+  }
+
+  .printable-document table thead {
+    display: table-header-group;
+  }
+
+  .printable-document table tbody {
+    display: table-row-group;
+  }
+
+  .printable-document table tr {
+    display: table-row;
+    border: 0;
+    margin: 0;
+  }
+
+  .printable-document table td {
+    display: table-cell;
+    width: auto;
+  }
+
+  .printable-document table td::before {
+    content: none;
+  }
 }
 
 @media screen and (max-width: 420px) {
