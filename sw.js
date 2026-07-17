@@ -16,7 +16,7 @@
 // Mise à jour : le nom de cache est versionné (VERSION). Pour forcer un
 // rafraîchissement propre après un déploiement, incrémenter le suffixe.
 
-const VERSION = "mienra-cache-v10-20260717";
+const VERSION = "mienra-cache-v11-20260717";
 
 // Coquille complète, précachée dès l'installation (chemins « propres », sans
 // query) : l'app est utilisable hors ligne dès la première visite en ligne.

@@ -15,6 +15,8 @@
   let realtimeChannel = null;
   let realtimeTimer = null;
   let sessionRestoreRunning = false;
+  let realtimeStatus = "DISCONNECTED";
+  let lastRealtimeEventAt = "";
 
   function cloudSessionReady() {
     return typeof getSupabase === "function"
@@ -32,12 +34,18 @@
     }, 250);
   }
 
+  function receiveRealtimeChange() {
+    lastRealtimeEventAt = new Date().toISOString();
+    scheduleRefresh();
+  }
+
   function stopRealtimeSync() {
     clearTimeout(realtimeTimer);
     realtimeTimer = null;
     if (!realtimeChannel || typeof getSupabase !== "function") return;
     getSupabase().removeChannel(realtimeChannel).catch(() => {});
     realtimeChannel = null;
+    realtimeStatus = "DISCONNECTED";
   }
 
   function startRealtimeSync() {
@@ -48,10 +56,11 @@
       channel = channel.on(
         "postgres_changes",
         { event: "*", schema: "public", table },
-        scheduleRefresh
+        receiveRealtimeChange
       );
     });
     realtimeChannel = channel.subscribe((status) => {
+      realtimeStatus = status;
       if (status === "SUBSCRIBED") scheduleRefresh();
       if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
         console.warn("MIENRA Realtime indisponible, actualisation periodique conservee.");
@@ -132,6 +141,7 @@
   globalThis.mienraRealtime = {
     demarrer: startRealtimeSync,
     arreter: stopRealtimeSync,
-    actualiser: scheduleRefresh
+    actualiser: scheduleRefresh,
+    etat: () => ({ status: realtimeStatus, lastEventAt: lastRealtimeEventAt })
   };
 })();

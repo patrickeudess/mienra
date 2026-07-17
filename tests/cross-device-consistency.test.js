@@ -21,7 +21,8 @@ module.exports = (_app, t) => {
   t.ok(stabilitySql.includes("Remise a zero refusee"), "sql: remise a zero bloquee quand des donnees existent");
   t.ok(stability.includes('rpc("mienra_log_event"'), "journal: connexions et actions envoyees au serveur");
   t.ok(auditSql.includes("auth.uid() is null") && auditSql.includes("public.profiles"), "journal: identite et role verifies par Supabase");
-  t.ok(index.includes("production-stability.js?v=20260717-realtime-session"), "deploiement: module de stabilite publie");
+  t.ok(index.includes("production-stability.js?v=20260717-realtime-session-v2"), "deploiement: module de stabilite publie");
+  t.ok(stability.includes("lastRealtimeEventAt") && stability.includes("SUBSCRIBED"), "sync: etat Realtime verifiable en production");
   t.ok(hardening.includes("pushSharedState = async function confirmedWritesOnly()"), "sync: reecriture globale de la base neutralisee");
   t.ok(hardening.includes("localStorage.getItem(DB_BACKUP_KEY)"), "recuperation: derniere copie locale inspectee avant le premier pull");
   t.ok(hardening.includes("localStorage.getItem(LOCAL_RECOVERY_KEY)"), "recuperation: snapshot local precedent conserve et reutilise");
