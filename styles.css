@@ -556,6 +556,32 @@ th {
   padding: 22px;
 }
 
+.receipt-actions {
+  width: min(100%, 820px);
+  margin: 0 auto 18px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(160px, .75fr);
+  gap: 10px;
+  align-items: stretch;
+  overflow: visible;
+}
+
+.receipt-actions .receipt-action {
+  min-width: 0;
+  min-height: 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 11px 14px;
+  line-height: 1.25;
+  text-align: center;
+  white-space: normal;
+}
+
+.receipt-actions .receipt-back {
+  border: 1px solid var(--line);
+}
+
 .receipt-copies {
   display: grid;
   gap: 16px;

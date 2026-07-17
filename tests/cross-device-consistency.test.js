@@ -21,5 +21,8 @@ module.exports = (_app, t) => {
   t.ok(receiptPdf.includes('drawReceipt(doc, payment, "Exemplaire parent", 10, logoData)'), "recu: exemplaire parent sur le PDF");
   t.ok(receiptPdf.includes('drawReceipt(doc, payment, "Exemplaire archive", 156, logoData)'), "recu: exemplaire archive sur le meme PDF");
   t.ok(receiptPdf.includes('doc.addImage(logoData, "JPEG"'), "recu: logo officiel integre au PDF");
+  t.ok(receiptPdf.includes("ensurePdfLibrary"), "recu: chargement de secours du moteur PDF");
+  t.ok(receiptPdf.includes("window.printReceipt"), "recu: commande d'impression dediee");
+  t.ok(index.includes("receipt-pdf-download.js?v=20260717-pdf-loader"), "recu: correctif PDF force dans le cache navigateur");
   t.ok(index.includes("production-hardening.js?v=20260717-local-recovery-v2"), "deploiement: cle de cache du correctif de recuperation actualisee");
 };

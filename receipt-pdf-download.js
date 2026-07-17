@@ -2,8 +2,33 @@
 // Génère une page A4 avec deux exemplaires : parent et archive.
 
 (() => {
+  const PDF_CDN_URL = "https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js";
+  let pdfLibraryPromise = null;
+
   function pdfReady() {
     return !!window.jspdf?.jsPDF;
+  }
+
+  function ensurePdfLibrary() {
+    if (pdfReady()) return Promise.resolve(true);
+    if (pdfLibraryPromise) return pdfLibraryPromise;
+
+    pdfLibraryPromise = new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = PDF_CDN_URL;
+      script.async = true;
+      script.dataset.mienraPdfFallback = "true";
+      script.onload = () => pdfReady()
+        ? resolve(true)
+        : reject(new Error("jsPDF indisponible apres chargement"));
+      script.onerror = () => reject(new Error("Chargement de jsPDF impossible"));
+      document.head.appendChild(script);
+    }).catch((error) => {
+      pdfLibraryPromise = null;
+      throw error;
+    });
+
+    return pdfLibraryPromise;
   }
 
   function currentReceiptId() {
@@ -148,27 +173,44 @@
     return found?.id || id;
   }
 
-  function ensureReceiptPdfButton() {
+  function ensureReceiptActions() {
     const actions = document.querySelector(".receipt-actions");
-    if (!actions || actions.querySelector("[data-pdf-receipt]")) return;
-    const paymentId = activePaymentIdFromPage();
-    const attr = paymentId ? ` data-payment-id="${clean(paymentId)}"` : "";
-    actions.insertAdjacentHTML(
-      "afterbegin",
-      `<button class="btn primary" data-pdf-receipt${attr} onclick="downloadReceiptPdf(this.dataset.paymentId)">Télécharger PDF</button>`
-    );
+    if (!actions) return;
+
+    if (!actions.querySelector("[data-pdf-receipt]")) {
+      const paymentId = activePaymentIdFromPage();
+      const attr = paymentId ? ` data-payment-id="${clean(paymentId)}"` : "";
+      actions.insertAdjacentHTML(
+        "afterbegin",
+        `<button type="button" class="btn primary receipt-action" data-pdf-receipt${attr} onclick="downloadReceiptPdf(this.dataset.paymentId)">Télécharger le PDF</button>`
+      );
+    }
+
+    const printButton = actions.querySelector('[data-print-receipt], button[onclick="window.print()"]');
+    if (printButton) {
+      printButton.setAttribute("onclick", "printReceipt()");
+      printButton.dataset.printReceipt = "true";
+      printButton.classList.add("receipt-action");
+      if (printButton.textContent !== "Imprimer le reçu") printButton.textContent = "Imprimer le reçu";
+    }
   }
+
+  window.printReceipt = function printReceipt() {
+    if (!document.querySelector(".receipt-page")) {
+      return alert("Aucun reçu disponible à imprimer.");
+    }
+    requestAnimationFrame(() => window.print());
+  };
 
   window.downloadReceiptPdf = async function downloadReceiptPdf(id) {
     const selectedId = id || activePaymentIdFromPage();
     const payment = state.payments.find((row) => row.id === selectedId) || state.payments[0];
     if (!payment) return alert("Aucun reçu disponible.");
-    if (!pdfReady()) return alert("Le module PDF n'est pas encore chargé. Actualisez la page puis réessayez.");
-
     const button = document.activeElement?.tagName === "BUTTON" ? document.activeElement : null;
     const label = button?.textContent || "";
     if (button) { button.disabled = true; button.textContent = "Preparation du PDF..."; }
     try {
+      await ensurePdfLibrary();
       const logoData = await loadLogoData();
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
@@ -184,6 +226,9 @@
       doc.setTextColor(0, 0, 0);
       drawReceipt(doc, payment, "Exemplaire archive", 156, logoData);
       doc.save(receiptFileName(payment));
+    } catch (error) {
+      console.error("Génération du reçu PDF :", error);
+      alert("Le PDF n'a pas pu être préparé. Utilisez le bouton Imprimer le reçu.");
     } finally {
       if (button) { button.disabled = false; button.textContent = label; }
     }
@@ -193,13 +238,13 @@
   if (originalReceiptView) {
     receiptView = function receiptViewWithPdfDownload() {
       const result = originalReceiptView.apply(this, arguments);
-      ensureReceiptPdfButton();
+      ensureReceiptActions();
       return result;
     };
   }
 
-  document.addEventListener("DOMContentLoaded", ensureReceiptPdfButton);
-  new MutationObserver(ensureReceiptPdfButton).observe(document.documentElement, {
+  document.addEventListener("DOMContentLoaded", ensureReceiptActions);
+  new MutationObserver(ensureReceiptActions).observe(document.documentElement, {
     childList: true,
     subtree: true
   });

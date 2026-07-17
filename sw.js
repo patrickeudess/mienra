@@ -16,7 +16,7 @@
 // Mise à jour : le nom de cache est versionné (VERSION). Pour forcer un
 // rafraîchissement propre après un déploiement, incrémenter le suffixe.
 
-const VERSION = "mienra-cache-v8-20260717";
+const VERSION = "mienra-cache-v9-20260717";
 
 // Coquille complète, précachée dès l'installation (chemins « propres », sans
 // query) : l'app est utilisable hors ligne dès la première visite en ligne.
@@ -88,6 +88,25 @@ self.addEventListener("fetch", (event) => {
   if (isSupabase(url)) return;
 
   const sameOrigin = url.origin === self.location.origin;
+
+  // Les correctifs JS/CSS doivent etre visibles des le premier chargement
+  // suivant un deploiement, meme si une ancienne version existe en cache.
+  if (sameOrigin && /\.(?:js|css)$/.test(url.pathname)) {
+    event.respondWith(
+      fetch(req, { cache: "reload" })
+        .then((res) => {
+          if (res && res.status === 200) {
+            const copy = res.clone();
+            caches.open(VERSION)
+              .then((cache) => cache.put(url.origin + url.pathname, copy))
+              .catch(() => {});
+          }
+          return res;
+        })
+        .catch(() => caches.match(req, { ignoreSearch: true }))
+    );
+    return;
+  }
 
   // Navigation (chargement de la page) : réseau d'abord, coquille en cache
   // comme secours hors ligne.

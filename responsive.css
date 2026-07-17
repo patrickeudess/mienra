@@ -272,6 +272,19 @@
     width: 100%;
   }
 
+  .receipt-actions {
+    width: 100% !important;
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+    margin-bottom: 14px !important;
+  }
+
+  .receipt-actions .receipt-action {
+    width: 100% !important;
+    min-height: 48px;
+  }
+
   .actions .btn,
   .filters input,
   .filters select,

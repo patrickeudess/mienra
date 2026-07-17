@@ -1404,7 +1404,7 @@ function openReceipt(id) { activeReceipt = id; view = "receipts"; renderNav(); r
 function receiptView() {
   const payment = state.payments.find((row) => row.id === activeReceipt) || state.payments[0];
   if (!payment) { $("content").innerHTML = `<article class="panel empty">Aucun reçu disponible.</article>`; return; }
-  $("content").innerHTML = `<article class="panel receipt-page"><div class="panel-head"><h2>Reçu de paiement</h2><span>${clean(payment.receiptNo || payment.id)}</span></div><div class="receipt-actions actions"><button class="btn secondary" onclick="window.print()">Imprimer / PDF</button><button class="btn quiet" onclick="showFinanceTab('payments')">Retour paiements</button></div><div class="receipt-copies">${receiptCopy(payment, "Exemplaire parent")}${receiptCopy(payment, "Exemplaire archive")}</div></article>`;
+  $("content").innerHTML = `<article class="panel receipt-page"><div class="panel-head"><h2>Reçu de paiement</h2><span>${clean(payment.receiptNo || payment.id)}</span></div><div class="receipt-actions" role="toolbar" aria-label="Actions du reçu"><button type="button" class="btn primary receipt-action" data-pdf-receipt data-payment-id="${clean(payment.id)}" onclick="downloadReceiptPdf(this.dataset.paymentId)">Télécharger le PDF</button><button type="button" class="btn secondary receipt-action" data-print-receipt onclick="printReceipt()">Imprimer le reçu</button><button type="button" class="btn quiet receipt-action receipt-back" onclick="showFinanceTab('payments')">Retour aux paiements</button></div><div class="receipt-copies">${receiptCopy(payment, "Exemplaire parent")}${receiptCopy(payment, "Exemplaire archive")}</div></article>`;
 }
 
 function receiptCopy(payment, copyLabel) {
