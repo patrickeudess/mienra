@@ -284,7 +284,7 @@
     const existing = editing ? state.students.find((row) => row.id === editing) : null;
     const row = {
       id: existing?.id || uid("ELV"),
-      matricule: existing?.matricule || nextStudentMatricule(),
+      matricule: existing?.matricule || "",
       name,
       gender: $("stGender")?.value || "M",
       birth: $("stBirth")?.value || "",
@@ -303,6 +303,14 @@
     let serverConfirmed = false;
     writeSaving = true;
     try {
+      if (!existing) {
+        row.matricule = await rpc("mienra_next_student_matricule", {
+          p_school_slug: SCHOOL_SLUG,
+          p_year_name: currentYear(),
+          p_prefix: state.school.code || "EPVM"
+        });
+        if (!row.matricule) throw new Error("Supabase n'a pas retourne de matricule.");
+      }
       await rpc("mienra_save_student", studentRpcArgs(row));
       serverConfirmed = true;
       editing = null;
@@ -742,6 +750,8 @@
     if (document.visibilityState === "visible") setTimeout(autoRefreshFromSupabase, 300);
   });
   setInterval(autoRefreshFromSupabase, 15000);
+
+  globalThis.mienraRefreshFromSupabase = autoRefreshFromSupabase;
 
   try {
     localStorage.removeItem("mienra_pending_payments_v1");

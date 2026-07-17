@@ -5,12 +5,23 @@ module.exports = (_app, t) => {
   const root = path.join(__dirname, "..");
   const hardening = fs.readFileSync(path.join(root, "production-hardening.js"), "utf8");
   const receiptPdf = fs.readFileSync(path.join(root, "receipt-pdf-download.js"), "utf8");
+  const stability = fs.readFileSync(path.join(root, "production-stability.js"), "utf8");
+  const stabilitySql = fs.readFileSync(path.join(root, "supabase", "production-stability.sql"), "utf8");
+  const auditSql = fs.readFileSync(path.join(root, "supabase", "production-audit-events.sql"), "utf8");
   const sql = fs.readFileSync(path.join(root, "supabase", "cross-device-consistency.sql"), "utf8");
   const index = fs.readFileSync(path.join(root, "index.html"), "utf8");
 
   t.ok(hardening.includes('rpc("mienra_save_student"'), "sync: eleve confirme par une RPC serveur");
   t.ok(hardening.includes('rpc("mienra_save_enrollment"'), "sync: inscription confirmee par une RPC serveur");
   t.ok(hardening.includes("setInterval(autoRefreshFromSupabase, 15000)"), "sync: actualisation automatique multi-appareils");
+  t.ok(stability.includes('"postgres_changes"'), "sync: reception temps reel des changements Supabase");
+  t.ok(stability.includes("auth.getSession()") && stability.includes("auth.getUser()"), "session: reconnexion validee apres actualisation");
+  t.ok(stabilitySql.includes("alter publication supabase_realtime add table"), "sql: tables ajoutees a la publication Realtime");
+  t.ok(stabilitySql.includes("mienra_next_student_matricule"), "sql: matricules attribues par compteur serveur atomique");
+  t.ok(stabilitySql.includes("Remise a zero refusee"), "sql: remise a zero bloquee quand des donnees existent");
+  t.ok(stability.includes('rpc("mienra_log_event"'), "journal: connexions et actions envoyees au serveur");
+  t.ok(auditSql.includes("auth.uid() is null") && auditSql.includes("public.profiles"), "journal: identite et role verifies par Supabase");
+  t.ok(index.includes("production-stability.js?v=20260717-realtime-session"), "deploiement: module de stabilite publie");
   t.ok(hardening.includes("pushSharedState = async function confirmedWritesOnly()"), "sync: reecriture globale de la base neutralisee");
   t.ok(hardening.includes("localStorage.getItem(DB_BACKUP_KEY)"), "recuperation: derniere copie locale inspectee avant le premier pull");
   t.ok(hardening.includes("localStorage.getItem(LOCAL_RECOVERY_KEY)"), "recuperation: snapshot local precedent conserve et reutilise");
