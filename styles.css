@@ -243,6 +243,34 @@ nav span {
   margin-bottom: 16px;
 }
 
+.dashboard-daily-summary {
+  margin-bottom: 18px;
+}
+
+.daily-summary-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 10px;
+}
+
+.daily-summary-head h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.daily-summary-head span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.daily-stats {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-bottom: 0;
+}
+
 .stat, .panel {
   background: var(--paper);
   border: 1px solid var(--line);
@@ -816,6 +844,7 @@ th {
   nav { grid-template-columns: 1fr; }
   .signatures { grid-template-columns: 1fr; }
   .document-header { flex-direction: column; }
+  .daily-summary-head { align-items: flex-start; flex-direction: column; gap: 4px; }
 
   /* Listes principales en cartes empilées (au lieu d'un tableau qui défile). */
   table.cards { display: block; min-width: 0; white-space: normal; overflow: visible; }

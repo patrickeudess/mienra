@@ -55,6 +55,35 @@
     }).join("")}</tbody></table>`;
   }
 
+  function dailyPaymentSummary() {
+    const date = today();
+    const payments = state.payments.filter((row) => (
+      row.year === currentYear()
+      && String(row.date || "").slice(0, 10) === date
+    ));
+    return {
+      date,
+      receiptCount: payments.length,
+      collected: payments.reduce((sum, row) => sum + Number(row.amount || 0), 0)
+    };
+  }
+
+  function dailySummaryBlock() {
+    const summary = dailyPaymentSummary();
+    const label = new Date(`${summary.date}T12:00:00`).toLocaleDateString("fr-FR", {
+      day: "numeric",
+      month: "long",
+      year: "numeric"
+    });
+    return `<section class="dashboard-daily-summary" aria-labelledby="dailySummaryTitle">
+      <div class="daily-summary-head"><h2 id="dailySummaryTitle">Point du jour</h2><span>${clean(label)}</span></div>
+      <div class="stats daily-stats">
+        ${stat("Reçus générés aujourd'hui", summary.receiptCount, summary.receiptCount ? "ok" : "")}
+        ${stat("Montant encaissé aujourd'hui", money(summary.collected), "ok")}
+      </div>
+    </section>`;
+  }
+
   function secretaryDashboard() {
     const allRows = filteredStudents();
     const paidRows = allRows.filter((row) => paid(row.id) > 0);
@@ -64,6 +93,7 @@
     const remainingTotal = remainingRows.reduce((sum, row) => sum + balance(row.id), 0);
 
     $("content").innerHTML = `
+      ${dailySummaryBlock()}
       <div class="stats secretary-stats">
         ${stat("Élèves trouvés", allRows.length)}
         ${stat("Ayant payé", paidRows.length)}
@@ -96,6 +126,7 @@
     const rate = expected ? Math.round((collected / expected) * 100) : 0;
     $("content").innerHTML = `
       ${dashboardDetail ? dashboardDetailPanel(dashboardDetail) : ""}
+      ${dailySummaryBlock()}
       <div class="stats">${stat("Élèves trouvés", rows.length)}${stat("Montant attendu", money(expected))}${stat("Montant encaissé", money(collected), "ok")}${stat("Reste à payer", money(remaining), remaining > 0 ? "danger" : "ok")}</div>
       <article class="panel dashboard-filter-panel"><div class="panel-head"><h2>Filtres</h2><span>Recherche rapide</span></div>${dashboardFilters("admDash", "applyManagementDashboardFilters()")}</article>
       <div class="dashboard-stack">
