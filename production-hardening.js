@@ -89,11 +89,59 @@
     ].sort().join("|");
   }
 
-  async function recoverLocalOnlyData() {
+  function parseLocalRecoveryCandidate(raw) {
+    if (!raw) return null;
+    try {
+      const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+      return normalizeState(parsed?.data || parsed);
+    } catch {
+      return null;
+    }
+  }
+
+  function mergeLocalRows(candidates, collection, sameRow) {
+    const merged = [];
+    candidates.forEach((candidate) => {
+      (candidate?.[collection] || []).forEach((row) => {
+        if (!row || !row.id) return;
+        const existing = merged.find((item) => sameRow(item, row));
+        if (!existing) {
+          merged.push({ ...row });
+          return;
+        }
+        Object.entries(row).forEach(([key, value]) => {
+          const current = existing[key];
+          if ((current === "" || current == null) && value !== "" && value != null) existing[key] = value;
+        });
+      });
+    });
+    return merged;
+  }
+
+  function collectLocalRecoveryState() {
+    const candidates = [
+      parseLocalRecoveryCandidate(JSON.parse(JSON.stringify(state))),
+      parseLocalRecoveryCandidate(localStorage.getItem(DB_KEY)),
+      parseLocalRecoveryCandidate(localStorage.getItem(DB_BACKUP_KEY)),
+      parseLocalRecoveryCandidate(localStorage.getItem(LOCAL_RECOVERY_KEY))
+    ].filter(Boolean);
+    return {
+      students: mergeLocalRows(candidates, "students", (left, right) => (
+        left.id === right.id || (left.matricule && right.matricule && left.matricule === right.matricule)
+      )),
+      enrollments: mergeLocalRows(candidates, "enrollments", (left, right) => left.id === right.id),
+      payments: mergeLocalRows(candidates, "payments", (left, right) => left.id === right.id)
+    };
+  }
+
+  async function recoverLocalOnlyData({ force = false } = {}) {
     if (recoveryChecked || !cloudReady()) return;
     recoveryChecked = true;
 
-    const local = normalizeState(JSON.parse(JSON.stringify(state)));
+    // Avant la premiere lecture autoritaire du serveur, inspecter toutes les
+    // copies encore disponibles sur cet appareil. Une actualisation ancienne
+    // peut avoir laisse la saisie disparue dans DB_BACKUP_KEY.
+    const local = collectLocalRecoveryState();
     if (!local.students.length && !local.enrollments.length && !local.payments.length) return;
 
     try {
@@ -124,7 +172,7 @@
 
       localStorage.setItem(LOCAL_RECOVERY_KEY, JSON.stringify(snapshot));
       const fingerprint = localRecoveryFingerprint(snapshot);
-      if (localStorage.getItem(LOCAL_RECOVERY_DISMISSED_KEY) === fingerprint) return;
+      if (!force && localStorage.getItem(LOCAL_RECOVERY_DISMISSED_KEY) === fingerprint) return;
 
       const recover = await confirmDialog(
         `Cet appareil contient ${snapshot.students.length} eleve(s), ${snapshot.enrollments.length} inscription(s) et ${snapshot.payments.length} paiement(s) absents de Supabase. Voulez-vous les recuperer maintenant ?`,
@@ -192,8 +240,15 @@
   }
 
   pullSharedState = async function pullConfirmedServerState() {
-    await recoverLocalOnlyData();
+    const forceRecovery = typeof location !== "undefined"
+      && new URLSearchParams(location.search).get("recover") === "1";
+    await recoverLocalOnlyData({ force: forceRecovery });
     return authoritativePull();
+  };
+
+  globalThis.mienraRecoverLocalData = async function forceLocalRecovery() {
+    recoveryChecked = false;
+    return recoverLocalOnlyData({ force: true });
   };
 
   // Les ecritures metier passent maintenant par des RPC unitaires. Une vieille

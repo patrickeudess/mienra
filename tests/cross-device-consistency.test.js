@@ -12,11 +12,14 @@ module.exports = (_app, t) => {
   t.ok(hardening.includes('rpc("mienra_save_enrollment"'), "sync: inscription confirmee par une RPC serveur");
   t.ok(hardening.includes("setInterval(autoRefreshFromSupabase, 15000)"), "sync: actualisation automatique multi-appareils");
   t.ok(hardening.includes("pushSharedState = async function confirmedWritesOnly()"), "sync: reecriture globale de la base neutralisee");
+  t.ok(hardening.includes("localStorage.getItem(DB_BACKUP_KEY)"), "recuperation: derniere copie locale inspectee avant le premier pull");
+  t.ok(hardening.includes("localStorage.getItem(LOCAL_RECOVERY_KEY)"), "recuperation: snapshot local precedent conserve et reutilise");
+  t.ok(hardening.includes('new URLSearchParams(location.search).get("recover") === "1"'), "recuperation: mode force disponible sur l'appareil d'origine");
   t.ok(hardening.includes('session?.role === "Administrateur" && canAction("deleteStudents")'), "droits: suppression eleve affichee seulement a administrateur");
   t.ok(sql.includes("create or replace function public.mienra_save_student"), "sql: fonction d'ecriture eleve presente");
   t.ok(sql.includes("pg_advisory_xact_lock"), "sql: concurrence protegee par verrou transactionnel");
   t.ok(receiptPdf.includes('drawReceipt(doc, payment, "Exemplaire parent", 10, logoData)'), "recu: exemplaire parent sur le PDF");
   t.ok(receiptPdf.includes('drawReceipt(doc, payment, "Exemplaire archive", 156, logoData)'), "recu: exemplaire archive sur le meme PDF");
   t.ok(receiptPdf.includes('doc.addImage(logoData, "JPEG"'), "recu: logo officiel integre au PDF");
-  t.ok(index.includes("production-hardening.js?v=20260717-cross-device"), "deploiement: cle de cache du correctif actualisee");
+  t.ok(index.includes("production-hardening.js?v=20260717-local-recovery-v2"), "deploiement: cle de cache du correctif de recuperation actualisee");
 };
