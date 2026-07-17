@@ -830,17 +830,41 @@ th {
 @media print {
   @page { size: A4 portrait; margin: 5mm; }
   .sidebar, .topbar, .actions, .receipt-actions, .panel-head .btn, .filters, #toast-root, .modal-overlay { display: none !important; }
-  body { background: #fff; }
+  html, body {
+    width: 200mm;
+    height: 287mm;
+    margin: 0;
+    overflow: hidden;
+    background: #fff;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
   .app { display: block; }
   .workspace { padding: 0; }
   .panel { border: 0; box-shadow: none; padding: 0; }
   .receipt-page { margin: 0; overflow: hidden; }
   .receipt-page > .panel-head { display: none !important; }
   .receipt-copies {
+    position: relative;
     height: 287mm;
     display: grid;
     grid-template-rows: 1fr 1fr;
     gap: 3mm;
+    page-break-after: avoid;
+    break-after: avoid;
+  }
+  .receipt-copies::after {
+    content: "Decouper ici";
+    position: absolute;
+    z-index: 2;
+    top: 50%;
+    left: 0;
+    width: 100%;
+    border-top: 1px dashed #7f8b9a;
+    color: #647184;
+    font-size: 7px;
+    line-height: 1;
+    text-align: center;
   }
   .receipt {
     height: 142mm;

@@ -9,7 +9,7 @@
   <link rel="manifest" href="manifest.webmanifest?v=20260714-offline" />
   <link rel="apple-touch-icon" href="assets/icon-192.png" />
   <link rel="stylesheet" href="fonts.css?v=20260714-offline" />
-  <link rel="stylesheet" href="styles.css?v=20260712-refine" />
+  <link rel="stylesheet" href="styles.css?v=20260717-cross-device" />
   <link rel="stylesheet" href="design-polish.css?v=20260713-dashboard-class" />
   <link rel="stylesheet" href="dashboard-filters.css?v=20260713-dashboard-filters" />
   <link rel="stylesheet" href="responsive.css?v=20260714-production-tools" />
@@ -23,7 +23,8 @@
     </div>
   </noscript>
   <div id="root"></div>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.1"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <script src="supabase-config.js?v=20260707-student-installments"></script>
   <script src="cloud-config.js?v=20260707-student-installments"></script>
   <script src="app-pro.js?v=20260712-clean-ui"></script>
@@ -31,6 +32,8 @@
   <script src="server-receipts.js?v=20260713-receipt-unique-fix"></script>
   <script src="production-tools.js?v=20260714-production-tools"></script>
   <script src="dashboard-role-fix.js?v=20260713-dashboard-filters"></script>
+  <script src="receipt-pdf-download.js?v=20260717-a4-logo"></script>
+  <script src="production-hardening.js?v=20260717-cross-device"></script>
   <script>
     // Enregistre le service worker (mode hors ligne). Silencieux si non
     // supporté ou en cas d'échec : l'app fonctionne exactement comme avant.
