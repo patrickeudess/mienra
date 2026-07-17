@@ -16,7 +16,7 @@
 // Mise à jour : le nom de cache est versionné (VERSION). Pour forcer un
 // rafraîchissement propre après un déploiement, incrémenter le suffixe.
 
-const VERSION = "mienra-cache-v6-20260716";
+const VERSION = "mienra-cache-v7-20260717";
 
 // Coquille complète, précachée dès l'installation (chemins « propres », sans
 // query) : l'app est utilisable hors ligne dès la première visite en ligne.
@@ -36,8 +36,11 @@ const CORE = [
   "./server-receipts.js",
   "./production-tools.js",
   "./dashboard-role-fix.js",
+  "./receipt-pdf-download.js",
+  "./production-hardening.js",
   "./cloud-config.js",
   "./assets/vendor/supabase-js-2.110.7.min.js",
+  "./assets/vendor/jspdf-2.5.1.umd.min.js",
   "./assets/mienra-logo.jpeg",
   "./assets/icon.svg",
   "./assets/icon-192.png",
