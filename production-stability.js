@@ -18,6 +18,11 @@
   let realtimeStatus = "DISCONNECTED";
   let lastRealtimeEventAt = "";
 
+  function exposeRealtimeHealth() {
+    document.documentElement.dataset.mienraRealtimeStatus = realtimeStatus;
+    document.documentElement.dataset.mienraRealtimeEvent = lastRealtimeEventAt;
+  }
+
   function cloudSessionReady() {
     return typeof getSupabase === "function"
       && typeof supabaseAuthAvailable === "function"
@@ -36,6 +41,7 @@
 
   function receiveRealtimeChange() {
     lastRealtimeEventAt = new Date().toISOString();
+    exposeRealtimeHealth();
     scheduleRefresh();
   }
 
@@ -46,6 +52,7 @@
     getSupabase().removeChannel(realtimeChannel).catch(() => {});
     realtimeChannel = null;
     realtimeStatus = "DISCONNECTED";
+    exposeRealtimeHealth();
   }
 
   function startRealtimeSync() {
@@ -61,6 +68,7 @@
     });
     realtimeChannel = channel.subscribe((status) => {
       realtimeStatus = status;
+      exposeRealtimeHealth();
       if (status === "SUBSCRIBED") scheduleRefresh();
       if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
         console.warn("MIENRA Realtime indisponible, actualisation periodique conservee.");
@@ -138,6 +146,7 @@
   };
 
   window.addEventListener("load", restoreSupabaseSession);
+  exposeRealtimeHealth();
   globalThis.mienraRealtime = {
     demarrer: startRealtimeSync,
     arreter: stopRealtimeSync,
