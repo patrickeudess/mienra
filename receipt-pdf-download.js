@@ -92,17 +92,17 @@
     doc.setTextColor(10, 45, 85);
     doc.setFontSize(11);
     const schoolX = logoData ? x + 39 : x + 8;
-    doc.text("ECOLE MATERNELLE ET PRIMAIRE", schoolX, y + 12);
+    doc.text("ÉCOLE MATERNELLE ET PRIMAIRE", schoolX, y + 12);
     doc.setFontSize(9);
-    doc.text("Ecole primaire et privee", schoolX, y + 18);
+    doc.text("ÉCOLE PRIMAIRE ET PRIVÉE", schoolX, y + 18);
     doc.setFontSize(13);
     doc.text("MIENRASSOU - DALOA", schoolX, y + 25);
     doc.setFontSize(9);
-    doc.text("Tel : 07 07 70 44 54", schoolX, y + 31);
+    doc.text("TÉL. : 07 07 70 44 54", schoolX, y + 31);
 
     doc.setFontSize(14);
     doc.setTextColor(0, 0, 0);
-    doc.text("RECU DE PAIEMENT", right, y + 24, { align: "right" });
+    doc.text("REÇU DE PAIEMENT", right, y + 24, { align: "right" });
     doc.setFontSize(10);
     doc.text(payment.receiptNo || payment.id, right, y + 31, { align: "right" });
 
@@ -115,17 +115,17 @@
     const leftX = x + 8;
     const valueX = right;
     const lines = [
-      ["Annee scolaire", payment.year || currentYear()],
-      ["Date", payment.date],
-      ["Eleve", row.name],
-      ["Matricule", row.matricule],
-      ["Classe", row.className],
-      ["Paye par", paymentPayer(payment)],
-      ["Mode", payment.mode],
-      ["Frais de scolarite", money(amounts.expected)],
-      ["Versement recu", money(amounts.currentPaid)],
-      ["Total paye a ce jour", money(amounts.totalPaid)],
-      ["Reste a payer", money(amounts.remaining)]
+      ["ANNÉE SCOLAIRE", payment.year || currentYear()],
+      ["DATE", payment.date],
+      ["ÉLÈVE", row.name],
+      ["MATRICULE", row.matricule],
+      ["CLASSE", row.className],
+      ["PAYÉ PAR", paymentPayer(payment)],
+      ["MODE", payment.mode],
+      ["FRAIS DE SCOLARITÉ", money(amounts.expected)],
+      ["VERSEMENT REÇU", money(amounts.currentPaid)],
+      ["TOTAL PAYÉ À CE JOUR", money(amounts.totalPaid)],
+      ["RESTE À PAYER", money(amounts.remaining)]
     ];
 
     lines.forEach(([label, value]) => {
@@ -136,22 +136,22 @@
     if (amounts.remaining <= 0) {
       doc.setTextColor(0, 120, 80);
       doc.setFont("helvetica", "bold");
-      doc.text("Mention : SOLDE", leftX, y + 2);
+      doc.text("MENTION : SOLDÉ", leftX, y + 2);
       doc.setTextColor(0, 0, 0);
       y += 7;
     }
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
-    doc.text(`Observation : ${payment.note || "-"}`, leftX, y + 2);
+    doc.text(`OBSERVATION : ${payment.note || "-"}`, leftX, y + 2);
     y += 12;
 
     doc.setFontSize(8);
-    doc.text("Caissier", leftX, y);
+    doc.text("CAISSIER", leftX, y);
     doc.setFont("helvetica", "bold");
     doc.text(payment.cashier || "-", leftX, y + 5);
     doc.setFont("helvetica", "normal");
-    doc.text("Direction", right - 52, y);
+    doc.text("DIRECTION", right - 52, y);
     doc.setFont("helvetica", "bold");
     doc.text(state.school.director || "Direction", right - 52, y + 5);
 
